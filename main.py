@@ -7,6 +7,7 @@ from app.routers.reportes import router as reportes_router
 from app.routers.historial import router as historial_router
 from app.routers.notificaciones import router as notificaciones_router
 from app.routers.infraestructura import router as infraestructura_router
+from app.routers.auth import router as auth_router
 
 
 
@@ -14,6 +15,7 @@ app = FastAPI(title="Geovisor API")
 app.include_router(historial_router)
 app.include_router(notificaciones_router)
 app.include_router(infraestructura_router)
+app.include_router(auth_router)
 
 
 # CORS (para que el frontend pueda consumir la API sin bloqueo)

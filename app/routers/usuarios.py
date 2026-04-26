@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 import pymysql
 import secrets
 from datetime import datetime, timedelta
@@ -20,13 +20,29 @@ class RegistroUsuario(BaseModel):
     nombre_completo: str = Field(..., min_length=2, max_length=150)
     correo: EmailStr
     password: str = Field(..., min_length=6, description="Mínimo 6 caracteres")
-    fecha_nacimiento: Optional[str] = Field(None, description="Formato: YYYY-MM-DD")
+    fecha_nacimiento: Optional[str] = Field(
+        None, description="Formato obligatorio: YYYY-MM-DD (ej: 2003-08-25)"
+    )
     tipo_documento: Optional[str] = Field(None, max_length=20, description="Ej: CC, CE, TI")
     numero_documento: Optional[str] = Field(None, max_length=50)
     telefono: Optional[str] = Field(None, max_length=20)
     pais: Optional[str] = Field(None, max_length=80)
     ciudad: Optional[str] = Field(None, max_length=80)
     direccion: Optional[str] = Field(None, max_length=150)
+
+    # ✅ NUEVO: Validación automática del formato de fecha
+    @field_validator("fecha_nacimiento")
+    @classmethod
+    def validar_fecha(cls, v):
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(
+                "Formato de fecha incorrecto. Usa YYYY-MM-DD (ej: 2003-08-25)"
+            )
+        return v
 
 
 class ActualizarPerfil(BaseModel):
@@ -67,11 +83,13 @@ def registro_ciudadano(data: RegistroUsuario) -> Dict[str, Any]:
     Endpoint público (no requiere token).
     Crea un usuario con rol CIUDADANO (id_rol=1)
     y estado PENDIENTE (id_estado_cuenta=4) hasta que un ADMIN lo active.
+    El hash de la contraseña se genera automáticamente.
     """
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            # Verificar correo duplicado
+
+            # ✅ Verificar correo duplicado
             cursor.execute(
                 "SELECT id_usuario FROM usuarios WHERE correo = %s;",
                 (data.correo,)
@@ -82,7 +100,7 @@ def registro_ciudadano(data: RegistroUsuario) -> Dict[str, Any]:
                     detail="El correo ya está registrado"
                 )
 
-            # Verificar documento duplicado (solo si se envió)
+            # ✅ Verificar documento duplicado (solo si se envió)
             if data.numero_documento:
                 cursor.execute(
                     "SELECT id_usuario FROM usuarios WHERE numero_documento = %s;",
@@ -94,8 +112,10 @@ def registro_ciudadano(data: RegistroUsuario) -> Dict[str, Any]:
                         detail="El número de documento ya está registrado"
                     )
 
+            # ✅ Generar hash automáticamente SIEMPRE antes del INSERT
             password_hash = hash_password(data.password)
 
+            # ✅ INSERT con todos los campos
             cursor.execute("""
                 INSERT INTO usuarios
                     (id_rol, id_estado_cuenta, nombre_completo, correo, password_hash,
@@ -103,11 +123,11 @@ def registro_ciudadano(data: RegistroUsuario) -> Dict[str, Any]:
                      telefono, pais, ciudad, direccion)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
             """, (
-                1,            # CIUDADANO
-                4,            # PENDIENTE
+                1,                      # CIUDADANO
+                4,                      # PENDIENTE (admin debe activar)
                 data.nombre_completo,
                 data.correo,
-                password_hash,
+                password_hash,          # ← siempre generado correctamente
                 data.fecha_nacimiento,
                 data.tipo_documento,
                 data.numero_documento,
@@ -120,7 +140,9 @@ def registro_ciudadano(data: RegistroUsuario) -> Dict[str, Any]:
 
         return {
             "message": "Usuario registrado exitosamente. Su cuenta está pendiente de activación.",
-            "id_usuario": nuevo_id
+            "id_usuario": nuevo_id,
+            "estado": "PENDIENTE",
+            "instruccion": "Un administrador debe activar tu cuenta antes de que puedas iniciar sesión."
         }
     except HTTPException:
         raise
@@ -170,7 +192,7 @@ def solicitar_recuperacion(data: SolicitarRecuperacion) -> Dict[str, Any]:
 
         return {
             "message": "Token generado exitosamente",
-            "token": token,          # ⚠️ Solo para pruebas académicas. En producción, enviar por email.
+            "token": token,
             "expira_en": "2 horas"
         }
     except pymysql.MySQLError as e:
@@ -187,6 +209,7 @@ def restablecer_contrasena(data: RestablecerContrasena) -> Dict[str, Any]:
     """
     Valida el token y establece la nueva contraseña.
     El token se invalida después de usarse (campo usado=1).
+    El nuevo hash se genera automáticamente.
     """
     conn = get_connection()
     try:
@@ -205,6 +228,7 @@ def restablecer_contrasena(data: RestablecerContrasena) -> Dict[str, Any]:
             if datetime.now() > registro["fecha_expiracion"]:
                 raise HTTPException(status_code=400, detail="El token ha expirado")
 
+            # ✅ Hash generado automáticamente
             nuevo_hash = hash_password(data.nueva_password)
 
             # Actualizar contraseña
@@ -212,7 +236,7 @@ def restablecer_contrasena(data: RestablecerContrasena) -> Dict[str, Any]:
                 "UPDATE usuarios SET password_hash = %s, updated_at = NOW() WHERE id_usuario = %s;",
                 (nuevo_hash, registro["id_usuario"])
             )
-            # Invalidar token
+            # Invalidar token para que no se pueda reutilizar
             cursor.execute(
                 "UPDATE recuperacion_contrasena SET usado = 1 WHERE id_recuperacion = %s;",
                 (registro["id_recuperacion"],)
@@ -259,8 +283,8 @@ def ver_perfil(
                     u.created_at,
                     u.updated_at
                 FROM usuarios u
-                JOIN roles        r  ON r.id_rol            = u.id_rol
-                JOIN estado_cuenta ec ON ec.id_estado_cuenta = u.id_estado_cuenta
+                JOIN roles         r  ON r.id_rol             = u.id_rol
+                JOIN estado_cuenta ec ON ec.id_estado_cuenta  = u.id_estado_cuenta
                 WHERE u.id_usuario = %s;
             """, (user["id_usuario"],))
             return cursor.fetchone()
@@ -284,7 +308,10 @@ def actualizar_perfil(
         with conn.cursor() as cursor:
             campos = {k: v for k, v in data.model_dump().items() if v is not None}
             if not campos:
-                raise HTTPException(status_code=400, detail="No se enviaron campos para actualizar")
+                raise HTTPException(
+                    status_code=400,
+                    detail="No se enviaron campos para actualizar"
+                )
 
             set_clause = ", ".join([f"{k} = %s" for k in campos])
             valores = list(campos.values()) + [user["id_usuario"]]
@@ -311,8 +338,9 @@ def actualizar_perfil(
     summary="Listar todos los usuarios (solo ADMIN)"
 )
 def listar_usuarios(
-    user: Dict[str, Any] = Depends(require_roles(4))  # ✅ Solo ADMINISTRADOR
+    user: Dict[str, Any] = Depends(require_roles(4))
 ) -> List[Dict[str, Any]]:
+    """Lista todos los usuarios con su rol y estado de cuenta."""
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -327,11 +355,47 @@ def listar_usuarios(
                     ec.nombre AS estado_cuenta,
                     u.created_at
                 FROM usuarios u
-                JOIN roles        r  ON r.id_rol            = u.id_rol
-                JOIN estado_cuenta ec ON ec.id_estado_cuenta = u.id_estado_cuenta
+                JOIN roles         r  ON r.id_rol             = u.id_rol
+                JOIN estado_cuenta ec ON ec.id_estado_cuenta  = u.id_estado_cuenta
                 ORDER BY u.created_at DESC;
             """)
             return cursor.fetchall()
+    except pymysql.MySQLError as e:
+        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}")
+    finally:
+        conn.close()
+
+
+@router.get(
+    "/pendientes",
+    summary="Listar usuarios pendientes de activación (solo ADMIN)"
+)
+def listar_pendientes(
+    user: Dict[str, Any] = Depends(require_roles(4))
+) -> List[Dict[str, Any]]:
+    """Lista solo los usuarios con estado PENDIENTE para facilitar la activación."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT
+                    u.id_usuario,
+                    u.nombre_completo,
+                    u.correo,
+                    u.telefono,
+                    u.ciudad,
+                    u.tipo_documento,
+                    u.numero_documento,
+                    u.created_at
+                FROM usuarios u
+                WHERE u.id_estado_cuenta = 4
+                ORDER BY u.created_at ASC;
+            """)
+            pendientes = cursor.fetchall()
+        return {
+            "total_pendientes": len(pendientes),
+            "usuarios": pendientes
+        }
     except pymysql.MySQLError as e:
         raise HTTPException(status_code=500, detail=f"DB error: {str(e)}")
     finally:
@@ -367,8 +431,8 @@ def detalle_usuario(
                     u.created_at,
                     u.updated_at
                 FROM usuarios u
-                JOIN roles        r  ON r.id_rol            = u.id_rol
-                JOIN estado_cuenta ec ON ec.id_estado_cuenta = u.id_estado_cuenta
+                JOIN roles         r  ON r.id_rol             = u.id_rol
+                JOIN estado_cuenta ec ON ec.id_estado_cuenta  = u.id_estado_cuenta
                 WHERE u.id_usuario = %s;
             """, (id_usuario,))
             registro = cursor.fetchone()
@@ -390,7 +454,7 @@ def detalle_usuario(
 def cambiar_estado_usuario(
     id_usuario: int,
     data: CambiarEstadoCuenta,
-    user: Dict[str, Any] = Depends(require_roles(4))  # ✅ Solo ADMINISTRADOR
+    user: Dict[str, Any] = Depends(require_roles(4))
 ) -> Dict[str, Any]:
     """
     Permite al ADMINISTRADOR cambiar el estado de cualquier cuenta.
@@ -400,24 +464,31 @@ def cambiar_estado_usuario(
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT id_usuario FROM usuarios WHERE id_usuario = %s;",
+                "SELECT id_usuario, nombre_completo FROM usuarios WHERE id_usuario = %s;",
                 (id_usuario,)
             )
-            if not cursor.fetchone():
+            usuario = cursor.fetchone()
+            if not usuario:
                 raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
             cursor.execute(
-                "SELECT id_estado_cuenta FROM estado_cuenta WHERE id_estado_cuenta = %s;",
+                "SELECT id_estado_cuenta, nombre FROM estado_cuenta WHERE id_estado_cuenta = %s;",
                 (data.id_estado_cuenta,)
             )
-            if not cursor.fetchone():
+            estado = cursor.fetchone()
+            if not estado:
                 raise HTTPException(status_code=400, detail="Estado de cuenta inválido")
 
             cursor.execute(
                 "UPDATE usuarios SET id_estado_cuenta = %s, updated_at = NOW() WHERE id_usuario = %s;",
                 (data.id_estado_cuenta, id_usuario)
             )
-        return {"message": "Estado de cuenta actualizado exitosamente"}
+
+        return {
+            "message": "Estado de cuenta actualizado exitosamente",
+            "usuario": usuario["nombre_completo"],
+            "nuevo_estado": estado["nombre"]
+        }
     except HTTPException:
         raise
     except pymysql.MySQLError as e:

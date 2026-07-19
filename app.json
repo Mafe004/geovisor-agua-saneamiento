@@ -32,13 +32,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "GeoVisor necesita acceso a tu ubicación para mostrar reportes cercanos."
-        }
-      ]
-    ]
+    "plugins": []
   }
 }

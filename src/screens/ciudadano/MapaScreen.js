@@ -101,7 +101,7 @@ export default function MapaScreen({ navigation }) {
           {pinesFiltrados.map(pin => (
             <Marker
               key={pin.id_reporte}
-              coordinate={{ latitude: pin.latitud, longitude: pin.longitud }}
+              coordinate={{ latitude: parseFloat(pin.latitud), longitude: parseFloat(pin.longitud) }}
               pinColor={SEVERITY_COLOR[pin.severidad] || '#1565C0'}
               onPress={() => setSelectedPin(pin)}
             >

@@ -78,14 +78,16 @@ export default function UsuariosScreen() {
         }
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => {
-          const initial = ((item.nombre || '?')[0] + (item.apellido || '')[0]).toUpperCase();
+          const nombreCompleto = item.nombre_completo || `${item.nombre || ''} ${item.apellido || ''}`.trim() || '?';
+          const partes = nombreCompleto.split(' ');
+          const initial = ((partes[0] || '?')[0] + (partes[1] || '')[0]).toUpperCase();
           return (
             <View style={[styles.card, !item.activo && styles.cardInactive]}>
               <View style={[styles.avatar, { backgroundColor: ROL_COLOR[item.id_rol] + '25' }]}>
                 <Text style={[styles.avatarText, { color: ROL_COLOR[item.id_rol] }]}>{initial}</Text>
               </View>
               <View style={styles.userInfo}>
-                <Text style={styles.userName}>{item.nombre} {item.apellido}</Text>
+                <Text style={styles.userName}>{item.nombre_completo || `${item.nombre || ''} ${item.apellido || ''}`.trim()}</Text>
                 <Text style={styles.userEmail}>{item.correo}</Text>
                 <View style={styles.userMeta}>
                   <View style={[styles.rolBadge, { backgroundColor: ROL_COLOR[item.id_rol] + '20' }]}>

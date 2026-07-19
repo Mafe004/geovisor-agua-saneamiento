@@ -9,8 +9,7 @@ import { usuariosAPI } from '../../api/services';
 
 export default function RegisterScreen({ navigation }) {
   const [form, setForm] = useState({
-    nombre: '',
-    apellido: '',
+    nombre_completo: '',
     correo: '',
     telefono: '',
     password: '',
@@ -21,8 +20,8 @@ export default function RegisterScreen({ navigation }) {
   const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
   const validate = () => {
-    if (!form.nombre || !form.apellido || !form.correo || !form.password)
-      return 'Nombre, apellido, correo y contraseña son obligatorios.';
+    if (!form.nombre_completo || !form.correo || !form.password)
+      return 'Nombre completo, correo y contraseña son obligatorios.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.correo))
       return 'Ingresa un correo válido.';
     if (form.password.length < 6)
@@ -38,8 +37,7 @@ export default function RegisterScreen({ navigation }) {
     try {
       setLoading(true);
       await usuariosAPI.register({
-        nombre: form.nombre.trim(),
-        apellido: form.apellido.trim(),
+        nombre_completo: form.nombre_completo.trim(),
         correo: form.correo.trim().toLowerCase(),
         telefono: form.telefono.trim() || null,
         password: form.password,
@@ -96,8 +94,7 @@ export default function RegisterScreen({ navigation }) {
           </View>
 
           <View style={styles.card}>
-            <Field label="Nombre" icon="👤" field="nombre" placeholder="María" />
-            <Field label="Apellido" icon="👤" field="apellido" placeholder="García" />
+            <Field label="Nombre completo" icon="👤" field="nombre_completo" placeholder="María García" />
             <Field label="Correo" icon="✉️" field="correo" placeholder="tu@correo.com" keyboard="email-address" />
             <Field label="Teléfono (opcional)" icon="📱" field="telefono" placeholder="+57 300 0000000" keyboard="phone-pad" />
             <Field label="Contraseña" icon="🔒" field="password" placeholder="Mínimo 6 caracteres" secure />

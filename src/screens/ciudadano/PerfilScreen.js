@@ -25,7 +25,9 @@ export default function PerfilScreen() {
 
   if (!user) return null;
 
-  const initial = ((user.nombre || '?')[0] + (user.apellido || '')[0]).toUpperCase();
+  const nombreCompleto = user.nombre_completo || `${user.nombre || ''} ${user.apellido || ''}`.trim() || '?';
+  const partes = nombreCompleto.split(' ');
+  const initial = ((partes[0] || '?')[0] + (partes[1] || '')[0]).toUpperCase();
 
   return (
     <View style={styles.container}>
@@ -36,7 +38,7 @@ export default function PerfilScreen() {
             <Text style={styles.avatarText}>{initial}</Text>
           </View>
         </View>
-        <Text style={styles.name}>{user.nombre} {user.apellido}</Text>
+        <Text style={styles.name}>{user.nombre_completo || `${user.nombre || ''} ${user.apellido || ''}`.trim()}</Text>
         <View style={styles.rolRow}>
           <Text style={styles.rolIcon}>{ROL_ICON[user.id_rol]}</Text>
           <Text style={styles.rolLabel}>{ROL_LABEL[user.id_rol] || 'Usuario'}</Text>

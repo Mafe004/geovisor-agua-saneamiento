@@ -268,6 +268,158 @@ def crear_reporte(
         conn.close()
 
 
+@router.get("/mapa", summary="Puntos para el mapa (respuesta ligera)")
+def reportes_mapa(
+    user: Dict[str, Any] = Depends(require_active_user)
+) -> List[Dict[str, Any]]:
+    """
+    Endpoint optimizado para cargar los pines del geovisor.
+    Devuelve solo los campos necesarios para pintar el mapa:
+    id, latitud, longitud, tipo_incidente, severidad, estado.
+    - CIUDADANO: solo sus reportes.
+    - ENTIDAD:   solo los de su entidad.
+    - MODERADOR / ADMIN: todos.
+    """
+    conn = get_connection()
+    try:
+        base_sql = """
+            SELECT
+                r.id_reporte,
+                r.latitud,
+                r.longitud,
+                r.direccion,
+                ti.nombre  AS tipo_incidente,
+                s.nombre   AS severidad,
+                er.nombre  AS estado,
+                r.fecha_reporte
+            FROM reportes r
+            JOIN tipo_incidente  ti ON r.id_tipo_incidente = ti.id_tipo_incidente
+            JOIN severidad        s ON r.id_severidad      = s.id_severidad
+            JOIN estado_reporte  er ON r.id_estado         = er.id_estado
+        """
+        params = []
+
+        if user["id_rol"] == ROLE_CIUDADANO:
+            base_sql += " WHERE r.id_usuario = %s"
+            params.append(user["id_usuario"])
+        elif user["id_rol"] == ROLE_ENTIDAD:
+            if not user.get("id_entidad"):
+                raise HTTPException(status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado")
+            base_sql += " WHERE r.id_entidad = %s"
+            params.append(user["id_entidad"])
+
+        base_sql += " ORDER BY r.fecha_reporte DESC;"
+
+        with conn.cursor() as cursor:
+            cursor.execute(base_sql, params)
+            return cursor.fetchall()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _raise_db_error(e)
+    finally:
+        conn.close()
+
+
+@router.get("/estadisticas", summary="Estadísticas generales de reportes (MODERADOR / ADMIN)")
+def estadisticas_reportes(
+    user: Dict[str, Any] = Depends(require_active_user)
+) -> Dict[str, Any]:
+    """
+    Devuelve métricas agregadas para el dashboard:
+    - Total de reportes por estado
+    - Total de reportes por tipo de incidente
+    - Total de reportes por severidad
+    - Total de reportes por mes (últimos 6 meses)
+    Solo MODERADOR y ADMIN pueden ver estadísticas globales.
+    ENTIDAD solo ve las estadísticas de sus propios reportes.
+    """
+    if user["id_rol"] == ROLE_CIUDADANO:
+        raise HTTPException(status_code=403, detail="No tienes permisos para ver estadísticas")
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+
+            # Filtro según rol
+            filtro_entidad = ""
+            params_entidad = []
+            if user["id_rol"] == ROLE_ENTIDAD:
+                if not user.get("id_entidad"):
+                    raise HTTPException(status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado")
+                filtro_entidad = "WHERE r.id_entidad = %s"
+                params_entidad = [user["id_entidad"]]
+
+            # 1. Por estado
+            cursor.execute(f"""
+                SELECT er.nombre AS estado, COUNT(*) AS total
+                FROM reportes r
+                JOIN estado_reporte er ON r.id_estado = er.id_estado
+                {filtro_entidad}
+                GROUP BY er.nombre
+                ORDER BY total DESC;
+            """, params_entidad)
+            por_estado = cursor.fetchall()
+
+            # 2. Por tipo de incidente
+            cursor.execute(f"""
+                SELECT ti.nombre AS tipo_incidente, COUNT(*) AS total
+                FROM reportes r
+                JOIN tipo_incidente ti ON r.id_tipo_incidente = ti.id_tipo_incidente
+                {filtro_entidad}
+                GROUP BY ti.nombre
+                ORDER BY total DESC;
+            """, params_entidad)
+            por_tipo = cursor.fetchall()
+
+            # 3. Por severidad
+            cursor.execute(f"""
+                SELECT s.nombre AS severidad, COUNT(*) AS total
+                FROM reportes r
+                JOIN severidad s ON r.id_severidad = s.id_severidad
+                {filtro_entidad}
+                GROUP BY s.nombre
+                ORDER BY s.id_severidad ASC;
+            """, params_entidad)
+            por_severidad = cursor.fetchall()
+
+            # 4. Por mes (últimos 6 meses)
+            cursor.execute(f"""
+                SELECT
+                    DATE_FORMAT(r.fecha_reporte, '%Y-%m') AS mes,
+                    COUNT(*) AS total
+                FROM reportes r
+                {filtro_entidad}
+                {"WHERE" if not filtro_entidad else "AND"}
+                    r.fecha_reporte >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                GROUP BY mes
+                ORDER BY mes ASC;
+            """, params_entidad)
+            por_mes = cursor.fetchall()
+
+            # 5. Total general
+            cursor.execute(f"""
+                SELECT COUNT(*) AS total_reportes FROM reportes r {filtro_entidad};
+            """, params_entidad)
+            total = cursor.fetchone()
+
+        return {
+            "total_reportes":    total["total_reportes"],
+            "por_estado":        por_estado,
+            "por_tipo_incidente": por_tipo,
+            "por_severidad":     por_severidad,
+            "por_mes":           por_mes,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _raise_db_error(e)
+    finally:
+        conn.close()
+
+
 @router.put("/{id_reporte}/estado", summary="Cambiar Estado")
 def cambiar_estado(
     id_reporte: int,

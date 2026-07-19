@@ -23,11 +23,27 @@ export default function LoginScreen({ navigation }) {
       setLoading(true);
       await login(correo.trim().toLowerCase(), password);
     } catch (err) {
-      const msg =
-        err?.response?.status === 401
-          ? 'Credenciales incorrectas. Verifica tu correo y contraseña.'
-          : err?.response?.data?.detail || 'No se pudo conectar al servidor.';
-      Alert.alert('Error de acceso', msg);
+      let title = 'Error de acceso';
+      let msg;
+
+      if (err?.response?.status === 401) {
+        msg = 'Credenciales incorrectas.\n\nVerifica tu correo y contraseña.';
+      } else if (err?.response?.status === 403) {
+        msg = 'Tu cuenta está inactiva o bloqueada. Contacta al administrador.';
+      } else if (err?.response?.data?.detail) {
+        msg = err.response.data.detail;
+      } else if (err?.friendlyMessage) {
+        // Mensaje mejorado de error de red (generado en client.js)
+        title = 'Sin conexión';
+        msg = err.friendlyMessage;
+      } else if (!err?.response) {
+        title = 'Sin conexión';
+        msg = 'No se pudo conectar al servidor.\n\nVerifica que:\n\u2022 El backend esté corriendo\n• Tu teléfono y PC estén en la misma WiFi\n• La IP en client.js sea correcta';
+      } else {
+        msg = 'Ocurrió un error inesperado. Intenta de nuevo.';
+      }
+
+      Alert.alert(title, msg);
     } finally {
       setLoading(false);
     }
@@ -104,6 +120,28 @@ export default function LoginScreen({ navigation }) {
               </LinearGradient>
             </TouchableOpacity>
 
+            {/* Cuentas de prueba */}
+            <TouchableOpacity
+              style={styles.demoBox}
+              onPress={() => {
+                Alert.alert(
+                  '👤 Cuentas de prueba',
+                  'Contraseña de todas: demo2025\n\n' +
+                  '📋 Ciudadano:\njuan@test.com\n\n' +
+                  '🏢 Entidad:\noperador.acueducto@demo.com\n\n' +
+                  '🛡️ Moderador:\nmoderador@demo.com\n\n' +
+                  '⚙️ Admin:\nadmin@geovisor.com',
+                  [
+                    { text: 'Admin', onPress: () => { setCorreo('admin@geovisor.com'); setPassword('demo2025'); } },
+                    { text: 'Ciudadano', onPress: () => { setCorreo('juan@test.com'); setPassword('demo2025'); } },
+                    { text: 'Cerrar', style: 'cancel' },
+                  ]
+                );
+              }}
+            >
+              <Text style={styles.demoText}>👁️ Ver cuentas de prueba</Text>
+            </TouchableOpacity>
+
             {/* Registro */}
             <View style={styles.registerRow}>
               <Text style={styles.registerText}>¿No tienes cuenta? </Text>
@@ -158,7 +196,12 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.6 },
   btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
   btnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  registerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 18 },
+  demoBox: {
+    marginTop: 14, paddingVertical: 8, alignItems: 'center',
+    borderTopWidth: 1, borderTopColor: '#F3F4F6',
+  },
+  demoText: { color: '#9CA3AF', fontSize: 12 },
+  registerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 14 },
   registerText: { color: '#6B7280', fontSize: 14 },
   registerLink: { color: '#1565C0', fontSize: 14, fontWeight: '700' },
   footer: { textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 24 },

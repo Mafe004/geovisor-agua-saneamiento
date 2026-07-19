@@ -20,13 +20,13 @@ export default function MapaWebView({
   latitude = 5.0231,
   longitude = -74.0041,
   markers = [],
-  height = 300,
+  height = 300,           // Sólo acepta NUMBER — no '100%' ni strings
   zoom = 14,
   onMarkerPress,
   interactive = true,
   showCenterPin = false,
   onCenterChange,
-  style,
+  style,                  // Cuando se pasa style con flex:1, height se ignora
 }) {
   const SEVERITY_COLOR = {
     ALTA: '#EF4444', CRITICA: '#7C3AED',
@@ -107,13 +107,23 @@ export default function MapaWebView({
 </body>
 </html>`;
 
+  // Si style contiene flex:1 usamos solo style (sin height fijo),
+  // de lo contrario aplicamos height numérico.
+  const hasFlexStyle = style && (style.flex != null);
+  const containerStyle = hasFlexStyle
+    ? [styles.container, style]
+    : [styles.container, { height: typeof height === 'number' ? height : 300 }, style];
+
   return (
-    <View style={[styles.container, { height }, style]}>
+    <View style={containerStyle}>
       <WebView
         source={{ html }}
         style={styles.webview}
-        javaScriptEnabled
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
         originWhitelist={['*']}
+        mixedContentMode="always"
+        allowsInlineMediaPlayback={true}
         onMessage={(e) => {
           try {
             const data = JSON.parse(e.nativeEvent.data);

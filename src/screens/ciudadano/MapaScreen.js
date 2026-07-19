@@ -100,11 +100,8 @@ export default function MapaScreen({ navigation }) {
             latitude={center.latitude}
             longitude={center.longitude}
             markers={markers}
-            height="100%"
             zoom={14}
-            onMarkerPress={(pin) => {
-              setSelectedPin(pin);
-            }}
+            onMarkerPress={(pin) => setSelectedPin(pin)}
             style={styles.map}
           />
         </View>

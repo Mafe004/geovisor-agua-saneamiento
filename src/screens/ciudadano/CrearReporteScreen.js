@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator, Platform,
+  ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
+import MapaWebView from '../../components/MapaWebView';
 import { reportesAPI, catalogosAPI } from '../../api/services';
 
-const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041, latitudeDelta: 0.02, longitudeDelta: 0.02 };
+// Coordenadas centro de Zipaquirá (Colombia)
+const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 
 export default function CrearReporteScreen({ navigation }) {
   const [descripcion, setDescripcion] = useState('');
@@ -36,30 +36,37 @@ export default function CrearReporteScreen({ navigation }) {
     } catch (_) {}
   };
 
-  const getMyLocation = async () => {
+  // Obtener ubicación del dispositivo usando la API del navegador (funciona en WebView + Expo Go)
+  const getMyLocation = () => {
     setLocLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Activa la ubicación para usar esta función.');
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setCoordenadas({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-    } catch (e) {
-      Alert.alert('Error', 'No se pudo obtener tu ubicación.');
-    } finally {
+    // navigator.geolocation funciona en WebView vía JavaScript
+    // En React Native también está disponible como polyfill
+    if (navigator && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCoordenadas({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+          setLocLoading(false);
+        },
+        (_err) => {
+          Alert.alert('Permiso denegado', 'Activa la ubicación para usar esta función.');
+          setLocLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    } else {
+      Alert.alert('No disponible', 'La geolocalización no está disponible en este dispositivo.');
       setLocLoading(false);
     }
   };
 
-  const handleMapPress = (e) => {
-    setCoordenadas(e.nativeEvent.coordinate);
+  // Callback del pin central de MapaWebView
+  const handleCenterChange = ({ latitude, longitude }) => {
+    setCoordenadas({ latitude, longitude });
   };
 
   const handleSubmit = async () => {
     if (!descripcion.trim()) { Alert.alert('Requerido', 'Ingresa una descripción.'); return; }
-    if (!coordenadas) { Alert.alert('Requerido', 'Selecciona la ubicación en el mapa.'); return; }
+    if (!coordenadas) { Alert.alert('Requerido', 'Arrastra el mapa para marcar la ubicación del problema.'); return; }
     if (!idTipo) { Alert.alert('Requerido', 'Selecciona el tipo de incidente.'); return; }
     if (!idSeveridad) { Alert.alert('Requerido', 'Selecciona la severidad.'); return; }
 
@@ -78,7 +85,11 @@ export default function CrearReporteScreen({ navigation }) {
         'Tu reporte fue enviado exitosamente. Un moderador lo revisará pronto.',
         [{ text: 'Ver mis reportes', onPress: () => navigation.navigate('Reportes') }],
       );
-      setDescripcion(''); setDireccion(''); setCoordenadas(null); setIdTipo(null); setIdSeveridad(null);
+      setDescripcion('');
+      setDireccion('');
+      setCoordenadas(null);
+      setIdTipo(null);
+      setIdSeveridad(null);
     } catch (e) {
       Alert.alert('Error', e?.response?.data?.detail || 'No se pudo enviar el reporte.');
     } finally {
@@ -93,8 +104,12 @@ export default function CrearReporteScreen({ navigation }) {
         <Text style={styles.headerSub}>Reporta un problema de agua o saneamiento</Text>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Descripción */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        {/* ── Descripción ── */}
         <Text style={styles.label}>Descripción *</Text>
         <TextInput
           style={styles.textarea}
@@ -107,7 +122,7 @@ export default function CrearReporteScreen({ navigation }) {
           textAlignVertical="top"
         />
 
-        {/* Dirección */}
+        {/* ── Dirección ── */}
         <Text style={styles.label}>Dirección aproximada (opcional)</Text>
         <TextInput
           style={styles.inputField}
@@ -117,9 +132,12 @@ export default function CrearReporteScreen({ navigation }) {
           onChangeText={setDireccion}
         />
 
-        {/* Tipo incidente */}
+        {/* ── Tipo incidente ── */}
         <Text style={styles.label}>Tipo de incidente *</Text>
         <View style={styles.chipRow}>
+          {tipos.length === 0 && (
+            <Text style={styles.emptyChip}>Cargando tipos…</Text>
+          )}
           {tipos.map(t => (
             <TouchableOpacity
               key={t.id_tipo}
@@ -133,9 +151,12 @@ export default function CrearReporteScreen({ navigation }) {
           ))}
         </View>
 
-        {/* Severidad */}
+        {/* ── Severidad ── */}
         <Text style={styles.label}>Severidad *</Text>
         <View style={styles.chipRow}>
+          {severidades.length === 0 && (
+            <Text style={styles.emptyChip}>Cargando severidades…</Text>
+          )}
           {severidades.map(s => (
             <TouchableOpacity
               key={s.id_severidad}
@@ -149,7 +170,7 @@ export default function CrearReporteScreen({ navigation }) {
           ))}
         </View>
 
-        {/* Mapa */}
+        {/* ── Mapa con pin central ── */}
         <View style={styles.mapSection}>
           <View style={styles.mapHeader}>
             <Text style={styles.label}>Ubicación del problema *</Text>
@@ -160,31 +181,45 @@ export default function CrearReporteScreen({ navigation }) {
               }
             </TouchableOpacity>
           </View>
-          <Text style={styles.mapHint}>Toca el mapa para marcar la ubicación exacta</Text>
-          <MapView
+
+          <Text style={styles.mapHint}>
+            Arrastra el mapa hasta que el pin rojo quede sobre el lugar exacto del problema
+          </Text>
+
+          {/* MapaWebView con showCenterPin — NO necesita react-native-maps */}
+          <MapaWebView
             style={styles.map}
-            initialRegion={coordenadas
-              ? { ...coordenadas, latitudeDelta: 0.01, longitudeDelta: 0.01 }
-              : ZIPAQUIRA
-            }
-            onPress={handleMapPress}
-          >
-            {coordenadas && <Marker coordinate={coordenadas} pinColor="#1565C0" />}
-          </MapView>
-          {coordenadas && (
+            latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
+            longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
+            zoom={15}
+            showCenterPin={true}
+            onCenterChange={handleCenterChange}
+            markers={[]}
+          />
+
+          {coordenadas ? (
             <Text style={styles.coordText}>
-              📌 {coordenadas.latitude.toFixed(5)}, {coordenadas.longitude.toFixed(5)}
+              📌 Lat {coordenadas.latitude.toFixed(5)}, Lng {coordenadas.longitude.toFixed(5)}
+            </Text>
+          ) : (
+            <Text style={styles.coordTextPending}>
+              ⚠️ Aún no has seleccionado una ubicación
             </Text>
           )}
         </View>
 
-        {/* Botón */}
+        {/* ── Botón enviar ── */}
         <TouchableOpacity
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={handleSubmit}
           disabled={loading}
         >
-          <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <LinearGradient
+            colors={['#1565C0', '#00ACC1']}
+            style={styles.btnGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
             {loading
               ? <ActivityIndicator color="#fff" />
               : <Text style={styles.btnText}>Enviar reporte</Text>
@@ -201,7 +236,7 @@ const styles = StyleSheet.create({
   header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 16 },
   headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
   headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
-  scroll: { padding: 16, paddingBottom: 32 },
+  scroll: { padding: 16, paddingBottom: 40 },
   label: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 8, marginTop: 16 },
   textarea: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
@@ -213,6 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', padding: 12, fontSize: 14, color: '#1F2937', height: 48,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  emptyChip: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' },
   chip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
     backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
@@ -222,15 +258,16 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#fff' },
   mapSection: { marginTop: 8 },
   mapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mapHint: { fontSize: 12, color: '#9CA3AF', marginBottom: 8 },
+  mapHint: { fontSize: 12, color: '#6B7280', marginBottom: 8, lineHeight: 16 },
   locBtn: {
     backgroundColor: '#EFF6FF', borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 6,
     borderWidth: 1, borderColor: '#BFDBFE',
   },
   locBtnText: { color: '#1565C0', fontSize: 13, fontWeight: '600' },
-  map: { height: 220, borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: '#E5E7EB' },
+  map: { height: 240, borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: '#E5E7EB' },
   coordText: { fontSize: 11, color: '#6B7280', marginTop: 6, textAlign: 'center' },
+  coordTextPending: { fontSize: 11, color: '#F59E0B', marginTop: 6, textAlign: 'center', fontWeight: '600' },
   btn: { marginTop: 24, borderRadius: 14, overflow: 'hidden' },
   btnDisabled: { opacity: 0.6 },
   btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },

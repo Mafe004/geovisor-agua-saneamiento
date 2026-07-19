@@ -42,5 +42,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "react-native-web": {
+      "react": "19.0.0"
+    }
+  }
 }

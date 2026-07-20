@@ -18,6 +18,7 @@ export const usuariosAPI = {
   // Perfil propio
   perfil:          ()         => client.get('/usuarios/perfil'),
   actualizarPerfil:(data)     => client.put('/usuarios/perfil', data),
+  cambiarPassword: (data)     => client.put('/usuarios/perfil/password', data),
   // Gestión (admin)
   listar:          (params)   => client.get('/usuarios/', { params }),
   detalle:         (id)       => client.get(`/usuarios/${id}`),

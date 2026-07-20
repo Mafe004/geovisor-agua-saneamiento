@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta
 
 from app.db.database import get_connection
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.core.deps import require_active_user, require_roles
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
@@ -51,6 +51,11 @@ class ActualizarPerfil(BaseModel):
     pais: Optional[str] = Field(None, max_length=80)
     ciudad: Optional[str] = Field(None, max_length=80)
     direccion: Optional[str] = Field(None, max_length=150)
+
+
+class CambiarPassword(BaseModel):
+    password_actual: str = Field(..., min_length=1, description="Contraseña actual")
+    password_nueva:  str = Field(..., min_length=6, description="Nueva contraseña (mín. 6 caracteres)")
 
 
 class CambiarEstadoCuenta(BaseModel):
@@ -321,6 +326,50 @@ def actualizar_perfil(
                 valores
             )
         return {"message": "Perfil actualizado exitosamente"}
+    except HTTPException:
+        raise
+    except pymysql.MySQLError as e:
+        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}")
+    finally:
+        conn.close()
+
+
+# =========================
+# CAMBIAR CONTRASEÑA PROPIO
+# =========================
+
+@router.put(
+    "/perfil/password",
+    summary="Cambiar mi contraseña (usuario autenticado)"
+)
+def cambiar_password(
+    data: CambiarPassword,
+    user: Dict[str, Any] = Depends(require_active_user)
+) -> Dict[str, Any]:
+    """El usuario autenticado cambia su propia contraseña verificando la actual."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Obtener hash actual
+            cursor.execute(
+                "SELECT password_hash FROM usuarios WHERE id_usuario = %s;",
+                (user["id_usuario"],)
+            )
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+            # Verificar contraseña actual
+            if not verify_password(data.password_actual, row["password_hash"]):
+                raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
+
+            # Guardar nuevo hash
+            nuevo_hash = hash_password(data.password_nueva)
+            cursor.execute(
+                "UPDATE usuarios SET password_hash = %s, updated_at = NOW() WHERE id_usuario = %s;",
+                (nuevo_hash, user["id_usuario"])
+            )
+        return {"message": "Contraseña cambiada exitosamente"}
     except HTTPException:
         raise
     except pymysql.MySQLError as e:

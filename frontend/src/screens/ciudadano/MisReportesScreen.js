@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useContext, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet,
   RefreshControl, TouchableOpacity, Alert,
@@ -15,20 +15,20 @@ export default function MisReportesScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadReportes = async (silent = false) => {
+  const loadReportes = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const res = await reportesAPI.listar({ id_usuario: user?.id_usuario });
       setReportes(res.data || []);
-    } catch (e) {
+    } catch (_) {
       Alert.alert('Error', 'No se pudieron cargar tus reportes.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user?.id_usuario]);
 
-  useFocusEffect(useCallback(() => { loadReportes(); }, []));
+  useFocusEffect(useCallback(() => { loadReportes(); }, [loadReportes]));
 
   const onRefresh = () => { setRefreshing(true); loadReportes(true); };
 

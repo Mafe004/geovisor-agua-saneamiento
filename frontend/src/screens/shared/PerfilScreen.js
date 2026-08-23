@@ -49,7 +49,7 @@ export default function PerfilScreen() {
     }
     try {
       setSaving(true);
-      const res = await usuariosAPI.actualizarPerfil({
+      await usuariosAPI.actualizarPerfil({
         nombre_completo: nombre.trim(),
         telefono: telefono.trim() || null,
       });

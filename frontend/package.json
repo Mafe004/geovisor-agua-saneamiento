@@ -34,18 +34,18 @@
     "react-native-web": "~0.19.13"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2"
+    "@babel/core": "^7.25.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~10.0.0"
   },
   "scripts": {
+    "dev": "expo start",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "lint:fix": "expo lint -- --fix"
   },
-  "private": true,
-  "overrides": {
-    "react-native-web": {
-      "react": "19.0.0"
-    }
-  }
+  "private": true
 }

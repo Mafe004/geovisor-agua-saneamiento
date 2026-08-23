@@ -1,10 +1,12 @@
-from typing import Dict, Any, Callable
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+from collections.abc import Callable
+from typing import Any
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+
+from app.core.security import ALGORITHM, SECRET_KEY  # deben existir en security.py
 from app.db.database import get_connection
-from app.core.security import SECRET_KEY, ALGORITHM  # deben existir en security.py
 
 # ✅ CAMBIO: usar HTTPBearer (NO OAuth2PasswordBearer)
 bearer_scheme = HTTPBearer()
@@ -26,7 +28,7 @@ ESTADO_NAME = {
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     1) Lee token desde Authorization: Bearer <token>
     2) Valida token
@@ -48,7 +50,7 @@ def get_current_user(
             raise credentials_exc
         id_usuario = int(sub)
     except (JWTError, ValueError):
-        raise credentials_exc
+        raise credentials_exc from None
 
     conn = get_connection()
     try:
@@ -72,8 +74,8 @@ def get_current_user(
 
 
 def require_active_user(
-    user: Dict[str, Any] = Depends(get_current_user),
-) -> Dict[str, Any]:
+    user: dict[str, Any] = Depends(get_current_user),
+) -> dict[str, Any]:
     if user.get("id_estado_cuenta") != 1:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -85,7 +87,7 @@ def require_active_user(
 def require_roles(*allowed_roles: int) -> Callable:
     allowed = set(allowed_roles)
 
-    def _dep(user: Dict[str, Any] = Depends(require_active_user)) -> Dict[str, Any]:
+    def _dep(user: dict[str, Any] = Depends(require_active_user)) -> dict[str, Any]:
         if user.get("id_rol") not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

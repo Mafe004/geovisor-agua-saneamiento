@@ -2,20 +2,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db.database import get_connection
+from app.routers import auditoria
 from app.routers.auth import router as auth_router
 from app.routers.catalogos import router as catalogos_router
-from app.routers.reportes import router as reportes_router
-from app.routers.historial import router as historial_router
-from app.routers.notificaciones import router as notificaciones_router
-from app.routers.infraestructura import router as infraestructura_router
-from app.routers.usuarios import router as usuarios_router
 from app.routers.entidades import router as entidades_router
-from app.routers import auditoria
+from app.routers.historial import router as historial_router
+from app.routers.infraestructura import router as infraestructura_router
+from app.routers.notificaciones import router as notificaciones_router
+from app.routers.reportes import router as reportes_router
+from app.routers.usuarios import router as usuarios_router
 
 app = FastAPI(
     title="Geovisor API - Agua y Saneamiento",
     description="API REST para el Geovisor interactivo de agua y saneamiento en Cundinamarca",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # ✅ CORS SIEMPRE PRIMERO, antes de todos los routers

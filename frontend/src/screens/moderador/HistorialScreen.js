@@ -79,7 +79,7 @@ export default function HistorialScreen() {
                   <StatusBadge status={item.estado_nuevo} type="status" />
                 </View>
                 {item.comentario ? (
-                  <Text style={styles.comentario}>"{item.comentario}"</Text>
+                  <Text style={styles.comentario}>&quot;{item.comentario}&quot;</Text>
                 ) : null}
                 {item.usuario_nombre && (
                   <Text style={styles.usuario}>

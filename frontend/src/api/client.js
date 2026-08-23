@@ -37,6 +37,7 @@ export const API_URL = `http://${DEV_IP}:${DEV_PORT}`;
 
 // ────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line import/no-named-as-default-member -- axios's default export intentionally carries `.create`
 const client = axios.create({
   baseURL: API_URL,
   timeout: 12000,  // 12 segundos — más tiempo para WiFi lenta

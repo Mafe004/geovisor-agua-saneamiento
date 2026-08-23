@@ -115,6 +115,7 @@ function AdminTabs() {
       <Tab.Screen name="Reportes"  component={TodosReportesScreen} />
       <Tab.Screen name="Usuarios"  component={UsuariosScreen} />
       <Tab.Screen name="Entidades" component={EntidadesScreen} />
+      <Tab.Screen name="Auditoría" component={AuditoriaScreen} />
       <Tab.Screen name="Perfil"    component={PerfilScreen} />
     </Tab.Navigator>
   );

@@ -1,0 +1,21 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501", # line length is a formatter concern, not a linter one
+    "B008", # FastAPI's DI idiom is `= Depends(...)` in the signature; that's intentional, not a bug
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

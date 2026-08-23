@@ -23,7 +23,7 @@ export default function TodosReportesScreen({ navigation }) {
   const [filtroEstado, setFiltroEstado] = useState('');
   const [busqueda, setBusqueda] = useState('');
 
-  const loadReportes = async (silent = false) => {
+  const loadReportes = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const params = {};
@@ -36,9 +36,9 @@ export default function TodosReportesScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [filtroEstado]);
 
-  useFocusEffect(useCallback(() => { loadReportes(); }, [filtroEstado]));
+  useFocusEffect(useCallback(() => { loadReportes(); }, [loadReportes]));
 
   const reportesFiltrados = busqueda.trim()
     ? reportes.filter(r =>

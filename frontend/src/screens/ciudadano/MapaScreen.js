@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Alert, ScrollView,
+  ActivityIndicator, ScrollView,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,7 +33,7 @@ export default function MapaScreen({ navigation }) {
       const res = await reportesAPI.mapa();
       const puntos = res.data?.puntos || res.data || [];
       setPines(puntos);
-    } catch (e) {
+    } catch (_) {
       // Mapa público — si falla, mostrar mapa vacío sin alerta
       setPines([]);
     } finally {

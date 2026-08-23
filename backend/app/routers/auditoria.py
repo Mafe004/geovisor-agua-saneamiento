@@ -1,18 +1,20 @@
+import pymysql
 from fastapi import APIRouter, Depends, HTTPException
+
 from app.core.deps import require_roles
 from app.db.database import get_connection
-import pymysql
 
 router = APIRouter(prefix="/auditoria", tags=["Auditoría"])
 
 ADMIN = 4
+
 
 @router.get("/", summary="Listar logs de auditoría (solo ADMIN)")
 def listar_logs(
     modulo: str = None,
     id_usuario: int = None,
     limite: int = 100,
-    user=Depends(require_roles(ADMIN))
+    user=Depends(require_roles(ADMIN)),
 ):
     conn = None
     try:
@@ -44,7 +46,7 @@ def listar_logs(
             logs = cursor.fetchall()
         return {"total": len(logs), "logs": logs}
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"Error BD: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error BD: {str(e)}") from e
     finally:
         if conn:
             conn.close()
@@ -65,7 +67,7 @@ def resumen_modulos(user=Depends(require_roles(ADMIN))):
             resultado = cursor.fetchall()
         return resultado
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"Error BD: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error BD: {str(e)}") from e
     finally:
         if conn:
             conn.close()

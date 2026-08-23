@@ -1,22 +1,21 @@
-from typing import Any, Dict, List
-from fastapi import APIRouter, HTTPException, Depends
-import pymysql
+from typing import Any
 
-from app.db.database import get_connection
+import pymysql
+from fastapi import APIRouter, Depends, HTTPException
+
 from app.core.deps import require_active_user
+from app.db.database import get_connection
 
 # ✅ Sin prefix propio para no chocar con reportes.py
 router = APIRouter(tags=["Historial"])
 
 
 @router.get(
-    "/reportes/{id_reporte}/historial",
-    summary="Ver historial de cambios de estado de un reporte"
+    "/reportes/{id_reporte}/historial", summary="Ver historial de cambios de estado de un reporte"
 )
 def historial_reporte(
-    id_reporte: int,
-    user: Dict[str, Any] = Depends(require_active_user)
-) -> List[Dict[str, Any]]:
+    id_reporte: int, user: dict[str, Any] = Depends(require_active_user)
+) -> list[dict[str, Any]]:
     """
     Devuelve todos los cambios de estado de un reporte ordenados cronológicamente.
     - CIUDADANO: solo puede ver el historial de sus propios reportes.
@@ -29,7 +28,7 @@ def historial_reporte(
             # Verificar que el reporte existe
             cursor.execute(
                 "SELECT id_reporte, id_usuario, id_entidad FROM reportes WHERE id_reporte = %s;",
-                (id_reporte,)
+                (id_reporte,),
             )
             reporte = cursor.fetchone()
             if not reporte:
@@ -41,17 +40,17 @@ def historial_reporte(
                 if reporte["id_usuario"] != user["id_usuario"]:
                     raise HTTPException(
                         status_code=403,
-                        detail="No tienes permiso para ver el historial de este reporte"
+                        detail="No tienes permiso para ver el historial de este reporte",
                     )
-            elif id_rol == 2:  # ENTIDAD
-                if reporte["id_entidad"] != user.get("id_entidad"):
-                    raise HTTPException(
-                        status_code=403,
-                        detail="No tienes permiso para ver el historial de este reporte"
-                    )
+            elif id_rol == 2 and reporte["id_entidad"] != user.get("id_entidad"):  # ENTIDAD
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tienes permiso para ver el historial de este reporte",
+                )
             # MODERADOR (3) y ADMIN (4): acceso total
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     h.id_historial,
                     h.id_reporte,
@@ -67,12 +66,14 @@ def historial_reporte(
                 JOIN roles    r ON r.id_rol     = u.id_rol
                 WHERE h.id_reporte = %s
                 ORDER BY h.fecha_cambio ASC;
-            """, (id_reporte,))
+            """,
+                (id_reporte,),
+            )
             return cursor.fetchall()
 
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
     finally:
         conn.close()

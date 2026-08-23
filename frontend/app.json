@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "GeoVisor Agua",
+    "slug": "geovisor-agua",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "sdkVersion": "54.0.0",
+    "splash": {
+      "backgroundColor": "#1565C0",
+      "resizeMode": "contain"
+    },
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.zipaquira.geovisor"
+    },
+    "android": {
+      "package": "com.zipaquira.geovisor",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#1565C0",
+        "foregroundImage": "./assets/icon.png"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": []
+  }
+}

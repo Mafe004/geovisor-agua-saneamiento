@@ -12,4 +12,4 @@
 // Without a real key the map will show Google's "for development
 // purposes only" watermark (or fail to load) but the app won't crash.
 // ============================================================
-export const GOOGLE_MAPS_API_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
+export const GOOGLE_MAPS_API_KEY = '***REMOVED-GOOGLE-MAPS-KEY***';

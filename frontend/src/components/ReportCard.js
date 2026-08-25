@@ -48,7 +48,8 @@ export default function ReportCard({ reporte, onPress }) {
           <View style={styles.metaItem}>
             <Text style={styles.metaIcon}>📍</Text>
             <Text style={styles.metaText} numberOfLines={1}>
-              {reporte.direccion_aproximada || `${reporte.latitud?.toFixed(4)}, ${reporte.longitud?.toFixed(4)}`}
+              {reporte.direccion_aproximada
+                || `${Number(reporte.latitud).toFixed(4)}, ${Number(reporte.longitud).toFixed(4)}`}
             </Text>
           </View>
           {reporte.tipo_incidente && (

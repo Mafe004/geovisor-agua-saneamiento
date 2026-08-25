@@ -136,6 +136,11 @@ def _insertar_notificacion(cursor, id_usuario: int, id_reporte: int, tipo: str, 
 # =========================
 # ENDPOINTS
 # =========================
+#
+# ⚠️ Orden importa: FastAPI/Starlette hacen match de rutas en el orden en
+# que se registran. Las rutas estáticas (/mapa, /estadisticas) DEBEN ir
+# antes de /{id_reporte}, o una request a /reportes/mapa hace match con
+# /{id_reporte} primero (intenta parsear "mapa" como int -> 422).
 
 
 @router.get("/", summary="Listar Reportes")
@@ -164,122 +169,6 @@ def listar_reportes(user: dict[str, Any] = Depends(require_active_user)) -> list
         with conn.cursor() as cursor:
             cursor.execute(sql, params)
             return cursor.fetchall()
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        _raise_db_error(e)
-    finally:
-        conn.close()
-
-
-@router.get("/{id_reporte}", summary="Obtener Reporte")
-def obtener_reporte(
-    id_reporte: int, user: dict[str, Any] = Depends(require_active_user)
-) -> dict[str, Any]:
-    conn = get_connection()
-    try:
-        sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
-        with conn.cursor() as cursor:
-            cursor.execute(sql, (id_reporte,))
-            row = cursor.fetchone()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Reporte no encontrado")
-
-        if user["id_rol"] == ROLE_CIUDADANO and row["id_usuario"] != user["id_usuario"]:
-            raise HTTPException(status_code=403, detail="No puedes ver reportes de otros usuarios")
-        if user["id_rol"] == ROLE_ENTIDAD and row["id_entidad"] != user.get("id_entidad"):
-            raise HTTPException(status_code=403, detail="No puedes ver reportes de otra entidad")
-
-        return row
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        _raise_db_error(e)
-    finally:
-        conn.close()
-
-
-@router.post("/", summary="Crear Reporte")
-def crear_reporte(
-    payload: ReporteCreateRequest,
-    user: dict[str, Any] = Depends(require_active_user),
-) -> dict[str, Any]:
-    if user.get("id_estado_cuenta") != ESTADO_CUENTA_ACTIVO:
-        raise HTTPException(status_code=403, detail="Tu cuenta no está ACTIVA")
-    if user.get("id_rol") not in (ROLE_CIUDADANO, ROLE_ENTIDAD):
-        raise HTTPException(status_code=403, detail="No tienes permisos para crear reportes")
-
-    id_usuario_token = user["id_usuario"]
-
-    if payload.id_usuario is not None and payload.id_usuario != id_usuario_token:
-        raise HTTPException(
-            status_code=403, detail="No puedes crear reportes a nombre de otro usuario"
-        )
-
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            id_entidad = _get_usuario_entidad(cursor, id_usuario_token)
-
-            if user["id_rol"] == ROLE_ENTIDAD and not id_entidad:
-                raise HTTPException(
-                    status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
-                )
-
-            id_estado_inicial = 1  # PENDIENTE
-            fuente = "CIUDADANO" if user["id_rol"] == ROLE_CIUDADANO else "ENTIDAD"
-
-            cursor.execute(
-                """
-                INSERT INTO reportes (
-                    id_usuario, id_entidad, id_tipo_incidente, id_severidad, id_estado,
-                    descripcion, direccion, latitud, longitud, imagen_url, fuente_reporte
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-            """,
-                (
-                    id_usuario_token,
-                    id_entidad,
-                    payload.id_tipo_incidente,
-                    payload.id_severidad,
-                    id_estado_inicial,
-                    payload.descripcion,
-                    payload.direccion,
-                    payload.latitud,
-                    payload.longitud,
-                    payload.imagen_url,
-                    fuente,
-                ),
-            )
-            new_id = cursor.lastrowid
-
-            # ✅ REGISTRAR EN HISTORIAL: evento de creación
-            _insertar_historial(
-                cursor,
-                id_reporte=new_id,
-                estado_anterior="NINGUNO",  # no existía antes
-                estado_nuevo="PENDIENTE",  # estado inicial
-                id_usuario_accion=id_usuario_token,
-                comentario="Reporte creado por el usuario",
-            )
-
-            # ✅ NOTIFICACIÓN: confirmación al creador
-            _insertar_notificacion(
-                cursor,
-                id_usuario=id_usuario_token,
-                id_reporte=new_id,
-                tipo="REPORTE_CREADO",
-                mensaje="Tu reporte fue creado exitosamente y está en estado PENDIENTE",
-            )
-
-            # Retornar el reporte recién creado con todos los datos
-            sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
-            cursor.execute(sql, (new_id,))
-            row = cursor.fetchone()
-
-        return {"message": "created", "reporte": row}
 
     except HTTPException:
         raise
@@ -446,6 +335,122 @@ def estadisticas_reportes(user: dict[str, Any] = Depends(require_active_user)) -
             "por_severidad": por_severidad,
             "por_mes": por_mes,
         }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _raise_db_error(e)
+    finally:
+        conn.close()
+
+
+@router.get("/{id_reporte}", summary="Obtener Reporte")
+def obtener_reporte(
+    id_reporte: int, user: dict[str, Any] = Depends(require_active_user)
+) -> dict[str, Any]:
+    conn = get_connection()
+    try:
+        sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
+        with conn.cursor() as cursor:
+            cursor.execute(sql, (id_reporte,))
+            row = cursor.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+        if user["id_rol"] == ROLE_CIUDADANO and row["id_usuario"] != user["id_usuario"]:
+            raise HTTPException(status_code=403, detail="No puedes ver reportes de otros usuarios")
+        if user["id_rol"] == ROLE_ENTIDAD and row["id_entidad"] != user.get("id_entidad"):
+            raise HTTPException(status_code=403, detail="No puedes ver reportes de otra entidad")
+
+        return row
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        _raise_db_error(e)
+    finally:
+        conn.close()
+
+
+@router.post("/", summary="Crear Reporte")
+def crear_reporte(
+    payload: ReporteCreateRequest,
+    user: dict[str, Any] = Depends(require_active_user),
+) -> dict[str, Any]:
+    if user.get("id_estado_cuenta") != ESTADO_CUENTA_ACTIVO:
+        raise HTTPException(status_code=403, detail="Tu cuenta no está ACTIVA")
+    if user.get("id_rol") not in (ROLE_CIUDADANO, ROLE_ENTIDAD):
+        raise HTTPException(status_code=403, detail="No tienes permisos para crear reportes")
+
+    id_usuario_token = user["id_usuario"]
+
+    if payload.id_usuario is not None and payload.id_usuario != id_usuario_token:
+        raise HTTPException(
+            status_code=403, detail="No puedes crear reportes a nombre de otro usuario"
+        )
+
+    conn = get_connection()
+    try:
+        with conn.cursor() as cursor:
+            id_entidad = _get_usuario_entidad(cursor, id_usuario_token)
+
+            if user["id_rol"] == ROLE_ENTIDAD and not id_entidad:
+                raise HTTPException(
+                    status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
+                )
+
+            id_estado_inicial = 1  # PENDIENTE
+            fuente = "CIUDADANO" if user["id_rol"] == ROLE_CIUDADANO else "ENTIDAD"
+
+            cursor.execute(
+                """
+                INSERT INTO reportes (
+                    id_usuario, id_entidad, id_tipo_incidente, id_severidad, id_estado,
+                    descripcion, direccion, latitud, longitud, imagen_url, fuente_reporte
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+            """,
+                (
+                    id_usuario_token,
+                    id_entidad,
+                    payload.id_tipo_incidente,
+                    payload.id_severidad,
+                    id_estado_inicial,
+                    payload.descripcion,
+                    payload.direccion,
+                    payload.latitud,
+                    payload.longitud,
+                    payload.imagen_url,
+                    fuente,
+                ),
+            )
+            new_id = cursor.lastrowid
+
+            # ✅ REGISTRAR EN HISTORIAL: evento de creación
+            _insertar_historial(
+                cursor,
+                id_reporte=new_id,
+                estado_anterior="NINGUNO",  # no existía antes
+                estado_nuevo="PENDIENTE",  # estado inicial
+                id_usuario_accion=id_usuario_token,
+                comentario="Reporte creado por el usuario",
+            )
+
+            # ✅ NOTIFICACIÓN: confirmación al creador
+            _insertar_notificacion(
+                cursor,
+                id_usuario=id_usuario_token,
+                id_reporte=new_id,
+                tipo="REPORTE_CREADO",
+                mensaje="Tu reporte fue creado exitosamente y está en estado PENDIENTE",
+            )
+
+            # Retornar el reporte recién creado con todos los datos
+            sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
+            cursor.execute(sql, (new_id,))
+            row = cursor.fetchone()
+
+        return {"message": "created", "reporte": row}
 
     except HTTPException:
         raise

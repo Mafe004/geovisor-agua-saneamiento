@@ -18,7 +18,7 @@ class MarcarLeidaRequest(BaseModel):
 def listar_mis_notificaciones(
     solo_no_leidas: bool = False,
     user: dict[str, Any] = Depends(require_active_user),  # ✅ id_usuario sale del token
-) -> dict[str, Any]:
+) -> list[dict[str, Any]]:
     """
     Devuelve las notificaciones del usuario autenticado.
     Parámetro opcional: ?solo_no_leidas=true para filtrar solo las pendientes.
@@ -44,16 +44,7 @@ def listar_mis_notificaciones(
 
             query += " ORDER BY n.fecha_envio DESC;"
             cursor.execute(query, params)
-            notificaciones = cursor.fetchall()
-
-            # Contador de no leídas
-            cursor.execute(
-                "SELECT COUNT(*) AS total FROM notificaciones WHERE id_usuario = %s AND leida = 0;",
-                (user["id_usuario"],),
-            )
-            no_leidas = cursor.fetchone()["total"]
-
-        return {"total_no_leidas": no_leidas, "notificaciones": notificaciones}
+            return cursor.fetchall()
     except pymysql.MySQLError as e:
         raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
     finally:

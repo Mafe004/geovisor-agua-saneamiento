@@ -204,23 +204,23 @@ CREATE TABLE `usuarios` (
 -- Contraseña de todos los usuarios de prueba: demo2025
 INSERT INTO `usuarios` VALUES
   (1,1,1,NULL,'Juan Pérez',              'juan@test.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','123456789',NULL,NULL,NULL,NULL,NOW(),NOW()),
 
   (2,2,1,1,'Operador Entidad - Acueducto','operador.acueducto@demo.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','900000001','3001112233','Colombia','Zipaquirá','Oficina principal',NOW(),NOW()),
 
   (3,3,1,NULL,'Moderador Prueba',         'moderador@demo.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','900000002','3001112244','Colombia','Zipaquirá','Oficina moderación',NOW(),NOW()),
 
   (4,1,1,NULL,'Maria Test',              'maria.test@correo.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','987654321','3009876543','Colombia','Zipaquirá',NULL,NOW(),NOW()),
 
   (5,4,1,NULL,'Admin Geovisor',           'admin@geovisor.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','111111111',NULL,NULL,NULL,NULL,NOW(),NOW());
 
 -- ============================================================

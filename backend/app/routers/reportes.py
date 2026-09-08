@@ -1,22 +1,23 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from pymysql.err import IntegrityError, OperationalError, ProgrammingError
 
-from app.core.deps import require_active_user
-from app.db.database import get_connection
+from app.core.audit import Accion, Modulo, registrar_auditoria
+from app.core.deps import get_client_ip, require_active_user
+from app.core.errors import handle_db_error
+from app.core.policies import puede_cambiar_estado, puede_ver_reporte, scope_reportes
+from app.core.roles import EstadoCuenta, Rol
+from app.db.database import get_connection, transaccion
+from app.schemas.reportes import (
+    CambiarEstadoResponse,
+    CrearReporteResponse,
+    EstadisticasResponse,
+    ReporteDetalle,
+    ReporteMapaPunto,
+)
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
-
-# Roles según tu tabla roles:
-ROLE_CIUDADANO = 1
-ROLE_ENTIDAD = 2
-ROLE_MODERADOR = 3
-ROLE_ADMIN = 4
-
-# Estado cuenta según tu tabla estado_cuenta:
-ESTADO_CUENTA_ACTIVO = 1
 
 
 # =========================
@@ -50,17 +51,19 @@ class CambiarEstadoRequest(BaseModel):
 # =========================
 
 
-def _raise_db_error(e: Exception):
-    if isinstance(e, ProgrammingError):
-        raise HTTPException(status_code=500, detail=f"DB error (SQL): {e}")
-    if isinstance(e, IntegrityError):
-        raise HTTPException(
-            status_code=400,
-            detail=(f"DB error (Integridad/FK): {e}. Verifica que los IDs existan. No uses 0."),
-        )
-    if isinstance(e, OperationalError):
-        raise HTTPException(status_code=500, detail=f"DB error (Conexión): {e}")
-    raise HTTPException(status_code=500, detail=f"DB error: {e}")
+def _resolve_estado_ids(cursor, *nombres: str) -> list[int]:
+    """
+    Resuelve id_estado para uno o más nombres de estado_reporte.
+    Único punto de resolución nombre→id del catálogo de estados, usado tanto
+    para el estado inicial de un reporte nuevo como para el filtro
+    solo_activos — evita duplicar esta lógica en dos sitios distintos.
+    """
+    placeholders = ", ".join(["%s"] * len(nombres))
+    cursor.execute(
+        f"SELECT id_estado FROM estado_reporte WHERE nombre IN ({placeholders});",
+        nombres,
+    )
+    return [row["id_estado"] for row in cursor.fetchall()]
 
 
 def _get_usuario_entidad(cursor, id_usuario: int) -> int | None:
@@ -143,42 +146,63 @@ def _insertar_notificacion(cursor, id_usuario: int, id_reporte: int, tipo: str, 
 # /{id_reporte} primero (intenta parsear "mapa" como int -> 422).
 
 
-@router.get("/", summary="Listar Reportes")
-def listar_reportes(user: dict[str, Any] = Depends(require_active_user)) -> list[dict[str, Any]]:
+@router.get("/", summary="Listar Reportes", response_model=list[ReporteDetalle])
+def listar_reportes(
+    id_estado: int | None = Query(None),
+    id_severidad: int | None = Query(None),
+    id_tipo_incidente: int | None = Query(None),
+    solo_activos: bool = Query(False, description="Excluye RESUELTO y RECHAZADO"),
+    limite: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: dict[str, Any] = Depends(require_active_user),
+) -> list[dict[str, Any]]:
     conn = get_connection()
     try:
         base_sql = _select_reporte_detalle_sql()
-        params = []
+        # Alcance por rol: control de seguridad, se aplica primero e
+        # independientemente de cualquier filtro que envíe el cliente.
+        conditions, params = scope_reportes(user, alias="r")
 
-        if user["id_rol"] == ROLE_CIUDADANO:
-            base_sql += " WHERE r.id_usuario = %s "
-            params.append(user["id_usuario"])
-        elif user["id_rol"] == ROLE_ENTIDAD:
-            if not user.get("id_entidad"):
-                raise HTTPException(
-                    status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
-                )
-            base_sql += " WHERE r.id_entidad = %s "
-            params.append(user["id_entidad"])
-        elif user["id_rol"] in (ROLE_MODERADOR, ROLE_ADMIN):
-            pass
-        else:
-            raise HTTPException(status_code=403, detail="Rol desconocido")
+        if id_estado is not None:
+            conditions.append("r.id_estado = %s")
+            params.append(id_estado)
+        if id_severidad is not None:
+            conditions.append("r.id_severidad = %s")
+            params.append(id_severidad)
+        if id_tipo_incidente is not None:
+            conditions.append("r.id_tipo_incidente = %s")
+            params.append(id_tipo_incidente)
 
-        sql = base_sql + " ORDER BY r.created_at DESC;"
         with conn.cursor() as cursor:
+            if solo_activos:
+                inactivos_ids = _resolve_estado_ids(cursor, "RESUELTO", "RECHAZADO")
+                if inactivos_ids:
+                    placeholders = ", ".join(["%s"] * len(inactivos_ids))
+                    conditions.append(f"r.id_estado NOT IN ({placeholders})")
+                    params.extend(inactivos_ids)
+
+            if conditions:
+                base_sql += " WHERE " + " AND ".join(conditions)
+
+            sql = base_sql + " ORDER BY r.created_at DESC LIMIT %s OFFSET %s;"
+            params.extend([limite, offset])
+
             cursor.execute(sql, params)
             return cursor.fetchall()
 
     except HTTPException:
         raise
     except Exception as e:
-        _raise_db_error(e)
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.get("/mapa", summary="Puntos para el mapa (respuesta ligera)")
+@router.get(
+    "/mapa",
+    summary="Puntos para el mapa (respuesta ligera)",
+    response_model=list[ReporteMapaPunto],
+)
 def reportes_mapa(user: dict[str, Any] = Depends(require_active_user)) -> list[dict[str, Any]]:
     """
     Endpoint optimizado para cargar los pines del geovisor.
@@ -205,18 +229,9 @@ def reportes_mapa(user: dict[str, Any] = Depends(require_active_user)) -> list[d
             JOIN severidad        s ON r.id_severidad      = s.id_severidad
             JOIN estado_reporte  er ON r.id_estado         = er.id_estado
         """
-        params = []
-
-        if user["id_rol"] == ROLE_CIUDADANO:
-            base_sql += " WHERE r.id_usuario = %s"
-            params.append(user["id_usuario"])
-        elif user["id_rol"] == ROLE_ENTIDAD:
-            if not user.get("id_entidad"):
-                raise HTTPException(
-                    status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
-                )
-            base_sql += " WHERE r.id_entidad = %s"
-            params.append(user["id_entidad"])
+        conditions, params = scope_reportes(user, alias="r")
+        if conditions:
+            base_sql += " WHERE " + " AND ".join(conditions)
 
         base_sql += " ORDER BY r.fecha_reporte DESC;"
 
@@ -227,12 +242,17 @@ def reportes_mapa(user: dict[str, Any] = Depends(require_active_user)) -> list[d
     except HTTPException:
         raise
     except Exception as e:
-        _raise_db_error(e)
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.get("/estadisticas", summary="Estadísticas generales de reportes (MODERADOR / ADMIN)")
+@router.get(
+    "/estadisticas",
+    summary="Estadísticas generales de reportes (MODERADOR / ADMIN)",
+    response_model=EstadisticasResponse,
+    responses={403: {"description": "CIUDADANO no tiene permiso"}},
+)
 def estadisticas_reportes(user: dict[str, Any] = Depends(require_active_user)) -> dict[str, Any]:
     """
     Devuelve métricas agregadas para el dashboard:
@@ -243,22 +263,19 @@ def estadisticas_reportes(user: dict[str, Any] = Depends(require_active_user)) -
     Solo MODERADOR y ADMIN pueden ver estadísticas globales.
     ENTIDAD solo ve las estadísticas de sus propios reportes.
     """
-    if user["id_rol"] == ROLE_CIUDADANO:
+    # A diferencia del resto de endpoints de reportes, aquí CIUDADANO no se
+    # "escoge" a sus propios datos: se bloquea por completo. Por eso este
+    # caso se resuelve antes de delegar a scope_reportes, que solo cubre
+    # ENTIDAD / MODERADOR / ADMIN aquí.
+    if user["id_rol"] == Rol.CIUDADANO:
         raise HTTPException(status_code=403, detail="No tienes permisos para ver estadísticas")
 
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
             # Filtro según rol
-            filtro_entidad = ""
-            params_entidad = []
-            if user["id_rol"] == ROLE_ENTIDAD:
-                if not user.get("id_entidad"):
-                    raise HTTPException(
-                        status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
-                    )
-                filtro_entidad = "WHERE r.id_entidad = %s"
-                params_entidad = [user["id_entidad"]]
+            conditions, params_entidad = scope_reportes(user, alias="r")
+            filtro_entidad = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
             # 1. Por estado
             cursor.execute(
@@ -306,7 +323,7 @@ def estadisticas_reportes(user: dict[str, Any] = Depends(require_active_user)) -
             cursor.execute(
                 f"""
                 SELECT
-                    DATE_FORMAT(r.fecha_reporte, '%Y-%m') AS mes,
+                    DATE_FORMAT(r.fecha_reporte, '%%Y-%%m') AS mes,
                     COUNT(*) AS total
                 FROM reportes r
                 {filtro_entidad}
@@ -339,12 +356,17 @@ def estadisticas_reportes(user: dict[str, Any] = Depends(require_active_user)) -
     except HTTPException:
         raise
     except Exception as e:
-        _raise_db_error(e)
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.get("/{id_reporte}", summary="Obtener Reporte")
+@router.get(
+    "/{id_reporte}",
+    summary="Obtener Reporte",
+    response_model=ReporteDetalle,
+    responses={404: {"description": "Reporte no encontrado"}, 403: {"description": "Sin permiso"}},
+)
 def obtener_reporte(
     id_reporte: int, user: dict[str, Any] = Depends(require_active_user)
 ) -> dict[str, Any]:
@@ -358,9 +380,11 @@ def obtener_reporte(
         if not row:
             raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
-        if user["id_rol"] == ROLE_CIUDADANO and row["id_usuario"] != user["id_usuario"]:
-            raise HTTPException(status_code=403, detail="No puedes ver reportes de otros usuarios")
-        if user["id_rol"] == ROLE_ENTIDAD and row["id_entidad"] != user.get("id_entidad"):
+        if not puede_ver_reporte(user, row):
+            if user["id_rol"] == Rol.CIUDADANO:
+                raise HTTPException(
+                    status_code=403, detail="No puedes ver reportes de otros usuarios"
+                )
             raise HTTPException(status_code=403, detail="No puedes ver reportes de otra entidad")
 
         return row
@@ -368,19 +392,26 @@ def obtener_reporte(
     except HTTPException:
         raise
     except Exception as e:
-        _raise_db_error(e)
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.post("/", summary="Crear Reporte")
+@router.post(
+    "/",
+    status_code=201,
+    summary="Crear Reporte",
+    response_model=CrearReporteResponse,
+    responses={403: {"description": "Sin permiso para crear reportes"}},
+)
 def crear_reporte(
     payload: ReporteCreateRequest,
     user: dict[str, Any] = Depends(require_active_user),
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
-    if user.get("id_estado_cuenta") != ESTADO_CUENTA_ACTIVO:
+    if user.get("id_estado_cuenta") != EstadoCuenta.ACTIVO:
         raise HTTPException(status_code=403, detail="Tu cuenta no está ACTIVA")
-    if user.get("id_rol") not in (ROLE_CIUDADANO, ROLE_ENTIDAD):
+    if user.get("id_rol") not in (Rol.CIUDADANO, Rol.ENTIDAD):
         raise HTTPException(status_code=403, detail="No tienes permisos para crear reportes")
 
     id_usuario_token = user["id_usuario"]
@@ -390,18 +421,23 @@ def crear_reporte(
             status_code=403, detail="No puedes crear reportes a nombre de otro usuario"
         )
 
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             id_entidad = _get_usuario_entidad(cursor, id_usuario_token)
 
-            if user["id_rol"] == ROLE_ENTIDAD and not id_entidad:
+            if user["id_rol"] == Rol.ENTIDAD and not id_entidad:
                 raise HTTPException(
                     status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
                 )
 
-            id_estado_inicial = 1  # PENDIENTE
-            fuente = "CIUDADANO" if user["id_rol"] == ROLE_CIUDADANO else "ENTIDAD"
+            pendiente_ids = _resolve_estado_ids(cursor, "PENDIENTE")
+            if not pendiente_ids:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Catálogo estado_reporte no contiene 'PENDIENTE'",
+                )
+            id_estado_inicial = pendiente_ids[0]
+            fuente = "CIUDADANO" if user["id_rol"] == Rol.CIUDADANO else "ENTIDAD"
 
             cursor.execute(
                 """
@@ -445,6 +481,14 @@ def crear_reporte(
                 mensaje="Tu reporte fue creado exitosamente y está en estado PENDIENTE",
             )
 
+            registrar_auditoria(
+                cursor,
+                id_usuario=id_usuario_token,
+                accion=Accion.CREAR_REPORTE,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
             # Retornar el reporte recién creado con todos los datos
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (new_id,))
@@ -455,23 +499,23 @@ def crear_reporte(
     except HTTPException:
         raise
     except Exception as e:
-        _raise_db_error(e)
-    finally:
-        conn.close()
+        handle_db_error(e)
 
 
-@router.put("/{id_reporte}/estado", summary="Cambiar Estado")
+@router.put(
+    "/{id_reporte}/estado",
+    summary="Cambiar Estado",
+    response_model=CambiarEstadoResponse,
+    responses={404: {"description": "Reporte no encontrado"}, 403: {"description": "Sin permiso"}, 400: {"description": "id_estado_nuevo no existe"}},
+)
 def cambiar_estado(
     id_reporte: int,
     payload: CambiarEstadoRequest,
     user: dict[str, Any] = Depends(require_active_user),
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
-    if user["id_rol"] == ROLE_CIUDADANO:
-        raise HTTPException(status_code=403, detail="No tienes permisos para cambiar el estado")
-
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             # Obtener reporte actual con su estado actual
             cursor.execute(
                 """
@@ -487,15 +531,18 @@ def cambiar_estado(
             if not rep:
                 raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
-            if user["id_rol"] == ROLE_ENTIDAD:
-                if not user.get("id_entidad"):
+            if not puede_cambiar_estado(user, rep):
+                if user["id_rol"] == Rol.ENTIDAD and not user.get("id_entidad"):
                     raise HTTPException(
                         status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
                     )
-                if rep.get("id_entidad") != user["id_entidad"]:
+                if user["id_rol"] == Rol.ENTIDAD:
                     raise HTTPException(
                         status_code=403, detail="No puedes modificar reportes de otra entidad"
                     )
+                raise HTTPException(
+                    status_code=403, detail="No tienes permisos para cambiar el estado"
+                )
 
             # Obtener nombre del nuevo estado
             cursor.execute(
@@ -532,6 +579,14 @@ def cambiar_estado(
                 mensaje=f"Tu reporte cambió a {nombre_estado_nuevo}",
             )
 
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.CAMBIAR_ESTADO,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
             # Retornar reporte actualizado
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
@@ -542,6 +597,4 @@ def cambiar_estado(
     except HTTPException:
         raise
     except Exception as e:
-        _raise_db_error(e)
-    finally:
-        conn.close()
+        handle_db_error(e)

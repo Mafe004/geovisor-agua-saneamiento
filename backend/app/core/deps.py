@@ -1,29 +1,31 @@
+import os
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
+from app.core.roles import EstadoCuenta, Rol
 from app.core.security import ALGORITHM, SECRET_KEY  # deben existir en security.py
 from app.db.database import get_connection
 
 # ✅ CAMBIO: usar HTTPBearer (NO OAuth2PasswordBearer)
 bearer_scheme = HTTPBearer()
 
-ROLE_NAME = {
-    1: "CIUDADANO",
-    2: "ENTIDAD",
-    3: "MODERADOR",
-    4: "ADMINISTRADOR",
-}
 
-ESTADO_NAME = {
-    1: "ACTIVO",
-    2: "INACTIVO",
-    3: "SUSPENDIDO",
-    4: "PENDIENTE",
-}
+def _nombre_rol(value: Any) -> str:
+    try:
+        return Rol(value).name
+    except ValueError:
+        return "DESCONOCIDO"
+
+
+def _nombre_estado(value: Any) -> str:
+    try:
+        return EstadoCuenta(value).name
+    except ValueError:
+        return "DESCONOCIDO"
 
 
 def get_current_user(
@@ -76,23 +78,39 @@ def get_current_user(
 def require_active_user(
     user: dict[str, Any] = Depends(get_current_user),
 ) -> dict[str, Any]:
-    if user.get("id_estado_cuenta") != 1:
+    if user.get("id_estado_cuenta") != EstadoCuenta.ACTIVO:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Cuenta no activa: {ESTADO_NAME.get(user.get('id_estado_cuenta'), 'DESCONOCIDO')}",
+            detail=f"Cuenta no activa: {_nombre_estado(user.get('id_estado_cuenta'))}",
         )
     return user
 
 
-def require_roles(*allowed_roles: int) -> Callable:
+def require_roles(*allowed_roles: Rol) -> Callable:
     allowed = set(allowed_roles)
 
     def _dep(user: dict[str, Any] = Depends(require_active_user)) -> dict[str, Any]:
         if user.get("id_rol") not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Rol sin permiso. Tu rol: {ROLE_NAME.get(user.get('id_rol'), 'DESCONOCIDO')}",
+                detail=f"Rol sin permiso. Tu rol: {_nombre_rol(user.get('id_rol'))}",
             )
         return user
 
     return _dep
+
+
+def get_client_ip(request: Request) -> str | None:
+    """
+    IP del cliente, para el log de auditoría.
+
+    X-Forwarded-For lo controla el cliente y por lo tanto es falsificable —
+    solo se confía en él cuando TRUST_PROXY=true, es decir, cuando de verdad
+    hay un proxy/load balancer delante que lo setea de forma confiable. Por
+    defecto se usa la IP de la conexión TCP directa (request.client.host).
+    """
+    if os.getenv("TRUST_PROXY", "false").lower() == "true":
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()[:45]  # varchar(45) en logs_auditoria
+    return request.client.host[:45] if request.client else None

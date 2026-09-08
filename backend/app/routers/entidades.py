@@ -4,8 +4,20 @@ import pymysql
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 
-from app.core.deps import require_active_user, require_roles
-from app.db.database import get_connection
+from app.core.audit import Accion, Modulo, registrar_auditoria
+from app.core.deps import get_client_ip, require_active_user, require_roles
+from app.core.errors import handle_db_error
+from app.core.roles import EstadoCuenta, Rol
+from app.db.database import get_connection, transaccion
+from app.schemas.entidades import (
+    ActualizarEntidadResponse,
+    AsignarUsuarioResponse,
+    CambiarEstadoEntidadResponse,
+    CrearEntidadResponse,
+    DesasignarUsuarioResponse,
+    EntidadDetalle,
+    UsuariosDeEntidadResponse,
+)
 
 router = APIRouter(prefix="/entidades", tags=["Entidades"])
 
@@ -73,7 +85,11 @@ def _select_entidad_sql() -> str:
 # ============================================================
 
 
-@router.get("/", summary="Listar todas las entidades (cualquier usuario activo)")
+@router.get(
+    "/",
+    summary="Listar todas las entidades (cualquier usuario activo)",
+    response_model=list[EntidadDetalle],
+)
 def listar_entidades(user: dict[str, Any] = Depends(require_active_user)) -> list[dict[str, Any]]:
     """
     Devuelve todas las entidades registradas con su estado de cuenta.
@@ -86,12 +102,17 @@ def listar_entidades(user: dict[str, Any] = Depends(require_active_user)) -> lis
             cursor.execute(_select_entidad_sql() + " ORDER BY e.nombre_entidad ASC;")
             return cursor.fetchall()
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.get("/{id_entidad}", summary="Detalle de una entidad (cualquier usuario activo)")
+@router.get(
+    "/{id_entidad}",
+    summary="Detalle de una entidad (cualquier usuario activo)",
+    response_model=EntidadDetalle,
+    responses={404: {"description": "Entidad no encontrada"}},
+)
 def detalle_entidad(
     id_entidad: int, user: dict[str, Any] = Depends(require_active_user)
 ) -> dict[str, Any]:
@@ -106,7 +127,7 @@ def detalle_entidad(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
@@ -116,17 +137,24 @@ def detalle_entidad(
 # ============================================================
 
 
-@router.post("/", status_code=201, summary="Crear nueva entidad (solo ADMIN)")
+@router.post(
+    "/",
+    status_code=201,
+    summary="Crear nueva entidad (solo ADMIN)",
+    response_model=CrearEntidadResponse,
+    responses={400: {"description": "NIT/RUT o correo institucional duplicado"}},
+)
 def crear_entidad(
-    data: EntidadCreate, user: dict[str, Any] = Depends(require_roles(4))
+    data: EntidadCreate,
+    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
     """
     El ADMINISTRADOR registra una nueva entidad institucional.
     La entidad se crea con estado ACTIVO (id_estado_cuenta=1) por defecto.
     """
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             # Verificar NIT duplicado
             cursor.execute("SELECT id_entidad FROM entidades WHERE nit_rut = %s;", (data.nit_rut,))
             if cursor.fetchone():
@@ -151,7 +179,7 @@ def crear_entidad(
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
             """,
                 (
-                    1,  # ACTIVO por defecto
+                    EstadoCuenta.ACTIVO,
                     data.nombre_entidad,
                     data.nit_rut,
                     data.correo_institucional,
@@ -164,6 +192,14 @@ def crear_entidad(
             )
             nuevo_id = cursor.lastrowid
 
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.CREAR,
+                modulo=Modulo.ENTIDADES,
+                ip=ip,
+            )
+
         return {
             "message": "Entidad creada exitosamente",
             "id_entidad": nuevo_id,
@@ -171,19 +207,24 @@ def crear_entidad(
         }
     except HTTPException:
         raise
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except Exception as e:
+        handle_db_error(e)
 
 
-@router.put("/{id_entidad}", summary="Actualizar datos de una entidad (solo ADMIN)")
+@router.put(
+    "/{id_entidad}",
+    summary="Actualizar datos de una entidad (solo ADMIN)",
+    response_model=ActualizarEntidadResponse,
+    responses={404: {"description": "Entidad no encontrada"}, 400: {"description": "Sin campos o correo duplicado"}},
+)
 def actualizar_entidad(
-    id_entidad: int, data: EntidadUpdate, user: dict[str, Any] = Depends(require_roles(4))
+    id_entidad: int,
+    data: EntidadUpdate,
+    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             cursor.execute("SELECT id_entidad FROM entidades WHERE id_entidad = %s;", (id_entidad,))
             if not cursor.fetchone():
                 raise HTTPException(status_code=404, detail="Entidad no encontrada")
@@ -212,18 +253,29 @@ def actualizar_entidad(
                 valores,
             )
 
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ACTUALIZAR,
+                modulo=Modulo.ENTIDADES,
+                ip=ip,
+            )
+
         return {"message": "Entidad actualizada exitosamente"}
     except HTTPException:
         raise
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except Exception as e:
+        handle_db_error(e)
 
 
-@router.put("/{id_entidad}/estado", summary="Cambiar estado de una entidad (solo ADMIN)")
+@router.put(
+    "/{id_entidad}/estado",
+    summary="Cambiar estado de una entidad (solo ADMIN)",
+    response_model=CambiarEstadoEntidadResponse,
+    responses={404: {"description": "Entidad no encontrada"}, 400: {"description": "Estado inválido"}},
+)
 def cambiar_estado_entidad(
-    id_entidad: int, data: CambiarEstadoEntidad, user: dict[str, Any] = Depends(require_roles(4))
+    id_entidad: int, data: CambiarEstadoEntidad, user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))
 ) -> dict[str, Any]:
     """
     Permite al ADMINISTRADOR activar, suspender o desactivar una entidad.
@@ -261,7 +313,7 @@ def cambiar_estado_entidad(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
@@ -269,17 +321,21 @@ def cambiar_estado_entidad(
 @router.put(
     "/{id_entidad}/asignar-usuario/{id_usuario}",
     summary="Asignar un usuario a una entidad (solo ADMIN)",
+    response_model=AsignarUsuarioResponse,
+    responses={404: {"description": "Entidad o usuario no encontrado"}, 400: {"description": "Rol inválido"}},
 )
 def asignar_usuario_entidad(
-    id_entidad: int, id_usuario: int, user: dict[str, Any] = Depends(require_roles(4))
+    id_entidad: int,
+    id_usuario: int,
+    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
     """
     Vincula un usuario con rol ENTIDAD a una entidad específica.
     Esto permite que el usuario gestione los reportes asignados a esa entidad.
     """
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             # Verificar entidad
             cursor.execute(
                 "SELECT id_entidad, nombre_entidad FROM entidades WHERE id_entidad = %s;",
@@ -298,7 +354,7 @@ def asignar_usuario_entidad(
             if not usuario:
                 raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-            if usuario["id_rol"] != 2:
+            if usuario["id_rol"] != Rol.ENTIDAD:
                 raise HTTPException(
                     status_code=400,
                     detail="Solo se pueden asignar usuarios con rol ENTIDAD a una entidad",
@@ -309,6 +365,14 @@ def asignar_usuario_entidad(
                 (id_entidad, id_usuario),
             )
 
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ASIGNAR_USUARIO,
+                modulo=Modulo.ENTIDADES,
+                ip=ip,
+            )
+
         return {
             "message": "Usuario asignado a la entidad exitosamente",
             "usuario": usuario["nombre_completo"],
@@ -316,25 +380,24 @@ def asignar_usuario_entidad(
         }
     except HTTPException:
         raise
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except Exception as e:
+        handle_db_error(e)
 
 
 @router.delete(
     "/{id_entidad}/desasignar-usuario/{id_usuario}",
     summary="Desasignar un usuario de una entidad (solo ADMIN)",
+    response_model=DesasignarUsuarioResponse,
+    responses={404: {"description": "Usuario no encontrado"}, 400: {"description": "No pertenece a esa entidad"}},
 )
 def desasignar_usuario_entidad(
-    id_entidad: int, id_usuario: int, user: dict[str, Any] = Depends(require_roles(4))
+    id_entidad: int, id_usuario: int, user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))
 ) -> dict[str, Any]:
     """
     Desvincula un usuario de su entidad actual.
     """
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             cursor.execute(
                 "SELECT id_usuario, nombre_completo, id_entidad FROM usuarios WHERE id_usuario = %s;",
                 (id_usuario,),
@@ -356,15 +419,18 @@ def desasignar_usuario_entidad(
         }
     except HTTPException:
         raise
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except Exception as e:
+        handle_db_error(e)
 
 
-@router.get("/{id_entidad}/usuarios", summary="Listar usuarios de una entidad (solo ADMIN)")
+@router.get(
+    "/{id_entidad}/usuarios",
+    summary="Listar usuarios de una entidad (solo ADMIN)",
+    response_model=UsuariosDeEntidadResponse,
+    responses={404: {"description": "Entidad no encontrada"}},
+)
 def usuarios_de_entidad(
-    id_entidad: int, user: dict[str, Any] = Depends(require_roles(4))
+    id_entidad: int, user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))
 ) -> dict[str, Any]:
     """
     Lista todos los usuarios asignados a una entidad específica.
@@ -407,6 +473,6 @@ def usuarios_de_entidad(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()

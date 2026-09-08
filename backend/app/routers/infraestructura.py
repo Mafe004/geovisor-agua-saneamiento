@@ -4,8 +4,16 @@ import pymysql
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.deps import require_active_user, require_roles
-from app.db.database import get_connection
+from app.core.audit import Accion, Modulo, registrar_auditoria
+from app.core.deps import get_client_ip, require_active_user, require_roles
+from app.core.errors import handle_db_error
+from app.core.roles import Rol
+from app.db.database import get_connection, transaccion
+from app.schemas.infraestructura import (
+    ActualizarInfraestructuraResponse,
+    CrearInfraestructuraResponse,
+    InfraestructuraItem,
+)
 
 router = APIRouter(prefix="/infraestructura", tags=["Infraestructura Hídrica"])
 
@@ -45,7 +53,9 @@ class InfraestructuraUpdate(BaseModel):
 # =========================
 
 
-@router.get("/", summary="Listar toda la infraestructura hídrica")
+@router.get(
+    "/", summary="Listar toda la infraestructura hídrica", response_model=list[InfraestructuraItem]
+)
 def listar_infraestructura(
     user: dict[str, Any] = Depends(require_active_user),  # ✅ Requiere token
 ) -> list[dict[str, Any]]:
@@ -72,12 +82,17 @@ def listar_infraestructura(
             """)
             return cursor.fetchall()
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.get("/{id_infraestructura}", summary="Detalle de un punto de infraestructura")
+@router.get(
+    "/{id_infraestructura}",
+    summary="Detalle de un punto de infraestructura",
+    response_model=InfraestructuraItem,
+    responses={404: {"description": "Infraestructura no encontrada"}},
+)
 def detalle_infraestructura(
     id_infraestructura: int, user: dict[str, Any] = Depends(require_active_user)
 ) -> dict[str, Any]:
@@ -95,21 +110,24 @@ def detalle_infraestructura(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
 @router.post(
-    "/", status_code=201, summary="Registrar nueva infraestructura hídrica (MODERADOR / ADMIN)"
+    "/",
+    status_code=201,
+    summary="Registrar nueva infraestructura hídrica (MODERADOR / ADMIN)",
+    response_model=CrearInfraestructuraResponse,
 )
 def crear_infraestructura(
     data: InfraestructuraCreate,
-    user: dict[str, Any] = Depends(require_roles(3, 4)),  # ✅ Solo MODERADOR y ADMIN
+    user: dict[str, Any] = Depends(require_roles(Rol.MODERADOR, Rol.ADMIN)),  # ✅ Solo MODERADOR y ADMIN
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             cursor.execute(
                 """
                 INSERT INTO infraestructura_hidrica
@@ -119,27 +137,38 @@ def crear_infraestructura(
                 (data.nombre, data.tipo, data.latitud, data.longitud, data.fuente, data.estado),
             )
             nuevo_id = cursor.lastrowid
+
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.CREAR,
+                modulo=Modulo.INFRAESTRUCTURA,
+                ip=ip,
+            )
         return {
             "message": "Infraestructura registrada exitosamente",
             "id_infraestructura": nuevo_id,
         }
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
 
 
 @router.put(
-    "/{id_infraestructura}", summary="Actualizar infraestructura hídrica (MODERADOR / ADMIN)"
+    "/{id_infraestructura}",
+    summary="Actualizar infraestructura hídrica (MODERADOR / ADMIN)",
+    response_model=ActualizarInfraestructuraResponse,
+    responses={404: {"description": "Infraestructura no encontrada"}},
 )
 def actualizar_infraestructura(
     id_infraestructura: int,
     data: InfraestructuraUpdate,
-    user: dict[str, Any] = Depends(require_roles(3, 4)),  # ✅ Solo MODERADOR y ADMIN
+    user: dict[str, Any] = Depends(require_roles(Rol.MODERADOR, Rol.ADMIN)),  # ✅ Solo MODERADOR y ADMIN
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             cursor.execute(
                 "SELECT id_infraestructura FROM infraestructura_hidrica WHERE id_infraestructura = %s;",
                 (id_infraestructura,),
@@ -160,10 +189,16 @@ def actualizar_infraestructura(
                 f"WHERE id_infraestructura = %s;",
                 valores,
             )
+
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ACTUALIZAR,
+                modulo=Modulo.INFRAESTRUCTURA,
+                ip=ip,
+            )
         return {"message": "Infraestructura actualizada exitosamente"}
     except HTTPException:
         raise
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except Exception as e:
+        handle_db_error(e)

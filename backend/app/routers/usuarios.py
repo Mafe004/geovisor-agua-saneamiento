@@ -6,9 +6,24 @@ import pymysql
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.core.deps import require_active_user, require_roles
+from app.core.audit import Accion, Modulo, registrar_auditoria
+from app.core.deps import get_client_ip, require_active_user, require_roles
+from app.core.errors import handle_db_error
+from app.core.roles import EstadoCuenta, Rol
 from app.core.security import hash_password, verify_password
-from app.db.database import get_connection
+from app.db.database import get_connection, transaccion
+from app.schemas.usuarios import (
+    ActualizarPerfilResponse,
+    CambiarEstadoUsuarioResponse,
+    CambiarPasswordResponse,
+    PendientesResponse,
+    PerfilResponse,
+    RegistroResponse,
+    RestablecerContrasenaResponse,
+    SolicitarRecuperacionResponse,
+    UsuarioDetalleResponse,
+    UsuarioListItem,
+)
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
@@ -82,17 +97,24 @@ class RestablecerContrasena(BaseModel):
 # =========================
 
 
-@router.post("/registro", status_code=201, summary="Registro público de ciudadanos (sin token)")
-def registro_ciudadano(data: RegistroUsuario) -> dict[str, Any]:
+@router.post(
+    "/registro",
+    status_code=201,
+    summary="Registro público de ciudadanos (sin token)",
+    response_model=RegistroResponse,
+    responses={400: {"description": "Correo o documento ya registrado"}},
+)
+def registro_ciudadano(
+    data: RegistroUsuario, ip: str | None = Depends(get_client_ip)
+) -> dict[str, Any]:
     """
     Endpoint público (no requiere token).
     Crea un usuario con rol CIUDADANO (id_rol=1)
     y estado PENDIENTE (id_estado_cuenta=4) hasta que un ADMIN lo active.
     El hash de la contraseña se genera automáticamente.
     """
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             # ✅ Verificar correo duplicado
             cursor.execute("SELECT id_usuario FROM usuarios WHERE correo = %s;", (data.correo,))
             if cursor.fetchone():
@@ -122,8 +144,8 @@ def registro_ciudadano(data: RegistroUsuario) -> dict[str, Any]:
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
             """,
                 (
-                    1,  # CIUDADANO
-                    4,  # PENDIENTE (admin debe activar)
+                    Rol.CIUDADANO,
+                    EstadoCuenta.PENDIENTE,  # admin debe activar
                     data.nombre_completo,
                     data.correo,
                     password_hash,  # ← siempre generado correctamente
@@ -138,6 +160,14 @@ def registro_ciudadano(data: RegistroUsuario) -> dict[str, Any]:
             )
             nuevo_id = cursor.lastrowid
 
+            registrar_auditoria(
+                cursor,
+                id_usuario=nuevo_id,
+                accion=Accion.REGISTRO,
+                modulo=Modulo.USUARIOS,
+                ip=ip,
+            )
+
         return {
             "message": "Usuario registrado exitosamente. Su cuenta está pendiente de activación.",
             "id_usuario": nuevo_id,
@@ -146,10 +176,8 @@ def registro_ciudadano(data: RegistroUsuario) -> dict[str, Any]:
         }
     except HTTPException:
         raise
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except Exception as e:
+        handle_db_error(e)
 
 
 # =========================
@@ -158,7 +186,9 @@ def registro_ciudadano(data: RegistroUsuario) -> dict[str, Any]:
 
 
 @router.post(
-    "/solicitar-recuperacion", summary="Solicitar token para restablecer contraseña (sin token)"
+    "/solicitar-recuperacion",
+    summary="Solicitar token para restablecer contraseña (sin token)",
+    response_model=SolicitarRecuperacionResponse,
 )
 def solicitar_recuperacion(data: SolicitarRecuperacion) -> dict[str, Any]:
     """
@@ -192,13 +222,16 @@ def solicitar_recuperacion(data: SolicitarRecuperacion) -> dict[str, Any]:
 
         return {"message": "Token generado exitosamente", "token": token, "expira_en": "2 horas"}
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
 @router.post(
-    "/restablecer-contrasena", summary="Restablecer contraseña usando el token recibido (sin token)"
+    "/restablecer-contrasena",
+    summary="Restablecer contraseña usando el token recibido (sin token)",
+    response_model=RestablecerContrasenaResponse,
+    responses={400: {"description": "Token inválido, usado o expirado"}},
 )
 def restablecer_contrasena(data: RestablecerContrasena) -> dict[str, Any]:
     """
@@ -244,7 +277,7 @@ def restablecer_contrasena(data: RestablecerContrasena) -> dict[str, Any]:
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
@@ -254,7 +287,11 @@ def restablecer_contrasena(data: RestablecerContrasena) -> dict[str, Any]:
 # =========================
 
 
-@router.get("/perfil", summary="Ver mi perfil (usuario autenticado)")
+@router.get(
+    "/perfil",
+    summary="Ver mi perfil (usuario autenticado)",
+    response_model=PerfilResponse,
+)
 def ver_perfil(user: dict[str, Any] = Depends(require_active_user)) -> dict[str, Any]:
     """El usuario autenticado consulta sus propios datos."""
     conn = get_connection()
@@ -286,12 +323,17 @@ def ver_perfil(user: dict[str, Any] = Depends(require_active_user)) -> dict[str,
             )
             return cursor.fetchone()
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.put("/perfil", summary="Actualizar mi perfil (usuario autenticado)")
+@router.put(
+    "/perfil",
+    summary="Actualizar mi perfil (usuario autenticado)",
+    response_model=ActualizarPerfilResponse,
+    responses={400: {"description": "Sin campos para actualizar"}},
+)
 def actualizar_perfil(
     data: ActualizarPerfil, user: dict[str, Any] = Depends(require_active_user)
 ) -> dict[str, Any]:
@@ -314,7 +356,7 @@ def actualizar_perfil(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
@@ -324,7 +366,12 @@ def actualizar_perfil(
 # =========================
 
 
-@router.put("/perfil/password", summary="Cambiar mi contraseña (usuario autenticado)")
+@router.put(
+    "/perfil/password",
+    summary="Cambiar mi contraseña (usuario autenticado)",
+    response_model=CambiarPasswordResponse,
+    responses={400: {"description": "Contraseña actual incorrecta"}, 404: {"description": "Usuario no encontrado"}},
+)
 def cambiar_password(
     data: CambiarPassword, user: dict[str, Any] = Depends(require_active_user)
 ) -> dict[str, Any]:
@@ -354,7 +401,7 @@ def cambiar_password(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
@@ -364,8 +411,12 @@ def cambiar_password(
 # =========================
 
 
-@router.get("/", summary="Listar todos los usuarios (solo ADMIN)")
-def listar_usuarios(user: dict[str, Any] = Depends(require_roles(4))) -> list[dict[str, Any]]:
+@router.get(
+    "/",
+    summary="Listar todos los usuarios (solo ADMIN)",
+    response_model=list[UsuarioListItem],
+)
+def listar_usuarios(user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))) -> list[dict[str, Any]]:
     """Lista todos los usuarios con su rol y estado de cuenta."""
     conn = get_connection()
     try:
@@ -387,18 +438,23 @@ def listar_usuarios(user: dict[str, Any] = Depends(require_roles(4))) -> list[di
             """)
             return cursor.fetchall()
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.get("/pendientes", summary="Listar usuarios pendientes de activación (solo ADMIN)")
-def listar_pendientes(user: dict[str, Any] = Depends(require_roles(4))) -> list[dict[str, Any]]:
+@router.get(
+    "/pendientes",
+    summary="Listar usuarios pendientes de activación (solo ADMIN)",
+    response_model=PendientesResponse,
+)
+def listar_pendientes(user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))) -> dict[str, Any]:
     """Lista solo los usuarios con estado PENDIENTE para facilitar la activación."""
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     u.id_usuario,
                     u.nombre_completo,
@@ -409,20 +465,27 @@ def listar_pendientes(user: dict[str, Any] = Depends(require_roles(4))) -> list[
                     u.numero_documento,
                     u.created_at
                 FROM usuarios u
-                WHERE u.id_estado_cuenta = 4
+                WHERE u.id_estado_cuenta = %s
                 ORDER BY u.created_at ASC;
-            """)
+                """,
+                (EstadoCuenta.PENDIENTE,),
+            )
             pendientes = cursor.fetchall()
         return {"total_pendientes": len(pendientes), "usuarios": pendientes}
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.get("/{id_usuario}", summary="Ver detalle de un usuario (solo ADMIN)")
+@router.get(
+    "/{id_usuario}",
+    summary="Ver detalle de un usuario (solo ADMIN)",
+    response_model=UsuarioDetalleResponse,
+    responses={404: {"description": "Usuario no encontrado"}},
+)
 def detalle_usuario(
-    id_usuario: int, user: dict[str, Any] = Depends(require_roles(4))
+    id_usuario: int, user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))
 ) -> dict[str, Any]:
     conn = get_connection()
     try:
@@ -459,24 +522,29 @@ def detalle_usuario(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
 @router.put(
-    "/{id_usuario}/estado", summary="Activar / suspender / desactivar un usuario (solo ADMIN)"
+    "/{id_usuario}/estado",
+    summary="Activar / suspender / desactivar un usuario (solo ADMIN)",
+    response_model=CambiarEstadoUsuarioResponse,
+    responses={404: {"description": "Usuario no encontrado"}, 400: {"description": "Estado inválido"}},
 )
 def cambiar_estado_usuario(
-    id_usuario: int, data: CambiarEstadoCuenta, user: dict[str, Any] = Depends(require_roles(4))
+    id_usuario: int,
+    data: CambiarEstadoCuenta,
+    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    ip: str | None = Depends(get_client_ip),
 ) -> dict[str, Any]:
     """
     Permite al ADMINISTRADOR cambiar el estado de cualquier cuenta.
     Estados: 1=ACTIVO, 2=INACTIVO, 3=SUSPENDIDO, 4=PENDIENTE
     """
-    conn = get_connection()
     try:
-        with conn.cursor() as cursor:
+        with transaccion() as cursor:
             cursor.execute(
                 "SELECT id_usuario, nombre_completo FROM usuarios WHERE id_usuario = %s;",
                 (id_usuario,),
@@ -498,6 +566,14 @@ def cambiar_estado_usuario(
                 (data.id_estado_cuenta, id_usuario),
             )
 
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.CAMBIAR_ESTADO_CUENTA,
+                modulo=Modulo.USUARIOS,
+                ip=ip,
+            )
+
         return {
             "message": "Estado de cuenta actualizado exitosamente",
             "usuario": usuario["nombre_completo"],
@@ -505,7 +581,5 @@ def cambiar_estado_usuario(
         }
     except HTTPException:
         raise
-    except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
-    finally:
-        conn.close()
+    except Exception as e:
+        handle_db_error(e)

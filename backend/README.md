@@ -186,15 +186,33 @@ DB_USER=root
 DB_PASSWORD=tu_password
 DB_NAME=geovisor_agua_saneamiento
 
-SECRET_KEY=genera-una-clave-larga-y-aleatoria
-ALGORITHM=HS256
+SECRET_KEY=genera-una-clave-larga-y-aleatoria-de-al-menos-32-caracteres
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+CORS_ORIGINS=http://localhost:8081,http://localhost:19006
+LOG_LEVEL=INFO
 ```
 
 > Genera una clave segura con:
 > ```bash
 > python -c "import secrets; print(secrets.token_hex(32))"
 > ```
+
+> ⚠️ **`SECRET_KEY` es obligatoria.** Si falta o tiene menos de 32
+> caracteres, la aplicación se niega a arrancar (`RuntimeError` al importar
+> `app/core/security.py`) en vez de arrancar con una clave insegura por
+> defecto. `ALGORITHM` ya no es configurable por entorno: está fijo en
+> `HS256` en el código para que un valor externo no pueda debilitar la
+> verificación del token.
+
+> ⚠️ **`TRUST_PROXY`** controla de dónde sale la IP que se guarda en
+> `logs_auditoria` (`app/core/deps.py:get_client_ip`). Por defecto (`false`)
+> se usa `request.client.host`, la IP real de la conexión TCP. Si pones
+> `TRUST_PROXY=true`, se usa la cabecera `X-Forwarded-For` en su lugar —
+> hazlo **solo** si el backend está detrás de un proxy/load balancer de
+> confianza que la setea de forma fiable, porque esa cabecera la controla
+> el cliente y es falsificable: sin un proxy de por medio, cualquiera puede
+> mandar `X-Forwarded-For: lo-que-quiera` y aparecer así en el log.
 
 ### 5. Crear la base de datos
 
@@ -220,6 +238,46 @@ curl http://localhost:8000/health
 ```
 
 📖 Documentación interactiva (Swagger): `http://localhost:8000/docs`
+
+---
+
+## 🧪 Suite de tests
+
+```bash
+pip install -r requirements-dev.txt   # incluye pytest, pytest-cov, httpx, ruff
+pytest                                 # corre toda la suite
+pytest --cov=app --cov-report=term-missing   # con reporte de cobertura
+pytest -m "not integration"            # solo tests unitarios puros (sin BD)
+```
+
+**No corren contra tu base de datos de desarrollo.** `tests/conftest.py`
+crea y destruye una base separada, `geovisor_test`, en el mismo servidor
+MySQL configurado en tu `.env` — recreándola desde
+`geovisor_backup_limpio.sql` una vez por sesión de test, y truncando +
+resembrando esas mismas tablas antes de **cada** test individual, así que
+el orden de ejecución nunca importa y no hace falta ningún reset manual
+entre corridas.
+
+Un guard en `conftest.py` aborta la sesión completa si `DB_NAME` no termina
+en `_test` — es la única protección real contra apuntar por error la suite
+(que es destructiva: TRUNCATE de todas las tablas) a la base real.
+
+La config de test vive en `tests/.env.test` (se commitea — no tiene nada
+sensible): fija `DB_NAME=geovisor_test` y un `SECRET_KEY` determinista para
+que los tokens de los tests sean reproducibles. `DB_HOST`/`DB_PORT`/
+`DB_USER`/`DB_PASSWORD` se toman de tu `backend/.env` real (mismo servidor,
+otra base) — no hace falta duplicarlos.
+
+Los fixtures `client_ciudadano` / `client_entidad` / `client_moderador` /
+`client_admin` hacen un `POST /auth/login` real con la contraseña
+`demo2025` contra los usuarios semilla del dump — el hash semilla original
+no corresponde en realidad a esa contraseña (es un placeholder), así que
+`conftest.py` lo sobreescribe con un hash real de `demo2025` solo dentro de
+`geovisor_test`, nunca en el dump ni en tu base de desarrollo.
+
+Requiere un servidor MySQL accesible con las credenciales de tu `.env`
+(por ejemplo, el mismo que ya usas para desarrollo) — no se necesita
+Docker para correrla en local, solo en CI (ver `.github/workflows/ci.yml`).
 
 ---
 

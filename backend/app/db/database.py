@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 
 import pymysql
 from dotenv import load_dotenv
@@ -29,3 +30,30 @@ def get_connection():
         autocommit=True,
         conv=DECIMAL_AS_FLOAT,
     )
+
+
+@contextmanager
+def transaccion():
+    """
+    Cursor transaccional: commit al salir, rollback ante cualquier excepción
+    — incluida HTTPException, que también es una Exception y por lo tanto
+    revierte la transacción antes de propagarse hacia FastAPI (el cliente
+    sigue viendo el status code original, no un 500).
+
+    Solo para handlers que escriben en más de una tabla, o que escriben una
+    tabla de negocio y además una fila de auditoría (registrar_auditoria
+    exige un cursor ya abierto en la transacción del llamador). Los
+    handlers de solo lectura deben seguir usando get_connection() con
+    autocommit — envolverlos aquí sería overhead sin beneficio.
+    """
+    conn = get_connection()
+    conn.autocommit(False)
+    try:
+        with conn.cursor() as cur:
+            yield cur
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

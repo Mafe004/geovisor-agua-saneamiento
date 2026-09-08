@@ -5,7 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.deps import require_active_user
+from app.core.errors import handle_db_error
 from app.db.database import get_connection
+from app.schemas.notificaciones import (
+    MarcarLeidaResponse,
+    MarcarTodasLeidasResponse,
+    NotificacionItem,
+)
 
 router = APIRouter(prefix="/notificaciones", tags=["Notificaciones"])
 
@@ -14,7 +20,11 @@ class MarcarLeidaRequest(BaseModel):
     leida: bool = Field(True, description="true para marcar como leída, false para no leída")
 
 
-@router.get("/", summary="Mis notificaciones (usuario autenticado)")
+@router.get(
+    "/",
+    summary="Mis notificaciones (usuario autenticado)",
+    response_model=list[NotificacionItem],
+)
 def listar_mis_notificaciones(
     solo_no_leidas: bool = False,
     user: dict[str, Any] = Depends(require_active_user),  # ✅ id_usuario sale del token
@@ -46,12 +56,16 @@ def listar_mis_notificaciones(
             cursor.execute(query, params)
             return cursor.fetchall()
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.put("/marcar-todas-leidas", summary="Marcar todas mis notificaciones como leídas")
+@router.put(
+    "/marcar-todas-leidas",
+    summary="Marcar todas mis notificaciones como leídas",
+    response_model=MarcarTodasLeidasResponse,
+)
 def marcar_todas_leidas(user: dict[str, Any] = Depends(require_active_user)) -> dict[str, Any]:
     """Marca todas las notificaciones no leídas del usuario autenticado."""
     conn = get_connection()
@@ -63,12 +77,17 @@ def marcar_todas_leidas(user: dict[str, Any] = Depends(require_active_user)) -> 
             )
         return {"message": "Todas las notificaciones marcadas como leídas"}
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()
 
 
-@router.put("/{id_notificacion}/leer", summary="Marcar una notificación como leída o no leída")
+@router.put(
+    "/{id_notificacion}/leer",
+    summary="Marcar una notificación como leída o no leída",
+    response_model=MarcarLeidaResponse,
+    responses={404: {"description": "Notificación no encontrada"}, 403: {"description": "No es tuya"}},
+)
 def marcar_leida(
     id_notificacion: int,
     payload: MarcarLeidaRequest,
@@ -98,6 +117,6 @@ def marcar_leida(
     except HTTPException:
         raise
     except pymysql.MySQLError as e:
-        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}") from e
+        handle_db_error(e)
     finally:
         conn.close()

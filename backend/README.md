@@ -310,6 +310,25 @@ python tools_hash.py
 | `logs_auditoria` | Registro de acciones administrativas |
 | `recuperacion_contrasena` | Tokens temporales para reset de contraseña |
 
+> ⚠️ **Sin stored procedures para lógica de negocio, a propósito.** El dump
+> tenía un `sp_cambiar_estado_reporte` que duplicaba en SQL lo que hace
+> `reportes.cambiar_estado()` (UPDATE + 2 INSERT) — nada lo llamaba, y se
+> eliminó. La razón para no tener uno: esa operación requiere autorizar
+> según el rol y la identidad del JWT del llamador (dueño del reporte /
+> entidad asignada / MODERADOR / ADMIN), algo que la base de datos no
+> puede ver. La lógica de negocio con reglas de autorización vive en la
+> capa de aplicación (Python), nunca en SQL — un procedimiento almacenado
+> aquí sería, en el mejor caso, código que se desincroniza en silencio de
+> su equivalente en Python, y en el peor, una vía para saltarse los
+> controles de acceso.
+>
+> La vista `vw_reportes_completos` sigue en el dump pero **tampoco la usa
+> ningún código actual** (se verificó con grep) — a diferencia del
+> procedimiento, no se eliminó en esta pasada porque una vista es más
+> probable que la esté usando una consulta manual o una herramienta de
+> reporting fuera de este repo; queda señalada aquí para que alguien con
+> ese contexto decida si también se puede quitar.
+
 ---
 
 *Municipio de Zipaquirá · Cundinamarca · Colombia · Tesis 2025*

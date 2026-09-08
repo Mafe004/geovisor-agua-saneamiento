@@ -411,41 +411,21 @@ CREATE VIEW `vw_reportes_completos` AS
   JOIN estado_reporte er ON r.id_estado          = er.id_estado;
 
 -- ============================================================
--- STORED PROCEDURE: cambiar estado de reporte (transacción)
+-- NOTA: deliberadamente no hay un stored procedure para cambiar el
+-- estado de un reporte. Existió uno aquí (sp_cambiar_estado_reporte:
+-- UPDATE reportes + INSERT historial_reportes + INSERT notificaciones),
+-- pero ningún código lo llamaba — la misma lógica vive en
+-- reportes.cambiar_estado() (backend/app/routers/reportes.py), que
+-- además hace lo que el procedimiento no podía: autorizar la operación
+-- según el rol y la identidad del JWT del llamador (¿es dueño del
+-- reporte? ¿es de la entidad asignada? ¿es MODERADOR/ADMIN?) y auditarla
+-- en logs_auditoria. La base de datos no tiene forma de ver esa
+-- identidad, así que un procedimiento que duplicara los mismos writes
+-- sin ese contexto sería, en el mejor caso, código muerto que puede
+-- desincronizarse en silencio, y en el peor, una vía para saltarse la
+-- autorización si alguna vez alguien lo llamara directamente. Ver
+-- también backend/README.md.
 -- ============================================================
-
-DROP PROCEDURE IF EXISTS `sp_cambiar_estado_reporte`;
-DELIMITER ;;
-CREATE PROCEDURE `sp_cambiar_estado_reporte`(
-    IN p_id_reporte  INT,
-    IN p_nuevo_estado INT,
-    IN p_id_usuario  INT,
-    IN p_comentario  VARCHAR(255)
-)
-BEGIN
-    DECLARE v_estado_anterior    VARCHAR(50);
-    DECLARE v_nombre_estado_nuevo VARCHAR(50);
-
-    SELECT er.nombre INTO v_estado_anterior
-    FROM reportes r
-    JOIN estado_reporte er ON r.id_estado = er.id_estado
-    WHERE r.id_reporte = p_id_reporte;
-
-    SELECT nombre INTO v_nombre_estado_nuevo
-    FROM estado_reporte WHERE id_estado = p_nuevo_estado;
-
-    UPDATE reportes SET id_estado = p_nuevo_estado WHERE id_reporte = p_id_reporte;
-
-    INSERT INTO historial_reportes
-        (id_reporte, estado_anterior, estado_nuevo, comentario, id_usuario_accion, fecha_cambio)
-    VALUES (p_id_reporte, v_estado_anterior, v_nombre_estado_nuevo, p_comentario, p_id_usuario, NOW());
-
-    INSERT INTO notificaciones (id_usuario, id_reporte, tipo_notificacion, mensaje, leida, fecha_envio)
-    SELECT r.id_usuario, r.id_reporte, 'CAMBIO_ESTADO',
-           CONCAT('Tu reporte cambió a ', v_nombre_estado_nuevo), 0, NOW()
-    FROM reportes r WHERE r.id_reporte = p_id_reporte;
-END ;;
-DELIMITER ;
 
 -- ============================================================
 -- RESTAURAR CONFIGURACIÓN ORIGINAL

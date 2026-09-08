@@ -69,11 +69,14 @@ def _split_statements(sql_text: str) -> list[str]:
     """
     Separa el dump en sentencias individuales ejecutables una por una.
 
-    El dump no necesita DELIMITER hasta la vista y el procedimiento
-    almacenado al final (sp_cambiar_estado_reporte) — ninguno de los dos lo
-    usa la aplicación (reportes.cambiar_estado reimplementa la misma lógica
-    directamente), así que se corta el texto justo antes de esa sección y
-    se evita tener que parsear bloques DELIMITER a mano.
+    El dump no necesita DELIMITER hasta la vista al final
+    (vw_reportes_completos) — no la usa la aplicación (se verificó con
+    grep), así que se corta el texto justo antes de esa sección. El
+    stored procedure que solía venir después de la vista
+    (sp_cambiar_estado_reporte, tampoco usado — la misma lógica vive en
+    reportes.cambiar_estado(), que además autoriza la operación) se quitó
+    del dump directamente, así que ya no hace falta lidiar con su bloque
+    DELIMITER aquí.
     """
     marker = "VISTA: reportes completos"
     if marker in sql_text:

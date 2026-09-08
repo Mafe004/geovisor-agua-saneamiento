@@ -49,7 +49,7 @@ export default function AuditoriaScreen() {
       ) : (
         <FlatList
           data={logs}
-          keyExtractor={(l, i) => String(l.id_auditoria || i)}
+          keyExtractor={(l, i) => String(l.id_log ?? i)}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadLogs(true); }} colors={['#1565C0']} />
           }
@@ -65,16 +65,11 @@ export default function AuditoriaScreen() {
                     <View style={[styles.accionBadge, { backgroundColor: color + '20' }]}>
                       <Text style={[styles.accionText, { color }]}>{accion}</Text>
                     </View>
-                    <Text style={styles.logTime}>{formatDate(item.fecha)}</Text>
+                    <Text style={styles.logTime}>{formatDate(item.fecha_accion)}</Text>
                   </View>
-                  <Text style={styles.logDesc}>{item.descripcion || item.tabla_afectada || '—'}</Text>
-                  {item.usuario_nombre && (
-                    <Text style={styles.logUser}>
-                      👤 {item.usuario_nombre} {item.usuario_apellido || ''}
-                    </Text>
-                  )}
-                  {item.tabla_afectada && (
-                    <Text style={styles.logTable}>Tabla: {item.tabla_afectada}</Text>
+                  <Text style={styles.logDesc}>{item.modulo || '—'}</Text>
+                  {item.usuario && (
+                    <Text style={styles.logUser}>👤 {item.usuario}</Text>
                   )}
                 </View>
               </View>
@@ -114,7 +109,6 @@ const styles = StyleSheet.create({
   logTime: { fontSize: 10, color: '#9CA3AF' },
   logDesc: { fontSize: 13, color: '#374151', marginBottom: 4 },
   logUser: { fontSize: 11, color: '#6B7280' },
-  logTable: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
   emptyContainer: { flex: 1 },
   empty: { alignItems: 'center', padding: 40, marginTop: 60 },
   emptyIcon: { fontSize: 56, marginBottom: 16 },

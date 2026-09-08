@@ -1,33 +1,34 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet,
   RefreshControl, TextInput, TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
-import { reportesAPI } from '../../api/services';
+import { reportesAPI, catalogosAPI } from '../../api/services';
 import ReportCard from '../../components/ReportCard';
-
-const FILTROS = [
-  { key: '',            label: 'Todos'      },
-  { key: 'PENDIENTE',   label: 'Pendiente'  },
-  { key: 'EN_REVISION', label: 'Revisión'   },
-  { key: 'EN_PROCESO',  label: 'Proceso'    },
-  { key: 'RESUELTO',    label: 'Resuelto'   },
-];
 
 export default function TodosReportesScreen({ navigation }) {
   const [reportes, setReportes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filtroEstado, setFiltroEstado] = useState('');
+  const [estadosDisponibles, setEstadosDisponibles] = useState([]);
+  const [idEstado, setIdEstado] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    catalogosAPI.estadosReporte()
+      .then(res => { if (mounted) setEstadosDisponibles(res.data || []); })
+      .catch(() => { if (mounted) setEstadosDisponibles([]); });
+    return () => { mounted = false; };
+  }, []);
 
   const loadReportes = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const params = {};
-      if (filtroEstado) params.estado = filtroEstado;
+      if (idEstado != null) params.id_estado = idEstado;
       const res = await reportesAPI.listar(params);
       setReportes(res.data || []);
     } catch (_) {
@@ -36,7 +37,7 @@ export default function TodosReportesScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filtroEstado]);
+  }, [idEstado]);
 
   useFocusEffect(useCallback(() => { loadReportes(); }, [loadReportes]));
 
@@ -72,14 +73,22 @@ export default function TodosReportesScreen({ navigation }) {
 
       {/* Filtros de estado */}
       <View style={styles.filterScroll}>
-        {FILTROS.map(f => (
+        <TouchableOpacity
+          style={[styles.filterChip, idEstado === null && styles.filterChipActive]}
+          onPress={() => setIdEstado(null)}
+        >
+          <Text style={[styles.filterText, idEstado === null && styles.filterTextActive]}>
+            Todos
+          </Text>
+        </TouchableOpacity>
+        {estadosDisponibles.map(e => (
           <TouchableOpacity
-            key={f.key}
-            style={[styles.filterChip, filtroEstado === f.key && styles.filterChipActive]}
-            onPress={() => setFiltroEstado(f.key)}
+            key={e.id_estado}
+            style={[styles.filterChip, idEstado === e.id_estado && styles.filterChipActive]}
+            onPress={() => setIdEstado(e.id_estado)}
           >
-            <Text style={[styles.filterText, filtroEstado === f.key && styles.filterTextActive]}>
-              {f.label}
+            <Text style={[styles.filterText, idEstado === e.id_estado && styles.filterTextActive]}>
+              {e.nombre.replace(/_/g, ' ')}
             </Text>
           </TouchableOpacity>
         ))}

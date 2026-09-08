@@ -1,22 +1,14 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { reportesAPI } from '../../api/services';
+import { reportesAPI, catalogosAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import StatusBadge from '../../components/StatusBadge';
 import GradientHeader from '../../components/GradientHeader';
 import MapaWebView from '../../components/MapaWebView';
-
-const ESTADOS_DISPONIBLES = [
-  { key: 'PENDIENTE',   label: 'Pendiente'   },
-  { key: 'EN_REVISION', label: 'En Revisión' },
-  { key: 'EN_PROCESO',  label: 'En Proceso'  },
-  { key: 'RESUELTO',    label: 'Resuelto'    },
-  { key: 'RECHAZADO',   label: 'Rechazado'   },
-];
 
 function formatDate(d) {
   if (!d) return '—';
@@ -29,7 +21,8 @@ function formatDate(d) {
 export default function DetalleReporteScreen({ route, navigation }) {
   const { reporte: inicial } = route.params || {};
   const [reporte, setReporte] = useState(inicial);
-  const [nuevoEstado, setNuevoEstado] = useState(inicial?.estado || '');
+  const [estadosDisponibles, setEstadosDisponibles] = useState([]);
+  const [idEstadoNuevo, setIdEstadoNuevo] = useState(null);
   const [comentario, setComentario] = useState('');
   const [updating, setUpdating] = useState(false);
   const { user, isModerador, isAdmin } = useContext(AuthContext);
@@ -37,22 +30,32 @@ export default function DetalleReporteScreen({ route, navigation }) {
   // Roles que pueden cambiar estado: entidad (2), moderador (3), admin (4)
   const canChangeStatus = isModerador || isAdmin || (user?.id_rol === 2);
 
+  useEffect(() => {
+    let mounted = true;
+    catalogosAPI.estadosReporte()
+      .then(res => { if (mounted) setEstadosDisponibles(res.data || []); })
+      .catch(() => { if (mounted) setEstadosDisponibles([]); });
+    return () => { mounted = false; };
+  }, []);
+
   const handleUpdateEstado = async () => {
-    if (!nuevoEstado || nuevoEstado === reporte.estado) {
+    const seleccionado = estadosDisponibles.find(e => e.id_estado === idEstadoNuevo);
+    if (!seleccionado || seleccionado.nombre === reporte.estado) {
       Alert.alert('Sin cambios', 'Selecciona un estado diferente al actual.');
       return;
     }
     try {
       setUpdating(true);
-      await reportesAPI.cambiarEstado(reporte.id_reporte, {
-        estado: nuevoEstado,
+      const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
+        id_estado_nuevo: idEstadoNuevo,
         comentario: comentario.trim() || undefined,
       });
-      setReporte(r => ({ ...r, estado: nuevoEstado }));
+      setReporte(res.data.reporte);
       setComentario('');
+      setIdEstadoNuevo(null);
       Alert.alert(
         '✅ Estado actualizado',
-        `El reporte ahora está en: ${nuevoEstado.replace(/_/g, ' ')}`
+        `El reporte ahora está en: ${seleccionado.nombre.replace(/_/g, ' ')}`
       );
     } catch (e) {
       Alert.alert('Error', e?.response?.data?.detail || 'No se pudo actualizar el estado.');
@@ -151,21 +154,21 @@ export default function DetalleReporteScreen({ route, navigation }) {
         {canChangeStatus && (
           <Section title="🔄 Cambiar Estado">
             <View style={styles.estadoGrid}>
-              {ESTADOS_DISPONIBLES.map(e => (
+              {estadosDisponibles.map(e => (
                 <TouchableOpacity
-                  key={e.key}
+                  key={e.id_estado}
                   style={[
                     styles.estadoChip,
-                    nuevoEstado === e.key && styles.estadoChipActive,
-                    reporte.estado === e.key && styles.estadoChipCurrent,
+                    idEstadoNuevo === e.id_estado && styles.estadoChipActive,
+                    reporte.estado === e.nombre && styles.estadoChipCurrent,
                   ]}
-                  onPress={() => setNuevoEstado(e.key)}
+                  onPress={() => setIdEstadoNuevo(e.id_estado)}
                 >
                   <Text style={[
                     styles.estadoChipText,
-                    nuevoEstado === e.key && styles.estadoChipTextActive,
+                    idEstadoNuevo === e.id_estado && styles.estadoChipTextActive,
                   ]}>
-                    {e.label}{reporte.estado === e.key ? ' ✓' : ''}
+                    {e.nombre.replace(/_/g, ' ')}{reporte.estado === e.nombre ? ' ✓' : ''}
                   </Text>
                 </TouchableOpacity>
               ))}

@@ -16,7 +16,7 @@ export default function ReportesAsignadosScreen({ navigation }) {
     if (!silent) setLoading(true);
     try {
       // Solo traer los que NO están resueltos para priorizar
-      const res = await reportesAPI.listar({ asignados: true });
+      const res = await reportesAPI.listar({ solo_activos: true });
       setReportes(res.data || []);
     } catch (_) {
       setReportes([]);

@@ -199,6 +199,34 @@ Asegúrate de que el teléfono y tu PC estén **en la misma red WiFi**.
 | `app.json` | Configuración de Expo: nombre, íconos, splash, Google Maps API Key |
 | `package.json` | Dependencias y scripts npm |
 | `src/api/client.js` | ⚠️ Aquí cambias la IP del backend |
+| `src/types/api.d.ts` | Tipos TypeScript generados desde el OpenAPI del backend (ver abajo) |
+
+---
+
+## 🧾 Contrato de la API (`src/types/api.d.ts`)
+
+El backend expone un OpenAPI real (con `response_model` en cada endpoint), y
+`src/types/api.d.ts` es su traducción a tipos TypeScript, generada con
+[`openapi-typescript`](https://openapi-ts.dev/):
+
+```bash
+npm run gen:api
+```
+
+Esto requiere que el backend esté corriendo en `http://localhost:8000`
+(`uvicorn main:app --reload` desde `backend/`). El script apunta a
+`http://localhost:8000/openapi.json` — edítalo en `package.json` si tu
+backend corre en otro host/puerto.
+
+**Este archivo es generado, no lo edites a mano.** Regenéralo (`npm run
+gen:api`) cada vez que cambie un `response_model`, un schema en
+`backend/app/schemas/`, o la forma de un endpoint, y confirma el archivo
+actualizado junto con el cambio de backend que lo motivó — así el contrato
+en el repo nunca queda desincronizado con la API real.
+
+Ningún archivo de la app se migró a TypeScript todavía: los tipos existen
+para consultarlos y para una futura migración incremental, no se están
+usando aún en `.js`.
 
 ---
 

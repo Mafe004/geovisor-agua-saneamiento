@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, RefreshControl, ActivityIndicator,
+  View, Text, FlatList, StyleSheet, RefreshControl, ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { historialAPI } from '../../api/services';
@@ -17,6 +17,7 @@ export default function HistorialScreen() {
   const [historial, setHistorial] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => { loadHistorial(); }, []);
 
@@ -25,8 +26,9 @@ export default function HistorialScreen() {
     try {
       const res = await historialAPI.listar({});
       setHistorial(res.data || []);
+      setError(false);
     } catch (_) {
-      setHistorial([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -43,6 +45,15 @@ export default function HistorialScreen() {
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color="#1565C0" />
+        </View>
+      ) : error ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>⚠️</Text>
+          <Text style={styles.emptyTitle}>No se pudo cargar el historial</Text>
+          <Text style={styles.emptyText}>Verifica tu conexión e intenta de nuevo.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => loadHistorial()}>
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -133,4 +144,9 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 56, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#6B7280', textAlign: 'center' },
+  retryBtn: {
+    marginTop: 16, backgroundColor: '#1565C0',
+    borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10,
+  },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

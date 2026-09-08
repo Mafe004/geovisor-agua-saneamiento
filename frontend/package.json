@@ -26,17 +26,18 @@
     "react-dom": "19.0.0",
     "react-native": "0.78.3",
     "react-native-gesture-handler": "~3.1.0",
-    "react-native-webview": "~13.12.5",
     "react-native-paper": "^5.12.3",
     "react-native-reanimated": "~3.19.5",
     "react-native-safe-area-context": "5.8.0",
     "react-native-screens": "~4.26.2",
-    "react-native-web": "~0.19.13"
+    "react-native-web": "~0.19.13",
+    "react-native-webview": "~13.12.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "eslint": "^9.0.0",
-    "eslint-config-expo": "~10.0.0"
+    "eslint-config-expo": "~10.0.0",
+    "openapi-typescript": "^7.13.0"
   },
   "scripts": {
     "dev": "expo start",
@@ -45,7 +46,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "lint:fix": "expo lint -- --fix"
+    "lint:fix": "expo lint -- --fix",
+    "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o src/types/api.d.ts"
   },
   "private": true
 }

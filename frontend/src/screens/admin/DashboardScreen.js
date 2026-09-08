@@ -35,10 +35,19 @@ export default function DashboardScreen() {
     );
   }
 
+  // El backend agrupa con GROUP BY: cada arreglo solo trae las filas con
+  // conteo > 0. Una clave ausente significa cero, no dato faltante.
+  const byEstado = Object.fromEntries(
+    (stats?.por_estado ?? []).map(r => [r.estado, r.total])
+  );
+  const bySeveridad = Object.fromEntries(
+    (stats?.por_severidad ?? []).map(r => [r.severidad, r.total])
+  );
+
   const totalReportes = stats?.total_reportes ?? 0;
-  const pendientes    = stats?.por_estado?.PENDIENTE ?? 0;
-  const enProceso     = stats?.por_estado?.EN_PROCESO ?? 0;
-  const resueltos     = stats?.por_estado?.RESUELTO ?? 0;
+  const pendientes    = byEstado.PENDIENTE ?? 0;
+  const enProceso     = byEstado.EN_PROCESO ?? 0;
+  const resueltos     = byEstado.RESUELTO ?? 0;
   const tasaResolucion = totalReportes
     ? Math.round((resueltos / totalReportes) * 100)
     : 0;
@@ -102,30 +111,30 @@ export default function DashboardScreen() {
           <>
             <Text style={styles.sectionTitle}>Por severidad</Text>
             <View style={styles.cardRow}>
-              <StatCard title="Alta" value={stats.por_severidad.ALTA ?? 0} icon="🔴" gradient={['#EF4444', '#F87171']} style={styles.cardFlex} />
-              <StatCard title="Media" value={stats.por_severidad.MEDIA ?? 0} icon="🟡" gradient={['#F59E0B', '#FBBF24']} style={styles.cardFlex} />
-              <StatCard title="Baja" value={stats.por_severidad.BAJA ?? 0} icon="🟢" gradient={['#10B981', '#34D399']} style={styles.cardFlex} />
+              <StatCard title="Alta" value={bySeveridad.ALTA ?? 0} icon="🔴" gradient={['#EF4444', '#F87171']} style={styles.cardFlex} />
+              <StatCard title="Media" value={bySeveridad.MEDIA ?? 0} icon="🟡" gradient={['#F59E0B', '#FBBF24']} style={styles.cardFlex} />
+              <StatCard title="Baja" value={bySeveridad.BAJA ?? 0} icon="🟢" gradient={['#10B981', '#34D399']} style={styles.cardFlex} />
             </View>
           </>
         )}
 
         {/* Por tipo */}
-        {stats?.por_tipo && stats.por_tipo.length > 0 && (
+        {stats?.por_tipo_incidente && stats.por_tipo_incidente.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Por tipo de incidente</Text>
             <View style={styles.tipoList}>
-              {stats.por_tipo.slice(0, 6).map((t, i) => (
+              {stats.por_tipo_incidente.slice(0, 6).map((t, i) => (
                 <View key={i} style={styles.tipoRow}>
-                  <Text style={styles.tipoName}>{t.tipo || 'Sin tipo'}</Text>
+                  <Text style={styles.tipoName}>{t.tipo_incidente || 'Sin tipo'}</Text>
                   <View style={styles.tipoBarWrap}>
                     <View
                       style={[
                         styles.tipoBar,
-                        { width: `${Math.round((t.cantidad / totalReportes) * 100)}%` },
+                        { width: `${totalReportes ? Math.round((t.total / totalReportes) * 100) : 0}%` },
                       ]}
                     />
                   </View>
-                  <Text style={styles.tipoCount}>{t.cantidad}</Text>
+                  <Text style={styles.tipoCount}>{t.total}</Text>
                 </View>
               ))}
             </View>

@@ -43,6 +43,8 @@ export const COLORS = {
   overlay: 'rgba(13, 27, 42, 0.5)',
 };
 
+// `as const` so each pair is a 2-tuple, not string[] — expo-linear-gradient's
+// `colors` prop requires `readonly [ColorValue, ColorValue, ...ColorValue[]]`.
 export const GRADIENTS = {
   primary: ['#1565C0', '#00ACC1'],
   primaryDark: ['#0D47A1', '#1565C0'],
@@ -50,4 +52,4 @@ export const GRADIENTS = {
   success: ['#059669', '#10B981'],
   warning: ['#D97706', '#F59E0B'],
   danger: ['#DC2626', '#EF4444'],
-};
+} as const;

@@ -19,3 +19,9 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: hits a real MySQL database (geovisor_test) through TestClient, not a pure-Python unit test",
+]

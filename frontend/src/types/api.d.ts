@@ -1712,6 +1712,20 @@ export interface operations {
                     "application/json": components["schemas"]["UserPublic"];
                 };
             };
+            /** @description Token inválido o inexistente */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Cuenta no activa */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     estados_reporte_catalogos_estado_reporte_get: {

@@ -66,6 +66,24 @@ def test_me_sin_token_da_401(client_anon):
     assert res.status_code == 401
 
 
+def test_me_con_token_valido_pero_cuenta_suspendida_da_403(client_ciudadano, client_admin):
+    """
+    Guardia de regresión para /auth/me: si un token sigue siendo
+    criptográficamente válido pero la cuenta fue suspendida DESPUÉS de
+    emitirlo, /me debe reflejarlo con un 403 — no basta con que el JWT
+    tenga buena firma, la cuenta detrás también tiene que seguir activa.
+    Esto es justo lo que el frontend usa para revalidar la sesión al
+    abrir la app (AuthContext.loadStoredAuth).
+    """
+    # client_ciudadano ya tiene un token válido y vigente cuando llega acá.
+    res_suspender = client_admin.put("/usuarios/1/estado", json={"id_estado_cuenta": 3})
+    assert res_suspender.status_code == 200
+
+    res_me = client_ciudadano.get("/auth/me")
+    assert res_me.status_code == 403
+    assert "no activa" in res_me.json()["detail"].lower()
+
+
 def test_me_con_token_malformado_da_401(client_anon):
     client_anon.headers.update({"Authorization": "Bearer esto-no-es-un-jwt-valido"})
     res = client_anon.get("/auth/me")

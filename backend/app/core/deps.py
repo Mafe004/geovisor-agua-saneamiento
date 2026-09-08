@@ -59,7 +59,7 @@ def get_current_user(
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id_usuario, correo, id_rol, id_estado_cuenta, id_entidad
+                SELECT id_usuario, correo, nombre_completo, id_rol, id_estado_cuenta, id_entidad
                 FROM usuarios
                 WHERE id_usuario = %s;
                 """,

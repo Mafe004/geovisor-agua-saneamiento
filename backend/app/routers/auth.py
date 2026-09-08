@@ -2,21 +2,18 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError
 from pydantic import BaseModel, Field
 
 from app.core.audit import Accion, Modulo, registrar_auditoria
-from app.core.deps import get_client_ip
+from app.core.deps import get_client_ip, require_active_user
 from app.core.roles import EstadoCuenta
-from app.core.security import create_access_token, decode_token, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, verify_password
 from app.db.database import get_connection, transaccion
 from app.schemas.auth import LoginResponse, UserPublic
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-bearer_scheme = HTTPBearer()
 
 # Hash constante contra el que se verifica cuando el correo no existe, para
 # que el tiempo de respuesta no revele si una cuenta está registrada.
@@ -58,52 +55,6 @@ def _get_user_by_email(correo: str) -> dict[str, Any]:
         return user
     finally:
         conn.close()
-
-
-def _get_user_by_id(id_usuario: int) -> dict[str, Any]:
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT
-                    id_usuario, id_rol, id_estado_cuenta, id_entidad,
-                    nombre_completo, correo
-                FROM usuarios
-                WHERE id_usuario = %s
-                LIMIT 1;
-            """,
-                (id_usuario,),
-            )
-            user = cursor.fetchone()
-        return user
-    finally:
-        conn.close()
-
-
-# =========================
-# DEPENDENCY (PROTECCIÓN)
-# =========================
-
-
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-) -> dict[str, Any]:
-    token = credentials.credentials
-    try:
-        payload = decode_token(token)
-        sub = payload.get("sub")
-        if sub is None:
-            raise HTTPException(status_code=401, detail="Token inválido (sin sub)")
-        user_id = int(sub)
-    except (JWTError, ValueError):
-        raise HTTPException(status_code=401, detail="Token inválido") from None
-
-    user = _get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Usuario no existe")
-
-    return user
 
 
 # =========================
@@ -180,7 +131,15 @@ def login(payload: LoginRequest, ip: str | None = Depends(get_client_ip)):
 
 
 @router.get(
-    "/me", summary="Devuelve el usuario logueado (token)", response_model=UserPublic
+    "/me",
+    summary="Devuelve el usuario logueado (token)",
+    response_model=UserPublic,
+    responses={401: {"description": "Token inválido o inexistente"}, 403: {"description": "Cuenta no activa"}},
 )
-def me(current_user: dict[str, Any] = Depends(get_current_user)):
+def me(current_user: dict[str, Any] = Depends(require_active_user)):
+    # require_active_user (no un get_current_user local) para que esta
+    # revalidación de sesión sea consistente con el resto de la API: una
+    # cuenta suspendida DEBE dar 403 acá también, no solo en los demás
+    # endpoints — si no, el frontend nunca se entera de que la cuenta ya
+    # no está activa hasta que falla la primera acción real.
     return current_user

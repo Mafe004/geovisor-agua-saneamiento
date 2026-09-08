@@ -124,7 +124,30 @@ App.js
                     └── rol 4 → AdminTabs
 ```
 
-El token JWT se guarda en `AsyncStorage` con la clave `'token'`. Al abrir la app, `AuthContext` lo recupera y valida automáticamente con `/auth/me`.
+El token JWT se guarda en `AsyncStorage` con la clave `'token'`. Al abrir la
+app, `AuthContext.loadStoredAuth()` lo recupera y lo revalida contra
+`GET /auth/me` — el servidor es la fuente de verdad, no lo que quedó
+cacheado, así que un cambio de rol o una cuenta suspendida se reflejan
+apenas se abre la app, no cuando falla la primera acción real. `loading`
+se mantiene en `true` (mostrando `LoadingScreen`) hasta que esa
+revalidación se resuelve, en cualquiera de sus tres desenlaces:
+
+- **200** → se guarda y se usa el usuario que devolvió el servidor.
+- **401 / 403** (token inválido/vencido, cuenta suspendida) → sesión
+  inválida de verdad: se cierra sesión y se manda a login.
+- **sin `error.response`** (backend caído, sin red, timeout) → no se sabe
+  si la sesión sigue siendo válida, así que **no se borra**: se usa lo
+  cacheado para que la app abra igual con WiFi inestable. Vaciar una
+  sesión válida porque se cayó el WiFi sería peor que el problema que
+  esto resuelve.
+
+Cualquier 401 que llegue después, en cualquier request (no solo el
+chequeo de arranque), pasa por el interceptor de `client.js`, que limpia
+`AsyncStorage` y avisa a `AuthContext` (vía un callback que el provider
+registra — `client.js` no importa el contexto directamente, para evitar
+un import circular) para que también resetee su estado de React; si no,
+la UI se queda en una pantalla logueada con un token que el backend ya
+rechazó.
 
 ---
 

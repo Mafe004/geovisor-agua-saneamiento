@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '../api/services';
+import { registerSessionExpiredHandler } from '../api/client';
 
 export const AuthContext = createContext();
 
@@ -10,6 +11,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Cualquier 401 en cualquier request (no solo el chequeo de arranque)
+    // pasa por acá — sin esto, la UI se queda en una pantalla logueada con
+    // un token que el backend ya rechazó.
+    registerSessionExpiredHandler(logout);
     loadStoredAuth();
   }, []);
 
@@ -17,9 +22,35 @@ export const AuthProvider = ({ children }) => {
     try {
       const storedToken = await AsyncStorage.getItem('token');
       const storedUser = await AsyncStorage.getItem('user');
-      if (storedToken && storedUser) {
+
+      if (!storedToken || !storedUser) {
+        return; // no hay sesión guardada, nada que revalidar
+      }
+
+      try {
+        // El servidor es la fuente de verdad, no lo que quedó cacheado:
+        // si mientras tanto cambiaron el rol o suspendieron la cuenta,
+        // esto lo refleja apenas se abre la app.
+        const res = await authAPI.me();
+        const freshUser = res.data;
+        await AsyncStorage.setItem('user', JSON.stringify(freshUser));
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        setUser(freshUser);
+      } catch (err) {
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          // El token ya no es válido de verdad (vencido, rechazado, cuenta
+          // suspendida) — cerrar sesión y mandar a login.
+          await logout();
+        } else {
+          // Sin error.response: no hubo respuesta del servidor (backend
+          // caído, sin red, timeout). No se sabe si la sesión sigue siendo
+          // válida, así que NO se borra — usar lo cacheado para que la app
+          // abra igual con WiFi inestable. Vaciar una sesión válida porque
+          // se cayó el WiFi es peor que el bug que esto arregla.
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser));
+        }
       }
     } catch (e) {
       console.log('Error cargando auth:', e);

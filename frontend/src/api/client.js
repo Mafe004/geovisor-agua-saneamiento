@@ -53,14 +53,28 @@ client.interceptors.request.use(async (config) => {
   return config;
 });
 
+// ── Aviso de sesión inválida hacia AuthContext ──────────────────────
+// AuthContext registra aquí un callback (su logout()) en vez de que este
+// archivo importe el contexto directamente — importar AuthContext desde
+// client.js crearía un import circular (AuthContext ya importa de
+// api/services.js, que importa este client.js).
+let onSessionExpired = null;
+
+export function registerSessionExpiredHandler(handler) {
+  onSessionExpired = handler;
+}
+
 // Interceptor RESPONSE: manejo global de errores
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Token expirado → limpiar sesión
+    // Token expirado o rechazado por el servidor → limpiar sesión y avisarle
+    // al contexto para que también resetee su estado de React (si no, la UI
+    // se queda en una pantalla de "logueado" sin token válido).
     if (error.response?.status === 401) {
       AsyncStorage.removeItem('token').catch(() => {});
       AsyncStorage.removeItem('user').catch(() => {});
+      if (onSessionExpired) onSessionExpired();
     }
 
     // Mejorar mensaje de error de red para el usuario

@@ -8,6 +8,7 @@
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
     "@react-navigation/stack": "^6.3.29",
+    "@types/react": "~19.1.10",
     "axios": "^1.7.2",
     "expo": "~54.0.36",
     "expo-asset": "~12.0.13",
@@ -31,7 +32,8 @@
     "react-native-safe-area-context": "5.8.0",
     "react-native-screens": "~4.26.2",
     "react-native-web": "~0.19.13",
-    "react-native-webview": "~13.12.5"
+    "react-native-webview": "~13.12.5",
+    "typescript": "~5.9.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -47,6 +49,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "lint:fix": "expo lint -- --fix",
+    "typecheck": "tsc --noEmit",
     "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o src/types/api.d.ts"
   },
   "private": true

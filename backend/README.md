@@ -36,7 +36,7 @@ backend/
     │   ├── security.py            ← JWT (crear/decodificar) + hashing PBKDF2 de contraseñas
     │   └── deps.py                ← Dependencias FastAPI: get_current_user, require_roles()
     ├── db/
-    │   └── database.py            ← get_connection() → PyMySQL con DictCursor
+    │   └── database.py            ← get_connection() → conexión de un pool (DBUtils), DictCursor
     └── routers/                   ← Un archivo por dominio de negocio
         ├── auth.py                ← POST /auth/login, GET /auth/me
         ├── usuarios.py            ← Registro, perfil, cambio de contraseña, gestión admin
@@ -59,6 +59,7 @@ backend/
 | **FastAPI** | 0.128 | Framework HTTP, validación automática, docs Swagger |
 | **Uvicorn** | 0.40 | Servidor ASGI |
 | **PyMySQL** | 1.1 | Driver MySQL (conexión directa, sin ORM) |
+| **DBUtils** | 3.2 | Pool de conexiones sobre PyMySQL (`PooledDB`) |
 | **Pydantic v2** | 2.12 | Modelos de entrada y salida con validación |
 | **python-jose** | 3.5 | Generación y validación de JWT (HS256) |
 | **Passlib + PBKDF2** | 1.7 | Hashing seguro de contraseñas |
@@ -185,6 +186,7 @@ DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=tu_password
 DB_NAME=geovisor_agua_saneamiento
+DB_POOL_SIZE=10
 
 SECRET_KEY=genera-una-clave-larga-y-aleatoria-de-al-menos-32-caracteres
 ACCESS_TOKEN_EXPIRE_MINUTES=60
@@ -213,6 +215,15 @@ LOG_LEVEL=INFO
 > confianza que la setea de forma fiable, porque esa cabecera la controla
 > el cliente y es falsificable: sin un proxy de por medio, cualquiera puede
 > mandar `X-Forwarded-For: lo-que-quiera` y aparecer así en el log.
+
+> ⚠️ **`DB_POOL_SIZE`** (default `10`) es el tope de conexiones que
+> `app/db/database.py` mantiene abiertas hacia MySQL a la vez, vía un pool
+> de `DBUtils` — antes de esto, cada request abría su propia conexión
+> nueva (TCP connect + auth handshake de MySQL) y la cerraba al terminar.
+> **Debe quedar por debajo de `max_connections` en el servidor MySQL**
+> (151 por defecto). Si `uvicorn` corre con varios procesos worker, cada
+> uno abre su propio pool — lo que hay que comparar contra el límite del
+> servidor es `workers × DB_POOL_SIZE`, no este número solo.
 
 ### 5. Crear la base de datos
 

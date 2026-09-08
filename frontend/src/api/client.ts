@@ -1,5 +1,14 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// client.ts sets error.friendlyMessage on network-error responses (see the
+// response interceptor below) — augment AxiosError's own type instead of
+// casting at every read site.
+declare module 'axios' {
+  interface AxiosError<T = unknown, D = any, P = any> {
+    friendlyMessage?: string;
+  }
+}
 
 // ============================================================
 // CONFIGURACIÓN DE LA URL DEL BACKEND
@@ -45,48 +54,55 @@ const client = axios.create({
 });
 
 // Interceptor REQUEST: agrega JWT automáticamente
-client.interceptors.request.use(async (config) => {
+client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   try {
     const token = await AsyncStorage.getItem('token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
-  } catch (_) {}
+  } catch (_) {
+    // ignorado a propósito: si AsyncStorage falla acá, la request sigue sin
+    // token (el backend la rechazará con 401 si hacía falta uno) en vez de
+    // bloquear la app entera.
+  }
   return config;
 });
 
 // ── Aviso de sesión inválida hacia AuthContext ──────────────────────
 // AuthContext registra aquí un callback (su logout()) en vez de que este
 // archivo importe el contexto directamente — importar AuthContext desde
-// client.js crearía un import circular (AuthContext ya importa de
-// api/services.js, que importa este client.js).
-let onSessionExpired = null;
+// client.ts crearía un import circular (AuthContext ya importa de
+// api/services.ts, que importa este client.ts).
+let onSessionExpired: (() => void) | null = null;
 
-export function registerSessionExpiredHandler(handler) {
+export function registerSessionExpiredHandler(handler: () => void) {
   onSessionExpired = handler;
 }
 
 // Interceptor RESPONSE: manejo global de errores
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // Token expirado o rechazado por el servidor → limpiar sesión y avisarle
-    // al contexto para que también resetee su estado de React (si no, la UI
-    // se queda en una pantalla de "logueado" sin token válido).
-    if (error.response?.status === 401) {
-      AsyncStorage.removeItem('token').catch(() => {});
-      AsyncStorage.removeItem('user').catch(() => {});
-      if (onSessionExpired) onSessionExpired();
-    }
+  (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      // Token expirado o rechazado por el servidor → limpiar sesión y
+      // avisarle al contexto para que también resetee su estado de React
+      // (si no, la UI se queda en una pantalla de "logueado" sin token
+      // válido).
+      if (error.response?.status === 401) {
+        AsyncStorage.removeItem('token').catch(() => {});
+        AsyncStorage.removeItem('user').catch(() => {});
+        if (onSessionExpired) onSessionExpired();
+      }
 
-    // Mejorar mensaje de error de red para el usuario
-    if (!error.response) {
-      const isTimeout = error.code === 'ECONNABORTED';
-      const friendlyMsg = isTimeout
-        ? 'El servidor tardó demasiado en responder. Verifica que el backend esté corriendo.'
-        : `No se pudo conectar al servidor (${DEV_IP}:${DEV_PORT}).\n\n` +
-          '• Verifica que el backend esté encendido\n' +
-          '• Confirma que tu teléfono y PC están en la misma WiFi\n' +
-          '• Revisa que la IP en client.js sea correcta';
-      error.friendlyMessage = friendlyMsg;
+      // Mejorar mensaje de error de red para el usuario
+      if (!error.response) {
+        const isTimeout = error.code === 'ECONNABORTED';
+        const friendlyMsg = isTimeout
+          ? 'El servidor tardó demasiado en responder. Verifica que el backend esté corriendo.'
+          : `No se pudo conectar al servidor (${DEV_IP}:${DEV_PORT}).\n\n` +
+            '• Verifica que el backend esté encendido\n' +
+            '• Confirma que tu teléfono y PC están en la misma WiFi\n' +
+            '• Revisa que la IP en client.js sea correcta';
+        error.friendlyMessage = friendlyMsg;
+      }
     }
 
     return Promise.reject(error);

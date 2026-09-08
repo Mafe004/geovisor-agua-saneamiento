@@ -11,6 +11,9 @@ import type { components } from './api';
 export type Reporte = components['schemas']['ReporteDetalle'];
 export type ReporteMapaPunto = components['schemas']['ReporteMapaPunto'];
 export type ReporteCreateRequest = components['schemas']['ReporteCreateRequest'];
+export type CrearReporteResponse = components['schemas']['CrearReporteResponse'];
+export type CambiarEstadoRequest = components['schemas']['CambiarEstadoRequest'];
+export type CambiarEstadoResponse = components['schemas']['CambiarEstadoResponse'];
 export type HistorialEntry = components['schemas']['HistorialEntry'];
 export type EstadisticasResponse = components['schemas']['EstadisticasResponse'];
 export type EstadisticaEstadoItem = components['schemas']['EstadisticaEstadoItem'];
@@ -35,6 +38,10 @@ export type RegistroUsuario = components['schemas']['RegistroUsuario'];
 export type ActualizarPerfil = components['schemas']['ActualizarPerfil'];
 export type CambiarPassword = components['schemas']['CambiarPassword'];
 export type CambiarEstadoCuenta = components['schemas']['CambiarEstadoCuenta'];
+export type RegistroResponse = components['schemas']['RegistroResponse'];
+export type ActualizarPerfilResponse = components['schemas']['ActualizarPerfilResponse'];
+export type CambiarPasswordResponse = components['schemas']['CambiarPasswordResponse'];
+export type CambiarEstadoUsuarioResponse = components['schemas']['CambiarEstadoUsuarioResponse'];
 
 // ── Entidades ─────────────────────────────────────────────────────────
 export type EntidadDetalle = components['schemas']['EntidadDetalle'];
@@ -43,14 +50,23 @@ export type EntidadUpdate = components['schemas']['EntidadUpdate'];
 export type UsuarioDeEntidadItem = components['schemas']['UsuarioDeEntidadItem'];
 export type UsuariosDeEntidadResponse = components['schemas']['UsuariosDeEntidadResponse'];
 export type CambiarEstadoEntidad = components['schemas']['CambiarEstadoEntidad'];
+export type CambiarEstadoEntidadResponse = components['schemas']['CambiarEstadoEntidadResponse'];
+export type AsignarUsuarioResponse = components['schemas']['AsignarUsuarioResponse'];
+export type CrearEntidadResponse = components['schemas']['CrearEntidadResponse'];
+export type ActualizarEntidadResponse = components['schemas']['ActualizarEntidadResponse'];
 
 // ── Infraestructura ───────────────────────────────────────────────────
 export type InfraestructuraItem = components['schemas']['InfraestructuraItem'];
 export type InfraestructuraCreate = components['schemas']['InfraestructuraCreate'];
 export type InfraestructuraUpdate = components['schemas']['InfraestructuraUpdate'];
+export type CrearInfraestructuraResponse = components['schemas']['CrearInfraestructuraResponse'];
+export type ActualizarInfraestructuraResponse =
+  components['schemas']['ActualizarInfraestructuraResponse'];
 
 // ── Notificaciones ───────────────────────────────────────────────────
 export type NotificacionItem = components['schemas']['NotificacionItem'];
+export type MarcarLeidaResponse = components['schemas']['MarcarLeidaResponse'];
+export type MarcarTodasLeidasResponse = components['schemas']['MarcarTodasLeidasResponse'];
 
 // ── Auditoría ─────────────────────────────────────────────────────────
 export type LogAuditoriaItem = components['schemas']['LogAuditoriaItem'];

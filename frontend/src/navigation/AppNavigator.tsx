@@ -1,11 +1,12 @@
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, type BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 
 import { AuthContext } from '../context/AuthContext';
 import LoadingScreen from '../components/LoadingScreen';
+import type { RootStackParamList } from './types';
 
 // Auth
 import LoginScreen    from '../screens/auth/LoginScreen';
@@ -34,11 +35,11 @@ import UsuariosScreen   from '../screens/admin/UsuariosScreen';
 import EntidadesScreen  from '../screens/admin/EntidadesScreen';
 import AuditoriaScreen  from '../screens/admin/AuditoriaScreen';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab   = createBottomTabNavigator();
 
 // ── Configuración de tabs por rol ─────────────────────────────
-const TAB_CONFIG = {
+const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
   Mapa:          { icon: '🗺️',  label: 'Mapa'       },
   Reportes:      { icon: '📋',  label: 'Reportes'   },
   Crear:         { icon: '➕',  label: 'Crear'      },
@@ -53,7 +54,7 @@ const TAB_CONFIG = {
 };
 
 // ── Tab bar icon personalizado ────────────────────────────────
-function TabIcon({ name, focused, color }) {
+function TabIcon({ name, focused }: { name: string; focused: boolean; color: string }) {
   const cfg = TAB_CONFIG[name] || { icon: '•' };
   return (
     <View style={[tabStyles.iconWrap, focused && tabStyles.iconWrapActive]}>
@@ -63,7 +64,11 @@ function TabIcon({ name, focused, color }) {
 }
 
 // ── Opciones compartidas del tab navigator ────────────────────
-const sharedTabOptions = ({ route }) => ({
+const sharedTabOptions = ({
+  route,
+}: {
+  route: RouteProp<ParamListBase>;
+}): BottomTabNavigationOptions => ({
   headerShown: false,
   tabBarActiveTintColor:   '#1565C0',
   tabBarInactiveTintColor: '#9CA3AF',

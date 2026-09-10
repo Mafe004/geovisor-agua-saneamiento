@@ -86,26 +86,19 @@ export default function CrearReporteScreen({ navigation }: Props) {
 
     try {
       setLoading(true);
-      // Dos discrepancias reales con ReporteCreateRequest (ver
-      // MIGRATION_FINDINGS.md), preservadas tal cual con un cast en vez de
-      // "arreglarlas":
-      // 1. direccion_aproximada no es un campo del schema -- el campo real
-      //    es `direccion`. El backend ignora este campo en silencio, así
-      //    que la dirección que el ciudadano escribe acá NUNCA se guarda.
-      // 2. fuente_reporte es requerido por el schema generado pero nunca
-      //    se envía -- el backend le pone un default ("CIUDADANO") del
-      //    lado del servidor cuando falta, así que en la práctica esto no
-      //    rompe nada; el schema generado simplemente no refleja que ese
-      //    default existe.
-      const payload = {
+      const payload: ReporteCreateRequest = {
         descripcion: descripcion.trim(),
         latitud: coordenadas.latitude,
         longitud: coordenadas.longitude,
-        direccion_aproximada: direccion.trim() || null,
+        direccion: direccion.trim() || null,
         id_tipo_incidente: idTipo,
         id_severidad: idSeveridad,
+        // El schema marca este campo requerido pero el backend ya le pone
+        // este mismo valor por default cuando falta -- se envía explícito
+        // para no depender de un cast, sin cambiar el resultado final.
+        fuente_reporte: 'CIUDADANO',
       };
-      await reportesAPI.crear(payload as unknown as ReporteCreateRequest);
+      await reportesAPI.crear(payload);
       Alert.alert(
         '✅ Reporte creado',
         'Tu reporte fue enviado exitosamente. Un moderador lo revisará pronto.',

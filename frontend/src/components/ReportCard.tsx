@@ -16,15 +16,6 @@ interface ReportCardProps {
 }
 
 export default function ReportCard({ reporte, onPress }: ReportCardProps) {
-  // El backend no devuelve direccion_aproximada (el campo real es
-  // `direccion`) ni fecha_creacion (el campo real es `created_at`) en
-  // ReporteDetalle -- ver MIGRATION_FINDINGS.md. Se preserva el acceso tal
-  // cual (hoy ambos son `undefined` en runtime, así que siempre caen en el
-  // fallback de coordenadas / fecha vacía) en vez de "arreglarlo".
-  const reporteLegacy = reporte as unknown as {
-    direccion_aproximada?: string;
-    fecha_creacion?: string;
-  };
   return (
     <TouchableOpacity
       style={styles.card}
@@ -63,7 +54,7 @@ export default function ReportCard({ reporte, onPress }: ReportCardProps) {
           <View style={styles.metaItem}>
             <Text style={styles.metaIcon}>📍</Text>
             <Text style={styles.metaText} numberOfLines={1}>
-              {reporteLegacy.direccion_aproximada
+              {reporte.direccion
                 || `${Number(reporte.latitud).toFixed(4)}, ${Number(reporte.longitud).toFixed(4)}`}
             </Text>
           </View>
@@ -78,7 +69,7 @@ export default function ReportCard({ reporte, onPress }: ReportCardProps) {
         {/* Footer */}
         <View style={styles.footer}>
           <StatusBadge status={reporte.severidad} type="severity" size="sm" />
-          <Text style={styles.date}>{formatDate(reporteLegacy.fecha_creacion)}</Text>
+          <Text style={styles.date}>{formatDate(reporte.created_at)}</Text>
         </View>
       </View>
     </TouchableOpacity>

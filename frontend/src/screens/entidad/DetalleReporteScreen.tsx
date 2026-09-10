@@ -96,18 +96,6 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
     reporte.longitud != null &&
     !(reporte.latitud === 0 && reporte.longitud === 0);
 
-  // Campos que el backend no devuelve en ReporteDetalle (ver
-  // MIGRATION_FINDINGS.md) -- confinados acá para no tocar el resto del
-  // componente, que sigue chequeado contra el Reporte real.
-  const reporteLegacy = reporte as unknown as {
-    direccion_aproximada?: string;
-    usuario_nombre?: string;
-    usuario_apellido?: string;
-    fecha_creacion?: string;
-    fecha_actualizacion?: string;
-    entidad_nombre?: string;
-  };
-
   // Construir marcador para el mapa (read-only, sin interacción)
   const mapaMarkers: MapMarker[] = hasCoords
     ? [{
@@ -144,33 +132,9 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
         {/* ── Detalles ── */}
         <Section title="ℹ️ Detalles">
           <DetailRow label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
-          {/*
-            reporte.direccion_aproximada, usuario_nombre, usuario_apellido,
-            fecha_creacion, fecha_actualizacion y entidad_nombre NO existen
-            en ReporteDetalle (campos reales: direccion, usuario -- nombre
-            completo ya combinado, created_at; y no hay updated_at ni
-            entidad_nombre en absoluto). Todos son siempre undefined en
-            runtime hoy, así que esta sección siempre muestra "—"/
-            "No especificada" y nunca renderiza las dos filas condicionales.
-            Ver MIGRATION_FINDINGS.md -- preservado tal cual con un cast
-            local en vez de arreglar los nombres de campo.
-          */}
-          <DetailRow label="Dirección" value={reporteLegacy.direccion_aproximada || 'No especificada'} />
-          <DetailRow
-            label="Reportado por"
-            value={
-              reporteLegacy.usuario_nombre
-                ? `${reporteLegacy.usuario_nombre} ${reporteLegacy.usuario_apellido || ''}`.trim()
-                : '—'
-            }
-          />
-          <DetailRow label="Fecha reporte" value={formatDate(reporteLegacy.fecha_creacion)} />
-          {reporteLegacy.fecha_actualizacion && (
-            <DetailRow label="Última actualización" value={formatDate(reporteLegacy.fecha_actualizacion)} />
-          )}
-          {reporteLegacy.entidad_nombre && (
-            <DetailRow label="Entidad asignada" value={reporteLegacy.entidad_nombre} />
-          )}
+          <DetailRow label="Dirección" value={reporte.direccion || 'No especificada'} />
+          <DetailRow label="Reportado por" value={reporte.usuario || '—'} />
+          <DetailRow label="Fecha reporte" value={formatDate(reporte.created_at)} />
         </Section>
 
         {/* ── Mapa (read-only) — NO necesita react-native-maps ── */}

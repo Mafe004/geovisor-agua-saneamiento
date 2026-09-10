@@ -111,12 +111,12 @@ export default function EntidadesScreen() {
           );
         }}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🏢</Text>
               <Text style={styles.emptyTitle}>Sin entidades registradas</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

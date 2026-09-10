@@ -88,13 +88,13 @@ export default function NotificacionesScreen() {
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🔔</Text>
               <Text style={styles.emptyTitle}>Sin notificaciones</Text>
               <Text style={styles.emptyText}>Aquí verás los cambios en tus reportes.</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

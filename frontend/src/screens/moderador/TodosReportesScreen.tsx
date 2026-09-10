@@ -122,13 +122,13 @@ export default function TodosReportesScreen({ navigation }: Props) {
         }
         contentContainerStyle={reportesFiltrados.length === 0 && styles.emptyContainer}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📭</Text>
               <Text style={styles.emptyTitle}>Sin resultados</Text>
               <Text style={styles.emptyText}>No hay reportes con el filtro seleccionado.</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

@@ -34,10 +34,16 @@ export default function StatusBadge({ status, type = 'status', size = 'sm' }: St
   // (status ?? '') en vez de status? -- mismo resultado: ninguna clave real
   // del mapa es "" ni "undefined", así que un status vacío/ausente sigue
   // cayendo en el mismo fallback que antes.
-  const config =
+  // El `!` final es seguro: BAJA/PENDIENTE son claves fijas del propio
+  // objeto literal (no vienen de un índice dinámico), pero como
+  // BadgeConfigMap es un Record<string, ...> puro, noUncheckedIndexedAccess
+  // igual las tipa como posiblemente undefined -- TS no distingue "clave
+  // que sé que existe" de "clave calculada" dentro de un index signature.
+  const config = (
     type === 'severity'
       ? SEVERITY_CONFIG[(status ?? '').toUpperCase()] || SEVERITY_CONFIG.BAJA
-      : STATUS_CONFIG[(status ?? '').toUpperCase()] || STATUS_CONFIG.PENDIENTE;
+      : STATUS_CONFIG[(status ?? '').toUpperCase()] || STATUS_CONFIG.PENDIENTE
+  )!;
 
   const isLg = size === 'lg';
 

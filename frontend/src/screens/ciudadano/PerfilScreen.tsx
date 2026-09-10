@@ -45,7 +45,13 @@ export default function PerfilScreen() {
 
   const nombreCompleto = user.nombre_completo || `${user.nombre || ''} ${user.apellido || ''}`.trim() || '?';
   const partes = nombreCompleto.split(' ');
-  const initial = ((partes[0] || '?')[0] + (partes[1] || '')[0]).toUpperCase();
+  // String(...) en vez de indexado directo -- con noUncheckedIndexedAccess
+  // un acceso por índice a string puede dar undefined (si la parte es "");
+  // en JS real `x + undefined` concatena el texto "undefined", que es
+  // justo lo que String(undefined) reproduce, así que este cambio no
+  // altera el resultado (incluyendo el caso raro de un nombre de una sola
+  // palabra, que ya producía "Xundefined" antes de esta migración).
+  const initial = (String((partes[0] || '?')[0]) + String((partes[1] || '')[0])).toUpperCase();
 
   return (
     <View style={styles.container}>

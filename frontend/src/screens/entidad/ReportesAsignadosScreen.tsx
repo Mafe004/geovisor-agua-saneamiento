@@ -76,13 +76,13 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
         }
         contentContainerStyle={reportes.length === 0 && styles.emptyContainer}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>✅</Text>
               <Text style={styles.emptyTitle}>Sin reportes asignados</Text>
               <Text style={styles.emptyText}>No tienes reportes asignados actualmente.</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

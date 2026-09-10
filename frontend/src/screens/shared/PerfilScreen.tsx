@@ -47,7 +47,10 @@ export default function PerfilScreen() {
   const nombreCompleto = user.nombre_completo || '';
   const partes   = nombreCompleto.trim().split(' ');
   const initials = ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || '?';
-  const gradColors = ROL_COLOR[user.id_rol] || ROL_COLOR[1];
+  // ROL_COLOR[1] siempre existe (clave fija del literal) -- el `!` es
+  // seguro, noUncheckedIndexedAccess solo no puede verlo a través del
+  // index signature (mismo caso que StatusBadge.tsx).
+  const gradColors = (ROL_COLOR[user.id_rol] || ROL_COLOR[1])!;
 
   // ── Guardar datos de perfil ──
   const handleSave = async () => {

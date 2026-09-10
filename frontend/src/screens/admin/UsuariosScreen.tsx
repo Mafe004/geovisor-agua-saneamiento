@@ -112,7 +112,11 @@ export default function UsuariosScreen() {
           const item2 = item as unknown as UsuarioLegacy;
           const nombreCompleto = item.nombre_completo || `${item2.nombre || ''} ${item2.apellido || ''}`.trim() || '?';
           const partes = nombreCompleto.split(' ');
-          const initial = ((partes[0] || '?')[0] + (partes[1] || '')[0]).toUpperCase();
+          // String(...): ver la nota equivalente en
+          // screens/ciudadano/PerfilScreen.tsx -- preserva el mismo
+          // resultado en runtime, incluida la concatenación de "undefined"
+          // para nombres de una sola palabra.
+          const initial = (String((partes[0] || '?')[0]) + String((partes[1] || '')[0])).toUpperCase();
           return (
             <View style={[styles.card, !item2.activo && styles.cardInactive]}>
               <View style={[styles.avatar, { backgroundColor: ROL_COLOR[item2.id_rol as number] + '25' }]}>
@@ -141,12 +145,12 @@ export default function UsuariosScreen() {
           );
         }}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>👥</Text>
               <Text style={styles.emptyTitle}>Sin usuarios</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

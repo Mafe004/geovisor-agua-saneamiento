@@ -7,18 +7,6 @@ import axios from 'axios';
 import { entidadesAPI } from '../../api/services';
 import type { EntidadDetalle } from '../../types/domain';
 
-// EntidadDetalle (lo que entidadesAPI.listar() realmente devuelve) no tiene
-// ninguno de estos cuatro campos -- ver MIGRATION_FINDINGS.md. Los reales
-// son nombre_entidad, estado_cuenta (string de catálogo), y
-// correo_institucional; no existe ningún campo de descripción. Se
-// preservan los accesos tal cual con este tipo local en vez de arreglarlos.
-type EntidadLegacy = EntidadDetalle & {
-  activo?: boolean;
-  nombre?: string;
-  descripcion?: string;
-  email?: string;
-};
-
 export default function EntidadesScreen() {
   const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,18 +23,18 @@ export default function EntidadesScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  const toggleEstado = (entidadItem: EntidadDetalle) => {
-    const entidad = entidadItem as unknown as EntidadLegacy;
+  const toggleEstado = (entidad: EntidadDetalle) => {
+    const activo = entidad.estado_cuenta === 'ACTIVO';
     Alert.alert(
-      entidad.activo ? 'Desactivar entidad' : 'Activar entidad',
-      `¿Confirmas cambiar el estado de "${entidad.nombre}"?`,
+      activo ? 'Desactivar entidad' : 'Activar entidad',
+      `¿Confirmas cambiar el estado de "${entidad.nombre_entidad}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
           onPress: async () => {
             try {
-              await entidadesAPI.cambiarEstado(entidad.id_entidad, !entidad.activo);
+              await entidadesAPI.cambiarEstado(entidad.id_entidad, !activo);
               loadEntidades(true);
             } catch (e) {
               const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
@@ -63,8 +51,7 @@ export default function EntidadesScreen() {
       <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
         <Text style={styles.headerTitle}>🏢 Gestión de Entidades</Text>
         <Text style={styles.headerSub}>
-          {/* e.activo no existe -- este conteo siempre da 0 (ver MIGRATION_FINDINGS.md) */}
-          {entidades.filter(e => (e as unknown as EntidadLegacy).activo).length} activas · {entidades.length} total
+          {entidades.filter(e => e.estado_cuenta === 'ACTIVO').length} activas · {entidades.length} total
         </Text>
       </LinearGradient>
 
@@ -76,36 +63,28 @@ export default function EntidadesScreen() {
         }
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => {
-          // Todo este bloque lee campos que EntidadDetalle no tiene -- ver
-          // MIGRATION_FINDINGS.md. Efecto real: el nombre de la entidad
-          // NUNCA se muestra (item.nombre es siempre undefined -- el campo
-          // real es nombre_entidad), el email tampoco (correo_institucional
-          // es el real), no hay concepto de "descripción" en el backend, y
-          // -- igual que en UsuariosScreen -- toda entidad se muestra como
-          // "Inactiva" sin importar su estado_cuenta real.
-          const item2 = item as unknown as EntidadLegacy;
+          const activo = item.estado_cuenta === 'ACTIVO';
           return (
-            <View style={[styles.card, !item2.activo && styles.cardInactive]}>
+            <View style={[styles.card, !activo && styles.cardInactive]}>
               <View style={styles.iconWrap}>
                 <Text style={styles.entidadIcon}>🏢</Text>
               </View>
               <View style={styles.entidadInfo}>
-                <Text style={styles.entidadNombre}>{item2.nombre}</Text>
-                {item2.descripcion ? (
-                  <Text style={styles.entidadDesc} numberOfLines={1}>{item2.descripcion}</Text>
-                ) : null}
+                <Text style={styles.entidadNombre}>{item.nombre_entidad}</Text>
                 <View style={styles.entidadMeta}>
                   {item.telefono && <Text style={styles.metaText}>📱 {item.telefono}</Text>}
-                  {item2.email && <Text style={styles.metaText} numberOfLines={1}>✉️ {item2.email}</Text>}
+                  {item.correo_institucional && (
+                    <Text style={styles.metaText} numberOfLines={1}>✉️ {item.correo_institucional}</Text>
+                  )}
                 </View>
-                <View style={[styles.estadoBadge, { backgroundColor: item2.activo ? '#D1FAE5' : '#FEE2E2' }]}>
-                  <Text style={[styles.estadoText, { color: item2.activo ? '#065F46' : '#991B1B' }]}>
-                    {item2.activo ? 'Activa' : 'Inactiva'}
+                <View style={[styles.estadoBadge, { backgroundColor: activo ? '#D1FAE5' : '#FEE2E2' }]}>
+                  <Text style={[styles.estadoText, { color: activo ? '#065F46' : '#991B1B' }]}>
+                    {activo ? 'Activa' : 'Inactiva'}
                   </Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.toggleBtn} onPress={() => toggleEstado(item)}>
-                <Text style={styles.toggleIcon}>{item2.activo ? '🔒' : '🔓'}</Text>
+                <Text style={styles.toggleIcon}>{activo ? '🔒' : '🔓'}</Text>
               </TouchableOpacity>
             </View>
           );

@@ -5,12 +5,30 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../../context/AuthContext';
+import type { UserPublic } from '../../types/domain';
 
-const ROL_LABEL = { 1: 'Ciudadano', 2: 'Entidad', 3: 'Moderador', 4: 'Administrador' };
-const ROL_ICON  = { 1: '👤', 2: '🏢', 3: '🛡️', 4: '👑' };
+// NOTA: este archivo no está importado desde ningún lado del código (ver
+// MIGRATION_FINDINGS.md) -- AppNavigator.tsx usa screens/shared/PerfilScreen
+// para todos los roles, incluido ciudadano. Se convirtió igual que el resto
+// (Step 7 exige cero .js bajo src/), sin borrarlo ni arreglarlo.
+
+// user (AuthContext) es UserPublic -- no trae nombre/apellido/telefono/
+// fecha_creacion/activo (ver UserLegacy en shared/PerfilScreen.tsx, mismo
+// patrón acá).
+type UserLegacy = UserPublic & {
+  nombre?: string;
+  apellido?: string;
+  telefono?: string | null;
+  fecha_creacion?: string;
+  activo?: boolean;
+};
+
+const ROL_LABEL: Record<number, string> = { 1: 'Ciudadano', 2: 'Entidad', 3: 'Moderador', 4: 'Administrador' };
+const ROL_ICON: Record<number, string> = { 1: '👤', 2: '🏢', 3: '🛡️', 4: '👑' };
 
 export default function PerfilScreen() {
-  const { user, logout } = useContext(AuthContext);
+  const { user: userReal, logout } = useContext(AuthContext);
+  const user = userReal as UserLegacy | null;
 
   const handleLogout = () => {
     Alert.alert(
@@ -73,7 +91,14 @@ export default function PerfilScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, valueColor }) {
+function InfoRow({
+  icon, label, value, valueColor,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoIcon}>{icon}</Text>

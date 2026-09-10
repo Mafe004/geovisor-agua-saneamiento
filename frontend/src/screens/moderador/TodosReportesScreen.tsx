@@ -5,15 +5,25 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, catalogosAPI } from '../../api/services';
 import ReportCard from '../../components/ReportCard';
+import type { Reporte, EstadoReporteItem } from '../../types/domain';
+import type { operations } from '../../types/api';
+import type { RootStackParamList } from '../../navigation/types';
 
-export default function TodosReportesScreen({ navigation }) {
-  const [reportes, setReportes] = useState([]);
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList>;
+};
+
+type ReportesQuery = operations['listar_reportes_reportes__get']['parameters']['query'];
+
+export default function TodosReportesScreen({ navigation }: Props) {
+  const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [estadosDisponibles, setEstadosDisponibles] = useState([]);
-  const [idEstado, setIdEstado] = useState(null);
+  const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
+  const [idEstado, setIdEstado] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState('');
 
   useEffect(() => {
@@ -27,7 +37,7 @@ export default function TodosReportesScreen({ navigation }) {
   const loadReportes = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params = {};
+      const params: ReportesQuery = {};
       if (idEstado != null) params.id_estado = idEstado;
       const res = await reportesAPI.listar(params);
       setReportes(res.data || []);

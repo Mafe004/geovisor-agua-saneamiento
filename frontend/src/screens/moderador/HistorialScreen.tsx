@@ -5,8 +5,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { historialAPI } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
+import type { HistorialEntry } from '../../types/domain';
 
-function formatDate(d) {
+function formatDate(d: string | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleString('es-CO', {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -14,7 +15,7 @@ function formatDate(d) {
 }
 
 export default function HistorialScreen() {
-  const [historial, setHistorial] = useState([]);
+  const [historial, setHistorial] = useState<HistorialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -67,7 +68,13 @@ export default function HistorialScreen() {
             />
           }
           contentContainerStyle={historial.length === 0 && styles.emptyContainer}
-          renderItem={({ item, index }) => (
+          renderItem={({ item, index }) => {
+            // HistorialEntry no trae usuario_nombre/usuario_apellido -- el
+            // campo real es usuario_accion (nombre ya combinado). Ver
+            // MIGRATION_FINDINGS.md: la línea "👤 ..." más abajo nunca se
+            // muestra, el historial nunca dice quién hizo cada cambio.
+            const itemLegacy = item as unknown as { usuario_nombre?: string; usuario_apellido?: string };
+            return (
             <View style={styles.timelineItem}>
               {/* Línea de tiempo */}
               <View style={styles.timelineLeft}>
@@ -92,14 +99,15 @@ export default function HistorialScreen() {
                 {item.comentario ? (
                   <Text style={styles.comentario}>&quot;{item.comentario}&quot;</Text>
                 ) : null}
-                {item.usuario_nombre && (
+                {itemLegacy.usuario_nombre && (
                   <Text style={styles.usuario}>
-                    👤 {item.usuario_nombre} {item.usuario_apellido || ''}
+                    👤 {itemLegacy.usuario_nombre} {itemLegacy.usuario_apellido || ''}
                   </Text>
                 )}
               </View>
             </View>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📜</Text>

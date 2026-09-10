@@ -3,10 +3,24 @@ import {
   View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
 import { entidadesAPI } from '../../api/services';
+import type { EntidadDetalle } from '../../types/domain';
+
+// EntidadDetalle (lo que entidadesAPI.listar() realmente devuelve) no tiene
+// ninguno de estos cuatro campos -- ver MIGRATION_FINDINGS.md. Los reales
+// son nombre_entidad, estado_cuenta (string de catálogo), y
+// correo_institucional; no existe ningún campo de descripción. Se
+// preservan los accesos tal cual con este tipo local en vez de arreglarlos.
+type EntidadLegacy = EntidadDetalle & {
+  activo?: boolean;
+  nombre?: string;
+  descripcion?: string;
+  email?: string;
+};
 
 export default function EntidadesScreen() {
-  const [entidades, setEntidades] = useState([]);
+  const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -21,7 +35,8 @@ export default function EntidadesScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  const toggleEstado = (entidad) => {
+  const toggleEstado = (entidadItem: EntidadDetalle) => {
+    const entidad = entidadItem as unknown as EntidadLegacy;
     Alert.alert(
       entidad.activo ? 'Desactivar entidad' : 'Activar entidad',
       `¿Confirmas cambiar el estado de "${entidad.nombre}"?`,
@@ -34,7 +49,8 @@ export default function EntidadesScreen() {
               await entidadesAPI.cambiarEstado(entidad.id_entidad, !entidad.activo);
               loadEntidades(true);
             } catch (e) {
-              Alert.alert('Error', e?.response?.data?.detail || 'No se pudo actualizar.');
+              const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+              Alert.alert('Error', msg || 'No se pudo actualizar.');
             }
           },
         },
@@ -47,7 +63,8 @@ export default function EntidadesScreen() {
       <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
         <Text style={styles.headerTitle}>🏢 Gestión de Entidades</Text>
         <Text style={styles.headerSub}>
-          {entidades.filter(e => e.activo).length} activas · {entidades.length} total
+          {/* e.activo no existe -- este conteo siempre da 0 (ver MIGRATION_FINDINGS.md) */}
+          {entidades.filter(e => (e as unknown as EntidadLegacy).activo).length} activas · {entidades.length} total
         </Text>
       </LinearGradient>
 
@@ -58,31 +75,41 @@ export default function EntidadesScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadEntidades(true); }} colors={['#1565C0']} />
         }
         contentContainerStyle={{ padding: 12 }}
-        renderItem={({ item }) => (
-          <View style={[styles.card, !item.activo && styles.cardInactive]}>
-            <View style={styles.iconWrap}>
-              <Text style={styles.entidadIcon}>🏢</Text>
-            </View>
-            <View style={styles.entidadInfo}>
-              <Text style={styles.entidadNombre}>{item.nombre}</Text>
-              {item.descripcion ? (
-                <Text style={styles.entidadDesc} numberOfLines={1}>{item.descripcion}</Text>
-              ) : null}
-              <View style={styles.entidadMeta}>
-                {item.telefono && <Text style={styles.metaText}>📱 {item.telefono}</Text>}
-                {item.email && <Text style={styles.metaText} numberOfLines={1}>✉️ {item.email}</Text>}
+        renderItem={({ item }) => {
+          // Todo este bloque lee campos que EntidadDetalle no tiene -- ver
+          // MIGRATION_FINDINGS.md. Efecto real: el nombre de la entidad
+          // NUNCA se muestra (item.nombre es siempre undefined -- el campo
+          // real es nombre_entidad), el email tampoco (correo_institucional
+          // es el real), no hay concepto de "descripción" en el backend, y
+          // -- igual que en UsuariosScreen -- toda entidad se muestra como
+          // "Inactiva" sin importar su estado_cuenta real.
+          const item2 = item as unknown as EntidadLegacy;
+          return (
+            <View style={[styles.card, !item2.activo && styles.cardInactive]}>
+              <View style={styles.iconWrap}>
+                <Text style={styles.entidadIcon}>🏢</Text>
               </View>
-              <View style={[styles.estadoBadge, { backgroundColor: item.activo ? '#D1FAE5' : '#FEE2E2' }]}>
-                <Text style={[styles.estadoText, { color: item.activo ? '#065F46' : '#991B1B' }]}>
-                  {item.activo ? 'Activa' : 'Inactiva'}
-                </Text>
+              <View style={styles.entidadInfo}>
+                <Text style={styles.entidadNombre}>{item2.nombre}</Text>
+                {item2.descripcion ? (
+                  <Text style={styles.entidadDesc} numberOfLines={1}>{item2.descripcion}</Text>
+                ) : null}
+                <View style={styles.entidadMeta}>
+                  {item.telefono && <Text style={styles.metaText}>📱 {item.telefono}</Text>}
+                  {item2.email && <Text style={styles.metaText} numberOfLines={1}>✉️ {item2.email}</Text>}
+                </View>
+                <View style={[styles.estadoBadge, { backgroundColor: item2.activo ? '#D1FAE5' : '#FEE2E2' }]}>
+                  <Text style={[styles.estadoText, { color: item2.activo ? '#065F46' : '#991B1B' }]}>
+                    {item2.activo ? 'Activa' : 'Inactiva'}
+                  </Text>
+                </View>
               </View>
+              <TouchableOpacity style={styles.toggleBtn} onPress={() => toggleEstado(item)}>
+                <Text style={styles.toggleIcon}>{item2.activo ? '🔒' : '🔓'}</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.toggleBtn} onPress={() => toggleEstado(item)}>
-              <Text style={styles.toggleIcon}>{item.activo ? '🔒' : '🔓'}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          );
+        }}
         ListEmptyComponent={
           !loading && (
             <View style={styles.empty}>

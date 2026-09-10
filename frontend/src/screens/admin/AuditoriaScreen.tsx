@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { auditoriaAPI } from '../../api/services';
+import type { LogAuditoriaItem } from '../../types/domain';
 
-function formatDate(d) {
+function formatDate(d: string | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleString('es-CO', {
     day: '2-digit', month: 'short', year: 'numeric',
@@ -14,13 +15,13 @@ function formatDate(d) {
   });
 }
 
-const ACCION_COLOR = {
+const ACCION_COLOR: Record<string, string> = {
   CREATE: '#10B981', UPDATE: '#3B82F6', DELETE: '#EF4444',
   LOGIN: '#8B5CF6', LOGOUT: '#6B7280',
 };
 
 export default function AuditoriaScreen() {
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<LogAuditoriaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -30,7 +31,15 @@ export default function AuditoriaScreen() {
     if (!silent) setLoading(true);
     try {
       const res = await auditoriaAPI.listar();
-      setLogs(res.data || []);
+      // BUG SEVERO (ver MIGRATION_FINDINGS.md): auditoriaAPI.listar()
+      // devuelve ListarLogsResponse = { total, logs: LogAuditoriaItem[] },
+      // no un array -- res.data es SIEMPRE un objeto truthy, así que
+      // `res.data || []` nunca cae al array vacío, y logs termina con el
+      // wrapper completo en vez de la lista real. FlatList recibe algo que
+      // no es un array como `data`. Preservado tal cual con un cast; el
+      // arreglo real sería `res.data?.logs || []`, pero cambiarlo está
+      // fuera de alcance de esta migración.
+      setLogs((res.data || []) as unknown as LogAuditoriaItem[]);
     } catch (_) { setLogs([]); }
     finally { setLoading(false); setRefreshing(false); }
   };

@@ -5,9 +5,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { reportesAPI } from '../../api/services';
 import StatCard from '../../components/StatCard';
+import type { EstadisticasResponse } from '../../types/domain';
 
 export default function DashboardScreen() {
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState<EstadisticasResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 

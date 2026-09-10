@@ -28,10 +28,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
-  // number | null | undefined, no solo number | null -- ver el comentario
-  // junto al selector de tipo de incidente más abajo: el bug real hace que
-  // setIdTipo termine recibiendo `undefined`, no `null`.
-  const [idTipo, setIdTipo] = useState<number | null | undefined>(null);
+  const [idTipo, setIdTipo] = useState<number | null>(null);
   const [idSeveridad, setIdSeveridad] = useState<number | null>(null);
   const [tipos, setTipos] = useState<TipoIncidenteItem[]>([]);
   const [severidades, setSeveridades] = useState<SeveridadItem[]>([]);
@@ -168,29 +165,17 @@ export default function CrearReporteScreen({ navigation }: Props) {
           {tipos.length === 0 && (
             <Text style={styles.emptyChip}>Cargando tipos…</Text>
           )}
-          {tipos.map(t => {
-            // TipoIncidenteItem trae id_tipo_incidente, no id_tipo -- ver
-            // MIGRATION_FINDINGS.md. t.id_tipo es siempre undefined, así
-            // que: (a) los chips no tienen key real (React key={undefined}
-            // para todos), (b) tras tocar cualquiera, idTipo === t.id_tipo
-            // es true para TODOS los chips a la vez (undefined ===
-            // undefined), así que todos quedan resaltados como
-            // seleccionados, y (c) setIdTipo(undefined) hace que la
-            // validación "Selecciona el tipo de incidente" nunca pase. Se
-            // preserva tal cual -- el cast es solo para que compile.
-            const tLegacy = t as unknown as { id_tipo?: number };
-            return (
-              <TouchableOpacity
-                key={tLegacy.id_tipo}
-                style={[styles.chip, idTipo === tLegacy.id_tipo && styles.chipActive]}
-                onPress={() => setIdTipo(tLegacy.id_tipo)}
-              >
-                <Text style={[styles.chipText, idTipo === tLegacy.id_tipo && styles.chipTextActive]}>
-                  {t.nombre}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {tipos.map(t => (
+            <TouchableOpacity
+              key={t.id_tipo_incidente}
+              style={[styles.chip, idTipo === t.id_tipo_incidente && styles.chipActive]}
+              onPress={() => setIdTipo(t.id_tipo_incidente)}
+            >
+              <Text style={[styles.chipText, idTipo === t.id_tipo_incidente && styles.chipTextActive]}>
+                {t.nombre}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* ── Severidad ── */}

@@ -5,9 +5,14 @@ import {
   ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthContext } from '../../context/AuthContext';
+import type { RootStackParamList } from '../../navigation/types';
 
-export default function LoginScreen({ navigation }) {
+type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
+
+export default function LoginScreen({ navigation }: Props) {
   const { login } = useContext(AuthContext);
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
@@ -26,17 +31,17 @@ export default function LoginScreen({ navigation }) {
       let title = 'Error de acceso';
       let msg;
 
-      if (err?.response?.status === 401) {
+      if (axios.isAxiosError<{ detail?: string }>(err) && err.response?.status === 401) {
         msg = 'Credenciales incorrectas.\n\nVerifica tu correo y contraseña.';
-      } else if (err?.response?.status === 403) {
+      } else if (axios.isAxiosError(err) && err.response?.status === 403) {
         msg = 'Tu cuenta está inactiva o bloqueada. Contacta al administrador.';
-      } else if (err?.response?.data?.detail) {
+      } else if (axios.isAxiosError<{ detail?: string }>(err) && err.response?.data?.detail) {
         msg = err.response.data.detail;
-      } else if (err?.friendlyMessage) {
+      } else if (axios.isAxiosError(err) && err.friendlyMessage) {
         // Mensaje mejorado de error de red (generado en client.js)
         title = 'Sin conexión';
         msg = err.friendlyMessage;
-      } else if (!err?.response) {
+      } else if (axios.isAxiosError(err) && !err.response) {
         title = 'Sin conexión';
         msg = 'No se pudo conectar al servidor.\n\nVerifica que:\n\u2022 El backend esté corriendo\n• Tu teléfono y PC estén en la misma WiFi\n• La IP en client.js sea correcta';
       } else {

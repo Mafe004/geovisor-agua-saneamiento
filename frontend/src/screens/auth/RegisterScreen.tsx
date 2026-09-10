@@ -2,13 +2,27 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, type KeyboardTypeOptions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { usuariosAPI } from '../../api/services';
+import type { RegistroUsuario } from '../../types/domain';
+import type { RootStackParamList } from '../../navigation/types';
 
-export default function RegisterScreen({ navigation }) {
-  const [form, setForm] = useState({
+type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
+
+interface RegisterForm {
+  nombre_completo: string;
+  correo: string;
+  telefono: string;
+  password: string;
+  confirmPass: string;
+}
+
+export default function RegisterScreen({ navigation }: Props) {
+  const [form, setForm] = useState<RegisterForm>({
     nombre_completo: '',
     correo: '',
     telefono: '',
@@ -17,7 +31,7 @@ export default function RegisterScreen({ navigation }) {
   });
   const [loading, setLoading] = useState(false);
 
-  const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
+  const update = (key: keyof RegisterForm, val: string) => setForm(f => ({ ...f, [key]: val }));
 
   const validate = () => {
     if (!form.nombre_completo || !form.correo || !form.password)
@@ -36,27 +50,45 @@ export default function RegisterScreen({ navigation }) {
     if (err) { Alert.alert('Datos incompletos', err); return; }
     try {
       setLoading(true);
-      await usuariosAPI.register({
+      // id_rol no está en RegistroUsuario (el backend no expone ese campo
+      // ahí -- la registración pública siempre asigna CIUDADANO del lado
+      // del servidor, por diseño de seguridad, y probablemente ignora
+      // cualquier id_rol que el cliente mande). Se preserva el envío tal
+      // cual (ver MIGRATION_FINDINGS.md) con un tipo local en vez de tocar
+      // el contrato compartido en domain.ts.
+      const payload: RegistroUsuario & { id_rol: number } = {
         nombre_completo: form.nombre_completo.trim(),
         correo: form.correo.trim().toLowerCase(),
         telefono: form.telefono.trim() || null,
         password: form.password,
         id_rol: 1, // CIUDADANO
-      });
+      };
+      await usuariosAPI.register(payload);
       Alert.alert(
         '¡Cuenta creada!',
         'Tu cuenta fue registrada exitosamente. Ya puedes iniciar sesión.',
         [{ text: 'Ir al login', onPress: () => navigation.navigate('Login') }],
       );
     } catch (e) {
-      const msg = e?.response?.data?.detail || 'No se pudo crear la cuenta. Intenta más tarde.';
+      const msg =
+        (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail)
+        || 'No se pudo crear la cuenta. Intenta más tarde.';
       Alert.alert('Error al registrarse', msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const Field = ({ label, icon, field, placeholder, keyboard = 'default', secure = false }) => (
+  const Field = ({
+    label, icon, field, placeholder, keyboard = 'default', secure = false,
+  }: {
+    label: string;
+    icon: string;
+    field: keyof RegisterForm;
+    placeholder: string;
+    keyboard?: KeyboardTypeOptions;
+    secure?: boolean;
+  }) => (
     <>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputWrap}>

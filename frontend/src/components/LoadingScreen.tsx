@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function LoadingScreen({ message = 'Cargando...' }) {
+export default function LoadingScreen({ message = 'Cargando...' }: { message?: string }) {
   return (
     <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.container}>
       <ActivityIndicator size="large" color="#fff" />

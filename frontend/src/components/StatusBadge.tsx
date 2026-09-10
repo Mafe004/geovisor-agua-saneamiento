@@ -1,7 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-const STATUS_CONFIG = {
+// Los estados/severidades son catálogos de la BD (ver domain.ts) -- las
+// claves de este mapa son solo los valores conocidos hoy para darles un
+// color/label bonito; un valor de catálogo nuevo cae en el fallback
+// (SEVERITY_CONFIG.BAJA / STATUS_CONFIG.PENDIENTE) en vez de romper, así
+// que se tipa con index signature en vez de una unión cerrada.
+type BadgeConfigMap = Record<string, { bg: string; text: string; label: string; dot?: string }>;
+
+const STATUS_CONFIG: BadgeConfigMap = {
   PENDIENTE:    { bg: '#FEF3C7', text: '#92400E', label: 'Pendiente',    dot: '#F59E0B' },
   EN_REVISION:  { bg: '#DBEAFE', text: '#1E40AF', label: 'En Revisión',  dot: '#3B82F6' },
   EN_PROCESO:   { bg: '#EDE9FE', text: '#5B21B6', label: 'En Proceso',   dot: '#8B5CF6' },
@@ -10,18 +17,27 @@ const STATUS_CONFIG = {
   CERRADO:      { bg: '#F3F4F6', text: '#374151', label: 'Cerrado',      dot: '#6B7280' },
 };
 
-const SEVERITY_CONFIG = {
+const SEVERITY_CONFIG: BadgeConfigMap = {
   BAJA:   { bg: '#D1FAE5', text: '#065F46', label: 'Baja'   },
   MEDIA:  { bg: '#FEF3C7', text: '#92400E', label: 'Media'  },
   ALTA:   { bg: '#FEE2E2', text: '#991B1B', label: 'Alta'   },
   CRITICA:{ bg: '#450A0A', text: '#FECACA', label: 'Crítica' },
 };
 
-export default function StatusBadge({ status, type = 'status', size = 'sm' }) {
+interface StatusBadgeProps {
+  status?: string;
+  type?: 'status' | 'severity';
+  size?: 'sm' | 'lg';
+}
+
+export default function StatusBadge({ status, type = 'status', size = 'sm' }: StatusBadgeProps) {
+  // (status ?? '') en vez de status? -- mismo resultado: ninguna clave real
+  // del mapa es "" ni "undefined", así que un status vacío/ausente sigue
+  // cayendo en el mismo fallback que antes.
   const config =
     type === 'severity'
-      ? SEVERITY_CONFIG[status?.toUpperCase()] || SEVERITY_CONFIG.BAJA
-      : STATUS_CONFIG[status?.toUpperCase()] || STATUS_CONFIG.PENDIENTE;
+      ? SEVERITY_CONFIG[(status ?? '').toUpperCase()] || SEVERITY_CONFIG.BAJA
+      : STATUS_CONFIG[(status ?? '').toUpperCase()] || STATUS_CONFIG.PENDIENTE;
 
   const isLg = size === 'lg';
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, ScrollView,
+  ActivityIndicator, ScrollView, Alert,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +12,7 @@ import { reportesAPI } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
-import type { ReporteMapaPunto, Reporte } from '../../types/domain';
+import type { ReporteMapaPunto } from '../../types/domain';
 import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
 
 type Props = {
@@ -44,13 +44,7 @@ export default function MapaScreen({ navigation }: Props) {
   const loadPines = async () => {
     try {
       const res = await reportesAPI.mapa();
-      // El backend devuelve un array plano (ReporteMapaPunto[]), nunca
-      // { puntos: [...] } -- `(res.data as { puntos?: ... }).puntos` es
-      // código defensivo muerto de un shape de respuesta anterior (ver
-      // MIGRATION_FINDINGS.md), inofensivo porque siempre cae a res.data.
-      const dataConPuntos = res.data as unknown as { puntos?: ReporteMapaPunto[] };
-      const puntos = dataConPuntos?.puntos || res.data || [];
-      setPines(puntos);
+      setPines(res.data || []);
     } catch (_) {
       // Mapa público — si falla, mostrar mapa vacío sin alerta
       setPines([]);
@@ -68,6 +62,22 @@ export default function MapaScreen({ navigation }: Props) {
     } catch (_) {}
   };
 
+  const verDetalle = async (idReporte: number | undefined) => {
+    if (idReporte == null) return;
+    try {
+      // selectedPin es un MapMarker (id_reporte/lat/lng/severidad/estado),
+      // no un Reporte completo -- se busca el reporte real antes de
+      // navegar en vez de pasar el marker con un cast, así
+      // DetalleReporteScreen recibe todos sus campos (incluida
+      // latitud/longitud, así que su mapa sí puede mostrarse).
+      const res = await reportesAPI.obtener(idReporte);
+      navigation.navigate('DetalleReporte', { reporte: res.data });
+      setSelectedPin(null);
+    } catch (_) {
+      Alert.alert('Error', 'No se pudo cargar el detalle del reporte.');
+    }
+  };
+
   const pinesFiltrados = filter
     ? pines.filter(p => (p.estado || '').toUpperCase() === filter)
     : pines;
@@ -80,8 +90,8 @@ export default function MapaScreen({ navigation }: Props) {
       lng: parseFloat(String(p.longitud)),
       severidad: (p.severidad || '').toUpperCase(),
       estado:    (p.estado    || '').toUpperCase(),
-      // ReporteMapaPunto no trae descripcion -- ver MIGRATION_FINDINGS.md.
-      descripcion: (p as unknown as { descripcion?: string }).descripcion,
+      // ReporteMapaPunto no tiene un campo de descripción -- no hay nada
+      // real al que renombrar esto.
     }));
 
   return (
@@ -142,18 +152,7 @@ export default function MapaScreen({ navigation }: Props) {
           </View>
           <TouchableOpacity
             style={styles.pinDetailBtn}
-            onPress={() => {
-              // selectedPin es un MapMarker (id_reporte/lat/lng/...), no un
-              // Reporte completo -- le faltan direccion, imagen_url,
-              // fuente_reporte, created_at, id_usuario, id_entidad,
-              // id_tipo_incidente, id_severidad, tipo_incidente, usuario, y
-              // ni siquiera trae latitud/longitud (solo lat/lng). Ver
-              // MIGRATION_FINDINGS.md: DetalleReporteScreen nunca muestra el
-              // mapa para un reporte abierto desde acá (hasCoords da false).
-              // Cast sin verificar, a propósito, para no tocar el bug.
-              navigation.navigate('DetalleReporte', { reporte: selectedPin as unknown as Reporte });
-              setSelectedPin(null);
-            }}
+            onPress={() => verDetalle(selectedPin.id_reporte)}
           >
             <Text style={styles.pinDetailText}>Ver detalle →</Text>
           </TouchableOpacity>

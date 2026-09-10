@@ -68,13 +68,7 @@ export default function HistorialScreen() {
             />
           }
           contentContainerStyle={historial.length === 0 && styles.emptyContainer}
-          renderItem={({ item, index }) => {
-            // HistorialEntry no trae usuario_nombre/usuario_apellido -- el
-            // campo real es usuario_accion (nombre ya combinado). Ver
-            // MIGRATION_FINDINGS.md: la línea "👤 ..." más abajo nunca se
-            // muestra, el historial nunca dice quién hizo cada cambio.
-            const itemLegacy = item as unknown as { usuario_nombre?: string; usuario_apellido?: string };
-            return (
+          renderItem={({ item, index }) => (
             <View style={styles.timelineItem}>
               {/* Línea de tiempo */}
               <View style={styles.timelineLeft}>
@@ -99,15 +93,10 @@ export default function HistorialScreen() {
                 {item.comentario ? (
                   <Text style={styles.comentario}>&quot;{item.comentario}&quot;</Text>
                 ) : null}
-                {itemLegacy.usuario_nombre && (
-                  <Text style={styles.usuario}>
-                    👤 {itemLegacy.usuario_nombre} {itemLegacy.usuario_apellido || ''}
-                  </Text>
-                )}
+                <Text style={styles.usuario}>👤 {item.usuario_accion}</Text>
               </View>
             </View>
-            );
-          }}
+          )}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📜</Text>

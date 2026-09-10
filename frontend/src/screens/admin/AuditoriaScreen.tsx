@@ -31,15 +31,7 @@ export default function AuditoriaScreen() {
     if (!silent) setLoading(true);
     try {
       const res = await auditoriaAPI.listar();
-      // BUG SEVERO (ver MIGRATION_FINDINGS.md): auditoriaAPI.listar()
-      // devuelve ListarLogsResponse = { total, logs: LogAuditoriaItem[] },
-      // no un array -- res.data es SIEMPRE un objeto truthy, así que
-      // `res.data || []` nunca cae al array vacío, y logs termina con el
-      // wrapper completo en vez de la lista real. FlatList recibe algo que
-      // no es un array como `data`. Preservado tal cual con un cast; el
-      // arreglo real sería `res.data?.logs || []`, pero cambiarlo está
-      // fuera de alcance de esta migración.
-      setLogs((res.data || []) as unknown as LogAuditoriaItem[]);
+      setLogs(res.data?.logs || []);
     } catch (_) { setLogs([]); }
     finally { setLoading(false); setRefreshing(false); }
   };

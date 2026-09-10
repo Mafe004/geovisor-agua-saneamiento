@@ -75,12 +75,11 @@ export default function NotificacionesScreen() {
           >
             <View style={[styles.notiDot, { opacity: item.leida ? 0 : 1 }]} />
             <View style={styles.notiContent}>
-              {/* NotificacionItem no trae `titulo` (ver MIGRATION_FINDINGS.md)
-                  -- siempre cae al genérico "Actualización de reporte",
-                  sin importar tipo_notificacion. Preservado tal cual. */}
-              <Text style={styles.notiTitle}>
-                {(item as unknown as { titulo?: string }).titulo || 'Actualización de reporte'}
-              </Text>
+              {/* NotificacionItem no tiene un campo de título -- tipo_notificacion
+                  es un código interno, no un texto de UI listo para mostrar, así
+                  que no hay un campo real al que renombrar esto sin inventar un
+                  mapeo tipo_notificacion -> texto que no estaba en el original. */}
+              <Text style={styles.notiTitle}>Actualización de reporte</Text>
               <Text style={styles.notiMsg} numberOfLines={2}>{item.mensaje}</Text>
               <Text style={styles.notiTime}>{timeAgo(item.fecha_envio)}</Text>
             </View>

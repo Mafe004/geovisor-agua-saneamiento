@@ -34,7 +34,12 @@ export default function EntidadesScreen() {
           text: 'Confirmar',
           onPress: async () => {
             try {
-              await entidadesAPI.cambiarEstado(entidad.id_entidad, !activo);
+              // El body real es { id_estado_cuenta }, no { activo } --
+              // se envía el estado contrario al actual (1=ACTIVO,
+              // 2=INACTIVO), mismo criterio que UsuariosScreen.
+              await entidadesAPI.cambiarEstado(entidad.id_entidad, {
+                id_estado_cuenta: activo ? 2 : 1,
+              });
               loadEntidades(true);
             } catch (e) {
               const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;

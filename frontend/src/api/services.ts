@@ -7,6 +7,7 @@ import type {
   ActualizarPerfilResponse,
   AsignarUsuarioResponse,
   CambiarEstadoCuenta,
+  CambiarEstadoEntidad,
   CambiarEstadoEntidadResponse,
   CambiarEstadoRequest,
   CambiarEstadoResponse,
@@ -77,10 +78,6 @@ export const usuariosAPI = {
   listar: (params?: Record<string, unknown>) =>
     client.get<UsuarioListItem[]>('/usuarios/', { params }),
   detalle: (id: number) => client.get<UsuarioDetalleResponse>(`/usuarios/${id}`),
-  // NOTA: /usuarios/{id}/toggle-estado no existe en el backend (ver
-  // MIGRATION_FINDINGS.md) — endpoint muerto, se deja tal cual, sin
-  // inventarle un tipo de respuesta real.
-  toggleEstado: (id: number) => client.put<unknown>(`/usuarios/${id}/toggle-estado`),
   cambiarEstado: (id: number, data: CambiarEstadoCuenta) =>
     client.put<CambiarEstadoUsuarioResponse>(`/usuarios/${id}/estado`, data),
 };
@@ -142,11 +139,8 @@ export const entidadesAPI = {
   crear: (data: EntidadCreate) => client.post<CrearEntidadResponse>('/entidades/', data),
   actualizar: (id: number, data: EntidadUpdate) =>
     client.put<ActualizarEntidadResponse>(`/entidades/${id}`, data),
-  // NOTA: envía { activo } pero el backend espera CambiarEstadoEntidad =
-  // { id_estado_cuenta: number } (ver MIGRATION_FINDINGS.md) — se deja
-  // el payload tal cual, sin forzarlo contra ese tipo.
-  cambiarEstado: (id: number, activo: boolean) =>
-    client.put<CambiarEstadoEntidadResponse>(`/entidades/${id}/estado`, { activo }),
+  cambiarEstado: (id: number, data: CambiarEstadoEntidad) =>
+    client.put<CambiarEstadoEntidadResponse>(`/entidades/${id}/estado`, data),
   asignarUsuario: (eid: number, uid: number) =>
     client.put<AsignarUsuarioResponse>(`/entidades/${eid}/asignar-usuario/${uid}`),
   usuarios: (id: number) => client.get<UsuariosDeEntidadResponse>(`/entidades/${id}/usuarios`),

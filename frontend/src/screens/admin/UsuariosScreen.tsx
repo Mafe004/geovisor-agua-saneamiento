@@ -46,7 +46,12 @@ export default function UsuariosScreen() {
           text: 'Confirmar',
           onPress: async () => {
             try {
-              await usuariosAPI.toggleEstado(usuario.id_usuario);
+              // No existe un endpoint de "toggle" -- se usa el real
+              // (PUT /usuarios/{id}/estado) pasando el estado contrario
+              // al actual (1=ACTIVO, 2=INACTIVO).
+              await usuariosAPI.cambiarEstado(usuario.id_usuario, {
+                id_estado_cuenta: activo ? 2 : 1,
+              });
               loadUsuarios(true);
             } catch (e) {
               const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;

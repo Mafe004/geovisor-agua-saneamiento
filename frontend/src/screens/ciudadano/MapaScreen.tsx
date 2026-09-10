@@ -5,9 +5,22 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
 import MapaWebView from '../../components/MapaWebView';
+import type { MapMarker } from '../../components/MapaWebView.types';
+import type { ReporteMapaPunto, Reporte } from '../../types/domain';
+import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
+
+type Props = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<CiudadanoTabParamList, 'Mapa'>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+};
 
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 
@@ -19,19 +32,24 @@ const FILTERS = [
   { key: 'RESUELTO',    label: 'Resuelto'  },
 ];
 
-export default function MapaScreen({ navigation }) {
-  const [pines, setPines]           = useState([]);
+export default function MapaScreen({ navigation }: Props) {
+  const [pines, setPines]           = useState<ReporteMapaPunto[]>([]);
   const [loading, setLoading]       = useState(true);
   const [filter, setFilter]         = useState('');
   const [center, setCenter]         = useState(ZIPAQUIRA);
-  const [selectedPin, setSelectedPin] = useState(null);
+  const [selectedPin, setSelectedPin] = useState<MapMarker | null>(null);
 
   useEffect(() => { loadPines(); requestLocation(); }, []);
 
   const loadPines = async () => {
     try {
       const res = await reportesAPI.mapa();
-      const puntos = res.data?.puntos || res.data || [];
+      // El backend devuelve un array plano (ReporteMapaPunto[]), nunca
+      // { puntos: [...] } -- `(res.data as { puntos?: ... }).puntos` es
+      // código defensivo muerto de un shape de respuesta anterior (ver
+      // MIGRATION_FINDINGS.md), inofensivo porque siempre cae a res.data.
+      const dataConPuntos = res.data as unknown as { puntos?: ReporteMapaPunto[] };
+      const puntos = dataConPuntos?.puntos || res.data || [];
       setPines(puntos);
     } catch (_) {
       // Mapa público — si falla, mostrar mapa vacío sin alerta
@@ -54,15 +72,16 @@ export default function MapaScreen({ navigation }) {
     ? pines.filter(p => (p.estado || '').toUpperCase() === filter)
     : pines;
 
-  const markers = pinesFiltrados
+  const markers: MapMarker[] = pinesFiltrados
     .filter(p => p.latitud && p.longitud && p.latitud !== 0 && p.longitud !== 0)
     .map(p => ({
       id_reporte: p.id_reporte,
-      lat: parseFloat(p.latitud),
-      lng: parseFloat(p.longitud),
+      lat: parseFloat(String(p.latitud)),
+      lng: parseFloat(String(p.longitud)),
       severidad: (p.severidad || '').toUpperCase(),
       estado:    (p.estado    || '').toUpperCase(),
-      descripcion: p.descripcion,
+      // ReporteMapaPunto no trae descripcion -- ver MIGRATION_FINDINGS.md.
+      descripcion: (p as unknown as { descripcion?: string }).descripcion,
     }));
 
   return (
@@ -124,7 +143,15 @@ export default function MapaScreen({ navigation }) {
           <TouchableOpacity
             style={styles.pinDetailBtn}
             onPress={() => {
-              navigation.navigate('DetalleReporte', { reporte: selectedPin });
+              // selectedPin es un MapMarker (id_reporte/lat/lng/...), no un
+              // Reporte completo -- le faltan direccion, imagen_url,
+              // fuente_reporte, created_at, id_usuario, id_entidad,
+              // id_tipo_incidente, id_severidad, tipo_incidente, usuario, y
+              // ni siquiera trae latitud/longitud (solo lat/lng). Ver
+              // MIGRATION_FINDINGS.md: DetalleReporteScreen nunca muestra el
+              // mapa para un reporte abierto desde acá (hasCoords da false).
+              // Cast sin verificar, a propósito, para no tocar el bug.
+              navigation.navigate('DetalleReporte', { reporte: selectedPin as unknown as Reporte });
               setSelectedPin(null);
             }}
           >

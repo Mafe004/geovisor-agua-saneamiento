@@ -4,20 +4,37 @@ import {
   ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MapaWebView from '../../components/MapaWebView';
+import type { MapCenterChange } from '../../components/MapaWebView.types';
 import { reportesAPI, catalogosAPI } from '../../api/services';
+import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest } from '../../types/domain';
+import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
+
+type Props = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<CiudadanoTabParamList, 'Crear'>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+};
 
 // Coordenadas centro de Zipaquirá (Colombia)
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 
-export default function CrearReporteScreen({ navigation }) {
+export default function CrearReporteScreen({ navigation }: Props) {
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
-  const [coordenadas, setCoordenadas] = useState(null);
-  const [idTipo, setIdTipo] = useState(null);
-  const [idSeveridad, setIdSeveridad] = useState(null);
-  const [tipos, setTipos] = useState([]);
-  const [severidades, setSeveridades] = useState([]);
+  const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
+  // number | null | undefined, no solo number | null -- ver el comentario
+  // junto al selector de tipo de incidente más abajo: el bug real hace que
+  // setIdTipo termine recibiendo `undefined`, no `null`.
+  const [idTipo, setIdTipo] = useState<number | null | undefined>(null);
+  const [idSeveridad, setIdSeveridad] = useState<number | null>(null);
+  const [tipos, setTipos] = useState<TipoIncidenteItem[]>([]);
+  const [severidades, setSeveridades] = useState<SeveridadItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
 
@@ -60,7 +77,7 @@ export default function CrearReporteScreen({ navigation }) {
   };
 
   // Callback del pin central de MapaWebView
-  const handleCenterChange = ({ latitude, longitude }) => {
+  const handleCenterChange = ({ latitude, longitude }: MapCenterChange) => {
     setCoordenadas({ latitude, longitude });
   };
 
@@ -72,14 +89,26 @@ export default function CrearReporteScreen({ navigation }) {
 
     try {
       setLoading(true);
-      await reportesAPI.crear({
+      // Dos discrepancias reales con ReporteCreateRequest (ver
+      // MIGRATION_FINDINGS.md), preservadas tal cual con un cast en vez de
+      // "arreglarlas":
+      // 1. direccion_aproximada no es un campo del schema -- el campo real
+      //    es `direccion`. El backend ignora este campo en silencio, así
+      //    que la dirección que el ciudadano escribe acá NUNCA se guarda.
+      // 2. fuente_reporte es requerido por el schema generado pero nunca
+      //    se envía -- el backend le pone un default ("CIUDADANO") del
+      //    lado del servidor cuando falta, así que en la práctica esto no
+      //    rompe nada; el schema generado simplemente no refleja que ese
+      //    default existe.
+      const payload = {
         descripcion: descripcion.trim(),
         latitud: coordenadas.latitude,
         longitud: coordenadas.longitude,
         direccion_aproximada: direccion.trim() || null,
         id_tipo_incidente: idTipo,
         id_severidad: idSeveridad,
-      });
+      };
+      await reportesAPI.crear(payload as unknown as ReporteCreateRequest);
       Alert.alert(
         '✅ Reporte creado',
         'Tu reporte fue enviado exitosamente. Un moderador lo revisará pronto.',
@@ -91,7 +120,8 @@ export default function CrearReporteScreen({ navigation }) {
       setIdTipo(null);
       setIdSeveridad(null);
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.detail || 'No se pudo enviar el reporte.');
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      Alert.alert('Error', msg || 'No se pudo enviar el reporte.');
     } finally {
       setLoading(false);
     }
@@ -138,17 +168,29 @@ export default function CrearReporteScreen({ navigation }) {
           {tipos.length === 0 && (
             <Text style={styles.emptyChip}>Cargando tipos…</Text>
           )}
-          {tipos.map(t => (
-            <TouchableOpacity
-              key={t.id_tipo}
-              style={[styles.chip, idTipo === t.id_tipo && styles.chipActive]}
-              onPress={() => setIdTipo(t.id_tipo)}
-            >
-              <Text style={[styles.chipText, idTipo === t.id_tipo && styles.chipTextActive]}>
-                {t.nombre}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {tipos.map(t => {
+            // TipoIncidenteItem trae id_tipo_incidente, no id_tipo -- ver
+            // MIGRATION_FINDINGS.md. t.id_tipo es siempre undefined, así
+            // que: (a) los chips no tienen key real (React key={undefined}
+            // para todos), (b) tras tocar cualquiera, idTipo === t.id_tipo
+            // es true para TODOS los chips a la vez (undefined ===
+            // undefined), así que todos quedan resaltados como
+            // seleccionados, y (c) setIdTipo(undefined) hace que la
+            // validación "Selecciona el tipo de incidente" nunca pase. Se
+            // preserva tal cual -- el cast es solo para que compile.
+            const tLegacy = t as unknown as { id_tipo?: number };
+            return (
+              <TouchableOpacity
+                key={tLegacy.id_tipo}
+                style={[styles.chip, idTipo === tLegacy.id_tipo && styles.chipActive]}
+                onPress={() => setIdTipo(tLegacy.id_tipo)}
+              >
+                <Text style={[styles.chipText, idTipo === tLegacy.id_tipo && styles.chipTextActive]}>
+                  {t.nombre}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* ── Severidad ── */}

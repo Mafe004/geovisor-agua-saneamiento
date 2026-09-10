@@ -5,10 +5,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { notificacionesAPI } from '../../api/services';
+import type { NotificacionItem } from '../../types/domain';
 
-function timeAgo(dateStr) {
+function timeAgo(dateStr: string | undefined) {
   if (!dateStr) return '';
-  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
   if (diff < 60) return 'hace un momento';
   if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
   if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
@@ -16,7 +17,7 @@ function timeAgo(dateStr) {
 }
 
 export default function NotificacionesScreen() {
-  const [notis, setNotis] = useState([]);
+  const [notis, setNotis] = useState<NotificacionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -35,7 +36,7 @@ export default function NotificacionesScreen() {
     }
   };
 
-  const markRead = async (id) => {
+  const markRead = async (id: number) => {
     try {
       await notificacionesAPI.marcarLeida(id);
       setNotis(prev => prev.map(n => n.id_notificacion === id ? { ...n, leida: true } : n));
@@ -74,7 +75,12 @@ export default function NotificacionesScreen() {
           >
             <View style={[styles.notiDot, { opacity: item.leida ? 0 : 1 }]} />
             <View style={styles.notiContent}>
-              <Text style={styles.notiTitle}>{item.titulo || 'Actualización de reporte'}</Text>
+              {/* NotificacionItem no trae `titulo` (ver MIGRATION_FINDINGS.md)
+                  -- siempre cae al genérico "Actualización de reporte",
+                  sin importar tipo_notificacion. Preservado tal cual. */}
+              <Text style={styles.notiTitle}>
+                {(item as unknown as { titulo?: string }).titulo || 'Actualización de reporte'}
+              </Text>
               <Text style={styles.notiMsg} numberOfLines={2}>{item.mensaje}</Text>
               <Text style={styles.notiTime}>{timeAgo(item.fecha_envio)}</Text>
             </View>

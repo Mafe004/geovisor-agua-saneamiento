@@ -461,6 +461,29 @@ were never attributed to SIASAR. `backend/tests/test_contracts.py`'s
   reads (`comunidades`, `comunidades_d`, `sistemas_sin_cloracion`, ...,
   `reportes_total`/`reportes_abiertos`, `fecha_encuesta_min/max`).
 
+## Decisions and deviations (finalization)
+
+- **Backend README** (`backend/README.md`): added `siasar.py` to the
+  router listing, the 7 SIASAR endpoints to the endpoints table, the 3
+  new tables to "Tablas principales", and a "SIASAR" section with the
+  exact migration/import commands.
+- **Frontend README** (`frontend/README.md`): corrected the Leaflet/
+  OpenStreetMap claims (three spots — component listing, stack table,
+  Google Maps setup step) to Google Maps, matching what
+  `src/components/mapHtml.ts` actually does (confirmed in Phase 0). Added
+  `SiasarComunidadInfo.tsx` and `theme/siasar.ts` to the structure
+  listing, `siasarAPI` to the services mention, and a one-line note to
+  the Ciudadano/Entidad/Admin screen tables describing what each gained.
+  **Not fixed** (pre-existing, unrelated to SIASAR, out of this task's
+  scope): the frontend README still describes the codebase as `.js`
+  (`App.js`, `client.js`, `AppNavigator.js`, ...) when it's actually
+  TypeScript (`.tsx`/`.ts`) throughout, and the Moderador/Entidad screen
+  tables don't reflect the `TriageScreen`/`InfraestructuraScreen`/
+  `CifrasEntidadScreen`/Andi-visual-system work done earlier in this same
+  session, before the SIASAR task started — both predate SIASAR and
+  aren't part of "the new router, endpoints, screens and components"
+  this task's instructions ask to document.
+
 ## Open questions
 
 - None so far — every `infraestructura_hidrica` row with

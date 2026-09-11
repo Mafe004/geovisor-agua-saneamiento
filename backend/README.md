@@ -46,8 +46,14 @@ backend/
         ├── historial.py           ← Historial de cambios de estado por reporte
         ├── notificaciones.py      ← Notificaciones in-app por usuario
         ├── infraestructura.py     ← Puntos GIS de infraestructura hídrica
+        ├── siasar.py              ← Capa oficial SIASAR, solo lectura (veredas/acueductos)
         └── auditoria.py           ← Logs de auditoría del sistema (solo ADMIN)
 ```
+
+Además: `app/services/siasar.py` (`buscar_comunidad_cercana`, reutilizado por
+`reportes.crear_reporte` y por el importador), `scripts/importar_siasar.py`
+(importa el CSV oficial) y `migrations/` (cambios de esquema incrementales
+para una base ya existente — ver la sección SIASAR más abajo).
 
 ---
 
@@ -139,6 +145,34 @@ backend/
 | `GET` | `/usuarios/pendientes` | Solo Admin |
 | `PUT` | `/usuarios/{id}/estado` | Solo Admin |
 | `GET` | `/auditoria/` | Solo Admin |
+| `GET` | `/siasar/municipios` | Todos |
+| `GET` | `/siasar/comunidades/mapa` | Todos |
+| `GET` | `/siasar/sistemas/mapa` | Todos |
+| `GET` | `/siasar/cercana` | Todos |
+| `GET` | `/siasar/comunidades/{id}` | Todos |
+| `GET` | `/siasar/sistemas/{id}` | Todos |
+| `GET` | `/siasar/resumen-municipios` | Moderador, Admin |
+
+---
+
+## 🌊 SIASAR (diagnóstico oficial de agua rural)
+
+Capa de **solo lectura** — sin POST/PUT/PATCH/DELETE, los datos entran
+únicamente por un script de importación. Ver `SIASAR_INTEGRATION_NOTES.md`
+(raíz del repo) para el detalle completo: convenciones, decisiones,
+caveats de los datos para la tesis, y el reporte de la última importación.
+
+```bash
+# Aplicar el esquema SIASAR a una base EXISTENTE (dev/prod) — no hace
+# falta en una base nueva, geovisor_backup_limpio.sql ya lo incluye.
+python migrations/run_migrations.py --dry-run
+python migrations/run_migrations.py
+
+# Importar/actualizar los datos (community_main.csv + system_main.csv en
+# backend/data/siasar/) — siempre primero en seco.
+python -m scripts.importar_siasar --dir data/siasar --dry-run
+python -m scripts.importar_siasar --dir data/siasar
+```
 
 ---
 
@@ -321,6 +355,9 @@ python tools_hash.py
 | `infraestructura_hidrica` | Puntos GIS (PTAR, acueductos, pozos, embalses) |
 | `logs_auditoria` | Registro de acciones administrativas |
 | `recuperacion_contrasena` | Tokens temporales para reset de contraseña |
+| `siasar_comunidad` | Veredas del diagnóstico oficial SIASAR (solo lectura, vía import) |
+| `siasar_sistema` | Acueductos del diagnóstico oficial SIASAR (solo lectura, vía import) |
+| `siasar_comunidad_sistema` | Enlace comunidad↔sistema (por nombre, calculado en el import) |
 
 > ⚠️ **Sin stored procedures para lógica de negocio, a propósito.** El dump
 > tenía un `sp_cambiar_estado_reporte` que duplicaba en SQL lo que hace

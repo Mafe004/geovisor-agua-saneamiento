@@ -439,6 +439,28 @@ were never attributed to SIASAR. `backend/tests/test_contracts.py`'s
   extra `GET /siasar/comunidades/{id}` (endpoint 4, as the spec says)
   rather than trying to stretch the summary shape to cover both uses.
 
+## Decisions and deviations (Phase 5)
+
+- **Section placed only in `admin/DashboardScreen.tsx`**, not surfaced to
+  Moderador anywhere in the UI — the task says "In the admin dashboard, add
+  the section", and Moderador has no Dashboard screen/tab in this app at
+  all (Triage/Historial/Infra/Perfil). The backend endpoint still allows
+  MODERADOR (per its own spec table), so nothing stops a future Moderador
+  screen from reusing `siasarAPI.resumenMunicipios()` — this phase just
+  doesn't add one, matching "no new navigation surface" from Phase 3.
+- **Table scrolls horizontally** (`ScrollView horizontal`) rather than
+  wrapping/shrinking columns — six columns (municipio + 5 numeric) at
+  legible width don't fit a phone screen, and municipality names in this
+  dataset run up to 27 characters (`ZIPAQUIRÁ` is short; others aren't).
+- **Date range caption** formats `fecha_encuesta_min`/`max` as DD/MM/AAAA,
+  matching the `fuenteConFecha()` convention already established in
+  `theme/siasar.ts` (Phase 3) rather than inventing a second date format.
+- **Verified**: `tsc --noEmit` and `expo lint` clean; live smoke test
+  against the real imported dataset — `/siasar/resumen-municipios` as
+  ADMIN returns all 112 municipios with the exact shape the dashboard
+  reads (`comunidades`, `comunidades_d`, `sistemas_sin_cloracion`, ...,
+  `reportes_total`/`reportes_abiertos`, `fecha_encuesta_min/max`).
+
 ## Open questions
 
 - None so far — every `infraestructura_hidrica` row with

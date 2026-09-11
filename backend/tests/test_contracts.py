@@ -143,7 +143,10 @@ def test_get_infraestructura_listar(ciudadano):
 
 
 def test_get_infraestructura_detalle(ciudadano):
-    assert client.get("/infraestructura/1", headers=ciudadano).status_code == 200
+    # id 2, no 1: los dos placeholders ficticios con fuente='SIASAR' (ids 1
+    # y 4) se quitaron de la semilla al agregar la capa SIASAR real -- ver
+    # SIASAR_INTEGRATION_NOTES.md "Removed placeholder rows".
+    assert client.get("/infraestructura/2", headers=ciudadano).status_code == 200
 
 
 def test_get_auditoria_listar(admin):
@@ -221,6 +224,8 @@ EXPECTED_REPORTE_DETALLE_FIELDS = {
     "estado",
     "tipo_incidente",
     "severidad",
+    "id_entidad_sugerida",
+    "entidad_sugerida",
 }
 
 

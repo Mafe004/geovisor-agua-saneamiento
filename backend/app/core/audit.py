@@ -9,6 +9,7 @@ class Modulo(str, Enum):
     USUARIOS = "USUARIOS"
     ENTIDADES = "ENTIDADES"
     INFRAESTRUCTURA = "INFRAESTRUCTURA"
+    SIASAR = "SIASAR"
 
 
 class Accion(str, Enum):
@@ -20,6 +21,8 @@ class Accion(str, Enum):
     CREAR = "CREAR"
     ACTUALIZAR = "ACTUALIZAR"
     ASIGNAR_USUARIO = "ASIGNAR_USUARIO"
+    ASIGNAR_ENTIDAD = "ASIGNAR_ENTIDAD"
+    IMPORTACION = "IMPORTACION"
     # Valor presente en los datos semilla; ningún código nuevo lo emite —
     # ver nota en Part B: auditar cada lectura inundaría la tabla.
     LISTAR_USUARIOS = "LISTAR_USUARIOS"

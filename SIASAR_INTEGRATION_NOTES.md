@@ -149,3 +149,198 @@ compatible if it's added later without code changes.
 `fuente = 'SIASAR'`): id 1 `Planta de Tratamiento Central` (tipo `PTAR`) and
 id 4 `Pozo de Abastecimiento Sur` (tipo `POZO`). Both are removed (dump,
 migration, and live dev DB) in Phase 1 — see "Removed placeholder rows".
+
+## Decisions and deviations (Phase 1)
+
+- **Migrations folder**: created `backend/migrations/` (numbered SQL +
+  `run_migrations.py` + `README.md`) per the task's own fallback
+  instruction, since no migration mechanism existed. It tracks applied
+  files in a new `schema_migrations(filename, applied_at)` table (plain
+  table, not a stored procedure) rather than embedding
+  `information_schema` guards inside the SQL files themselves — simpler,
+  and the SQL files stay ordinary DDL that also gets copied verbatim into
+  `geovisor_backup_limpio.sql` for fresh/test databases. Applied
+  successfully to both a from-scratch test DB and the existing dev DB
+  (idempotency re-verified: a second `run_migrations.py` run reports
+  nothing pending).
+- **Audit row "details with counts"**: `logs_auditoria` has no free-text
+  column (`id_log, id_usuario, accion, modulo, fecha_accion, ip_origen`)
+  and constraint 5 says reuse `registrar_auditoria`/the existing table as-is
+  rather than duplicating/extending it for one feature. The audit row
+  (`accion=IMPORTACION, modulo=SIASAR, id_usuario=NULL`) records *that* an
+  import ran and *when*; the actual counts live in the run's stdout report
+  and in this file's "Last import report" section, not in the audit table.
+- **`id_usuario` for the audit row**: the importer runs outside any HTTP
+  request (CLI script), so there's no authenticated user — `id_usuario=None`
+  is passed, which `logs_auditoria.id_usuario` already allows (nullable,
+  `ON DELETE SET NULL`, same as any user later being deleted).
+- **Matching-key normalization** (`_clave()`): interpreted "collapse
+  whitespace, strip spaces, periods and single or double quotes" as
+  *removing* those characters entirely (not just trimming the ends) after
+  the NFKD/uppercase step — e.g. `"Sistema  Unión"` and `"SISTEMA UNION"`
+  both reduce to `SISTEMAUNION`. This is what makes the accent/double-space
+  fixture case (`test_enlaces_comunidad_sistema`) actually match, and is
+  the only reading under which "collapse whitespace" (step N) and "strip
+  spaces" (step N+1) aren't the same no-op step twice.
+- **`distancia_siasar_m` on cascade delete**: `fk_reportes_siasar`'s
+  `ON DELETE SET NULL` only clears `id_siasar_comunidad` (the FK column
+  itself) — MySQL has no way to also null a sibling column via the FK
+  clause. Found via `test_borrar_comunidad_vinculada_pone_null_en_el_reporte`:
+  without a fix, a report whose community got deleted kept a stale
+  `distancia_siasar_m` pointing at nothing. Fixed in the importer's own
+  transaction: right after the delete step, `UPDATE reportes SET
+  distancia_siasar_m = NULL WHERE id_siasar_comunidad IS NULL AND
+  distancia_siasar_m IS NOT NULL` runs before the backfill step, so a
+  freshly-orphaned report either gets both fields cleared together or both
+  re-populated together by backfill (never a mismatched pair).
+- **Unparseable non-empty numeric values**: the spec only defines explicit
+  reject-row behavior for invalid coordinates/dates. A non-empty value in a
+  numeric column (`poblacion`, `pob_servida`, ...) that `Decimal()` can't
+  parse is treated as `NULL` for that field (row still imported) rather
+  than rejecting the whole row — no such value exists in the real
+  Cundinamarca CSVs (verified: the full import reports 0 rejected rows
+  beyond the department/coordinate filters), so this path is defensive,
+  not exercised by real data.
+- **RECHAZADO**: `estado_reporte`'s actual seed only has PENDIENTE,
+  EN_REVISION, EN_PROCESO, RESUELTO — no RECHAZADO row exists today. The
+  `resumen-municipios` "open reports" definition (`estado NOT IN
+  ('RESUELTO','RECHAZADO')`) is implemented as specified anyway: harmless
+  now, forward-compatible if that state is added later.
+
+## Schema changes and how to apply them
+
+New tables `siasar_comunidad`, `siasar_sistema`, `siasar_comunidad_sistema`;
+additive columns `reportes.id_siasar_comunidad` /
+`reportes.distancia_siasar_m`; two placeholder rows removed from
+`infraestructura_hidrica`. Defined in two places kept in sync by hand (small
+schema, no tooling needed to auto-sync them):
+
+- **Fresh / test databases**: already baked into
+  `backend/geovisor_backup_limpio.sql` — nothing to run manually.
+  `tests/conftest.py` picks it up automatically (its `TABLES` list now
+  includes the three new tables, as empty tables truncated/reseeded like
+  everything else — real SIASAR rows only ever come from the importer, in
+  a dedicated fixture per test, never from the dump).
+- **Existing databases** (dev today, or anything already deployed):
+  ```bash
+  cd backend
+  python migrations/run_migrations.py --dry-run   # see what's pending
+  python migrations/run_migrations.py             # apply it
+  ```
+  Verified against both an empty freshly-created database (via the dump)
+  and the live dev database (`geovisor_agua_saneamiento`, which already had
+  5 reports and the 2 placeholder infra rows before migrating) — in both
+  cases the schema ends up identical and a second `run_migrations.py`
+  reports nothing pending.
+
+## How to re-import SIASAR
+
+From `backend/`, with the venv activated:
+
+```bash
+python -m scripts.importar_siasar --dir data/siasar --dry-run   # preview, writes nothing
+python -m scripts.importar_siasar --dir data/siasar             # real import
+python -m scripts.importar_siasar --dir data/siasar --allow-shrink   # only if a file legitimately shrank >50%
+```
+
+Runs inside one transaction (upsert → rebuild links → delete stale rows →
+backfill `reportes` → one audit row → commit; any failure rolls back
+everything, including the audit row). Safe to re-run any time SIASAR
+publishes updated CSVs — it's a full upsert/sync each time, not additive.
+
+## Last import report
+
+Real run against `backend/data/siasar/{community_main,system_main}.csv`
+(3,644 / 926 data rows), against the dev database:
+
+```
+Comunidades leídas: 3644
+  insertadas: 3644  actualizadas: 0  eliminadas: 0  atípicas: 1
+Sistemas leídos: 926
+  insertados: 926  actualizados: 0  eliminados: 0  atípicos: 1
+Enlaces comunidad<->sistema creados: 3187
+  nombres sin enlazar: 159
+  nombres ambiguos: 0
+Reportes vinculados de vuelta (backfill): 4
+```
+
+Second run immediately after (idempotency check):
+
+```
+Comunidades leídas: 3644
+  insertadas: 0  actualizadas: 3644  eliminadas: 0  atípicas: 1
+Sistemas leídos: 926
+  insertados: 0  actualizados: 926  eliminados: 0  atípicos: 1
+Enlaces comunidad<->sistema creados: 3187
+  nombres sin enlazar: 159
+  nombres ambiguos: 0
+Reportes vinculados de vuelta (backfill): 0
+```
+
+0 rows rejected in either run (no coordinate/date/department failures on
+the real Cundinamarca-filtered data — expected, since the source file is
+already filtered to Cundinamarca and SIASAR's own coordinates are all
+sane). 1 atypical community, 1 atypical system — matches the two rows
+`SIASAR_Cundinamarca_CSV/LEEME.txt`'s source data facts called out by ID
+(community `ROSARIO, LA VEGA`; system `LA VEGA`). 3,187 linked pairs is
+close to the spec's "about 3,190" estimate (small differences are expected
+— "about" — and don't indicate a matching bug: every fixture-based
+correctness test in `test_importar_siasar.py` passes, including the
+zero-ambiguous-matches assertion).
+
+## Data caveats for the thesis
+
+- **Rural areas only.** SIASAR surveys rural communities (veredas) and
+  their water systems — it does not cover urban water service, which in
+  Zipaquirá and most Cundinamarca municipalities is a separate, typically
+  better-documented utility. A municipality with 0 SIASAR communities may
+  still have a large urban population with normal water service; SIASAR's
+  silence there is not evidence of anything.
+- **Survey dates span 2017–2022** (`fecha_encuesta` ranges from
+  2017-11-02 to 2022-05-18 in the source). Every SIASAR view must show this
+  date — it is a historical diagnostic, not a live status.
+- **No validation date in the source.** SIASAR's own schema has a
+  `fecha_validacion` column; it's blank for essentially all Cundinamarca
+  rows in this export and is therefore not imported. Only
+  `fecha_encuesta` (survey date) is available and shown.
+- **Link rate ≈ 95%** (3,187 of ~3,352 attempted community→system name
+  matches). The remaining ~5% (159 names in the real run) are communities
+  whose `sistemas` text didn't resolve to exactly one system in the same
+  municipality — logged, never guessed. A community with no linked system
+  is not necessarily unserved; it may mean the system name in the source
+  data doesn't match cleanly (typo, different punctuation not covered by
+  the normalization rules, or the system genuinely isn't in this export).
+- **Atypical rows** (`poblacion_atipica` / an atypical system's population
+  flag): `poblacion_atipica=1` flags a population/household ratio SIASAR
+  itself reports as implausible (`población > viviendas × 15`). The number
+  is stored exactly as published — never corrected or dropped — the flag
+  just tells the UI to show "dato por verificar" instead of presenting it
+  as reliable.
+- **`SIN_PRUEBA`/`"No aplica"` means no registered test**, not "passed" or
+  "failed" — a system with `prueba_coliformes = SIN_PRUEBA` was never
+  tested (or the test result wasn't recorded), which is a data gap, not a
+  water-quality finding. Every UI label says exactly this ("Sin prueba
+  registrada" / "Última prueba registrada: ..."), and constraint 9 bans
+  the words "potable"/"no potable" anywhere near this data for the same
+  reason: SIASAR's own indicators don't certify potability, only report
+  survey answers.
+
+## Removed placeholder rows
+
+Two fictional seed rows in `infraestructura_hidrica` claimed
+`fuente = 'SIASAR'` without ever coming from real SIASAR data (the app had
+no SIASAR integration before this feature — they were made-up demo
+content): id 1 `Planta de Tratamiento Central` (`PTAR`) and id 4 `Pozo de
+Abastecimiento Sur` (`POZO`). Removed from `geovisor_backup_limpio.sql`,
+from `migrations/0001_siasar_schema.sql`, and from the live dev database.
+The other three seed rows (`Acueducto Norte Zipaquirá` / CAR, `Embalse del
+Neusa` / CAR, `Red Alcantarillado Centro` / Municipio) are untouched — they
+were never attributed to SIASAR. `backend/tests/test_contracts.py`'s
+`test_get_infraestructura_detalle` was pointed at id 2 instead of the now
+-gone id 1.
+
+## Open questions
+
+- None so far — every `infraestructura_hidrica` row with
+  `fuente = 'SIASAR'` in the dump/dev DB was one of the two known
+  placeholders; no unexpected SIASAR-sourced row was found.

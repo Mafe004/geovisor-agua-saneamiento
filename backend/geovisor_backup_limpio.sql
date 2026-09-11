@@ -152,6 +152,26 @@ INSERT INTO `entidades` VALUES
 
 -- ------------------------------------------------------------
 
+-- Enrutamiento sugerido: qué entidad atiende cada tipo de incidente por
+-- defecto. Es solo una SUGERENCIA que el moderador ve y puede pisar al
+-- triar -- nunca se usa para asignar automáticamente sin que un moderador
+-- lo confirme. Con una sola entidad en el seed, todo apunta a ella; el
+-- modelo ya soporta más de una fila por tipo_incidente cuando haya más.
+DROP TABLE IF EXISTS `tipo_incidente_entidad`;
+CREATE TABLE `tipo_incidente_entidad` (
+  `id_tipo_incidente` int NOT NULL,
+  `id_entidad`         int NOT NULL,
+  PRIMARY KEY (`id_tipo_incidente`),
+  KEY `fk_tie_entidad` (`id_entidad`),
+  CONSTRAINT `fk_tie_tipo`     FOREIGN KEY (`id_tipo_incidente`) REFERENCES `tipo_incidente` (`id_tipo_incidente`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tie_entidad`  FOREIGN KEY (`id_entidad`)        REFERENCES `entidades`      (`id_entidad`)       ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `tipo_incidente_entidad` VALUES
+  (1,1),(2,1),(3,1),(4,1),(5,1),(6,1);
+
+-- ------------------------------------------------------------
+
 DROP TABLE IF EXISTS `usuarios`;
 CREATE TABLE `usuarios` (
   `id_usuario`       int          NOT NULL AUTO_INCREMENT,
@@ -376,12 +396,89 @@ CREATE TABLE `infraestructura_hidrica` (
   PRIMARY KEY (`id_infraestructura`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Los dos placeholders ficticios con fuente='SIASAR' que había acá
+-- ('Planta de Tratamiento Central', 'Pozo de Abastecimiento Sur') se
+-- quitaron: nunca vinieron de datos SIASAR reales y ahora que existe la
+-- capa SIASAR real (tablas siasar_*, más abajo) mantenerlos habría sido
+-- engañoso -- ver SIASAR_INTEGRATION_NOTES.md "Removed placeholder rows".
 INSERT INTO `infraestructura_hidrica` VALUES
-  (1,'Planta de Tratamiento Central',       'PTAR',          5.0222000,-74.0048000,'SIASAR',    'ACTIVA',NOW()),
   (2,'Acueducto Norte Zipaquirá',           'ACUEDUCTO',     5.0280000,-74.0100000,'CAR',       'ACTIVA',NOW()),
   (3,'Embalse del Neusa',                   'EMBALSE',       5.1200000,-73.9800000,'CAR',       'ACTIVA',NOW()),
-  (4,'Pozo de Abastecimiento Sur',          'POZO',          5.0150000,-74.0200000,'SIASAR',    'ACTIVA',NOW()),
   (5,'Red Alcantarillado Centro',           'ALCANTARILLADO',5.0231000,-74.0062000,'Municipio', 'ACTIVA',NOW());
+
+-- ============================================================
+-- SIASAR (Cundinamarca) -- capa oficial de solo lectura importada desde
+-- CSV (scripts/importar_siasar.py). Vacías en este dump: los datos reales
+-- entran solo por el importador, nunca por seed SQL. Ver
+-- migrations/0001_siasar_schema.sql (mismo esquema, para bases existentes)
+-- y SIASAR_INTEGRATION_NOTES.md.
+-- ============================================================
+
+CREATE TABLE `siasar_comunidad` (
+  `id_siasar`             int            NOT NULL,
+  `nombre`                varchar(120)   NOT NULL,
+  `municipio`             varchar(60)    NOT NULL,
+  `localidad`             varchar(120)   DEFAULT NULL,
+  `latitud`               decimal(10,7)  NOT NULL,
+  `longitud`              decimal(10,7)  NOT NULL,
+  `poblacion`             int            DEFAULT NULL,
+  `viviendas`             int            DEFAULT NULL,
+  `poblacion_atipica`     tinyint(1)     NOT NULL DEFAULT 0,
+  `cobertura_agua`        decimal(5,4)   DEFAULT NULL,
+  `cobertura_saneamiento` decimal(5,4)   DEFAULT NULL,
+  `n_escuelas`            int            DEFAULT NULL,
+  `sistemas_texto`        varchar(400)   DEFAULT NULL,
+  `prestador`             varchar(400)   DEFAULT NULL,
+  `calificacion`          char(1)        DEFAULT NULL,
+  `fecha_encuesta`        date           NOT NULL,
+  `fecha_importacion`     datetime       NOT NULL,
+  PRIMARY KEY (`id_siasar`),
+  KEY `idx_siasar_comunidad_municipio` (`municipio`),
+  KEY `idx_siasar_comunidad_geo` (`latitud`, `longitud`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `siasar_sistema` (
+  `id_siasar`              int            NOT NULL,
+  `nombre`                 varchar(200)   NOT NULL,
+  `municipio`              varchar(60)    NOT NULL,
+  `localidad`              varchar(120)   DEFAULT NULL,
+  `latitud`                decimal(10,7)  NOT NULL,
+  `longitud`               decimal(10,7)  NOT NULL,
+  `comunidades_texto`      varchar(800)   DEFAULT NULL,
+  `prestador`              varchar(250)   DEFAULT NULL,
+  `poblacion_servida`      int            DEFAULT NULL,
+  `viviendas_servidas`     int            DEFAULT NULL,
+  `poblacion_atipica`      tinyint(1)     NOT NULL DEFAULT 0,
+  `horas_servicio`         decimal(4,1)   DEFAULT NULL,
+  `cloracion`              enum('FUNCIONA','NO_FUNCIONA','NO_SE_REALIZA','SIN_DATO') NOT NULL,
+  `prueba_coliformes`      enum('PASA','NO_PASA','SIN_PRUEBA') NOT NULL,
+  `prueba_fisicoquimica`   enum('PASA','NO_PASA','SIN_PRUEBA') NOT NULL,
+  `fecha_encuesta`         date           NOT NULL,
+  `fecha_importacion`      datetime       NOT NULL,
+  PRIMARY KEY (`id_siasar`),
+  KEY `idx_siasar_sistema_municipio` (`municipio`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `siasar_comunidad_sistema` (
+  `id_siasar_comunidad` int NOT NULL,
+  `id_siasar_sistema`   int NOT NULL,
+  PRIMARY KEY (`id_siasar_comunidad`, `id_siasar_sistema`),
+  KEY `idx_scs_sistema` (`id_siasar_sistema`),
+  CONSTRAINT `fk_scs_comunidad` FOREIGN KEY (`id_siasar_comunidad`) REFERENCES `siasar_comunidad` (`id_siasar`) ON DELETE CASCADE,
+  CONSTRAINT `fk_scs_sistema`   FOREIGN KEY (`id_siasar_sistema`)   REFERENCES `siasar_sistema`   (`id_siasar`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Vínculo reportes -> comunidad SIASAR más cercana (ver
+-- app/services/siasar.py buscar_comunidad_cercana, llamado al crear un
+-- reporte). ALTER en vez de agregar las columnas a la CREATE TABLE
+-- `reportes` original: siasar_comunidad tiene que existir antes de poder
+-- referenciarla con una FK, y ese CREATE TABLE está mucho más arriba en
+-- este mismo dump.
+ALTER TABLE `reportes`
+  ADD COLUMN `id_siasar_comunidad` int NULL AFTER `id_entidad`,
+  ADD COLUMN `distancia_siasar_m`  int NULL AFTER `id_siasar_comunidad`,
+  ADD KEY `idx_reportes_siasar` (`id_siasar_comunidad`),
+  ADD CONSTRAINT `fk_reportes_siasar` FOREIGN KEY (`id_siasar_comunidad`) REFERENCES `siasar_comunidad` (`id_siasar`) ON DELETE SET NULL;
 
 -- ============================================================
 -- VISTA: reportes completos (útil para el mapa)

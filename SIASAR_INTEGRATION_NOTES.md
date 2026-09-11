@@ -339,6 +339,31 @@ were never attributed to SIASAR. `backend/tests/test_contracts.py`'s
 `test_get_infraestructura_detalle` was pointed at id 2 instead of the now
 -gone id 1.
 
+## Decisions and deviations (Phase 2)
+
+- **`FUENTE_ATRIBUCION` lives in `app/services/siasar.py`**, not duplicated
+  in `schemas/siasar.py` or the router — it was originally (unused) dead
+  code in the importer; moved to the one module every SIASAR-reading piece
+  of backend code already imports from
+  (`app/routers/siasar.py`, and `buscar_comunidad_cercana` itself).
+- **`fecha_encuesta_min`/`fecha_encuesta_max` in `resumen-municipios`**
+  combine both `siasar_comunidad` and `siasar_sistema` survey dates for
+  that municipio (not just one table) — the spec doesn't say which, and
+  "the survey date range for this municipio's SIASAR data" reads most
+  naturally as covering everything SIASAR surveyed there, not just one of
+  the two record types.
+- **`resumen-municipios`'s driving row set** is `SELECT municipio FROM
+  siasar_comunidad UNION SELECT municipio FROM siasar_sistema` (same
+  pattern as `/siasar/municipios`) — a municipio with systems but zero
+  communities (or vice versa) still gets a row, with the missing side's
+  counts at 0, rather than being silently dropped by an inner join.
+- **Verified against the real imported dataset** (not just fixtures):
+  `/siasar/municipios` returns exactly 112 rows; Zipaquirá shows 36
+  communities / 7 systems; `/siasar/cercana` around the town center finds
+  a community ~1.8km away; `/siasar/resumen-municipios` as MODERADOR
+  returns real per-municipio diagnostic counts. `/siasar/resumen-municipios`
+  as CIUDADANO correctly 403s.
+
 ## Open questions
 
 - None so far — every `infraestructura_hidrica` row with

@@ -10,6 +10,12 @@ suya).
 import math
 from typing import Any
 
+# Cadena de atribución textual, usada tal cual la pide la integración SIASAR
+# en cada respuesta/vista que muestre estos datos (schemas/siasar.py la
+# expone como el campo `fuente`; el frontend la vuelve a escribir literal
+# en theme/siasar.ts porque no puede importar Python).
+FUENTE_ATRIBUCION = "SIASAR – Ministerio de Vivienda, Ciudad y Territorio"
+
 _EARTH_METERS_PER_DEGREE_LAT = 111_000
 
 

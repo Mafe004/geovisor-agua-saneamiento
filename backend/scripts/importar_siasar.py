@@ -34,8 +34,6 @@ from app.core.audit import Accion, Modulo, registrar_auditoria
 from app.db.database import get_connection, transaccion
 from app.services.siasar import buscar_comunidad_cercana
 
-FUENTE_ATRIBUCION = "SIASAR – Ministerio de Vivienda, Ciudad y Territorio"
-
 LAT_MIN, LAT_MAX = Decimal("3.5"), Decimal("6.2")
 LON_MIN, LON_MAX = Decimal("-75.0"), Decimal("-72.8")
 

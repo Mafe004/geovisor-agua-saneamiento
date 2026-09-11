@@ -90,3 +90,4 @@ export type SistemaResumen = components['schemas']['SistemaResumen'];
 export type ComunidadResumen = components['schemas']['ComunidadResumen'];
 export type CercanaResponse = components['schemas']['CercanaResponse'];
 export type ResumenMunicipio = components['schemas']['ResumenMunicipio'];
+export type VeredaSiasarResumen = components['schemas']['VeredaSiasarResumen'];

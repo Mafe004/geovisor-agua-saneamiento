@@ -1664,6 +1664,7 @@ export interface components {
             id_entidad_sugerida: number | null;
             /** Entidad Sugerida */
             entidad_sugerida: string | null;
+            vereda_siasar?: components["schemas"]["VeredaSiasarResumen"] | null;
         };
         /**
          * ReporteMapaPunto
@@ -2005,6 +2006,25 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** VeredaSiasarResumen */
+        VeredaSiasarResumen: {
+            /** Id Siasar */
+            id_siasar: number;
+            /** Nombre */
+            nombre: string;
+            /** Localidad */
+            localidad: string | null;
+            /** Municipio */
+            municipio: string;
+            calificacion: components["schemas"]["Calificacion"] | null;
+            /** Distancia M */
+            distancia_m: number;
+            /**
+             * Fecha Encuesta
+             * Format: date
+             */
+            fecha_encuesta: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -2183,6 +2203,8 @@ export interface operations {
                 id_tipo_incidente?: number | null;
                 /** @description Excluye RESUELTO y RECHAZADO */
                 solo_activos?: boolean;
+                /** @description Filtra por el municipio de la comunidad SIASAR enlazada */
+                municipio_siasar?: string | null;
                 limite?: number;
                 offset?: number;
             };

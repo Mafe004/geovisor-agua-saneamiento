@@ -2,10 +2,16 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.siasar import VeredaSiasarResumen
+
 
 class ReporteDetalle(BaseModel):
-    """Forma de _select_reporte_detalle_sql() en reportes.py — todos los JOIN son INNER,
-    así que usuario/estado/tipo_incidente/severidad nunca son None."""
+    """Forma de _select_reporte_detalle_sql() en reportes.py — los JOIN a
+    usuarios/estado_reporte/tipo_incidente/severidad son INNER (nunca None),
+    pero los de tipo_incidente_entidad/entidades (la sugerencia de a qué
+    entidad triar el reporte) son LEFT — un tipo_incidente sin fila en
+    tipo_incidente_entidad da id_entidad_sugerida/entidad_sugerida = None,
+    y eso es válido: significa "sin sugerencia todavía", no un error."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -26,6 +32,12 @@ class ReporteDetalle(BaseModel):
     estado: str
     tipo_incidente: str
     severidad: str
+    id_entidad_sugerida: int | None
+    entidad_sugerida: str | None
+    # Campo aditivo (Fase 4 de SIASAR_INTEGRATION_NOTES.md): None cuando el
+    # reporte no cayó dentro de los 2km de ninguna comunidad SIASAR
+    # registrada al crearse -- nunca se recalcula después.
+    vereda_siasar: VeredaSiasarResumen | None = None
 
 
 class ReporteMapaPunto(BaseModel):

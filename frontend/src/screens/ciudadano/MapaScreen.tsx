@@ -12,6 +12,7 @@ import { reportesAPI, siasarAPI } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
+import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
 import type {
   ReporteMapaPunto, MunicipioSiasar, ComunidadMapa, SistemaMapa,
   ComunidadDetalle, SistemaDetalle,
@@ -375,48 +376,13 @@ export default function MapaScreen({ navigation }: Props) {
 }
 
 function ComunidadPanel({ data, onClose }: { data: ComunidadDetalle; onClose: () => void }) {
-  const pctAgua = data.cobertura_agua != null ? Math.round(data.cobertura_agua * 100) : null;
-  const pctSan = data.cobertura_saneamiento != null ? Math.round(data.cobertura_saneamiento * 100) : null;
   return (
     <View style={styles.siasarCard}>
       <View style={styles.pinPanelRow}>
         <Text style={styles.siasarTitle}>{data.nombre}</Text>
         <TouchableOpacity onPress={onClose}><Text style={styles.pinClose}>✕</Text></TouchableOpacity>
       </View>
-      <Text style={styles.siasarSubtitle}>{data.localidad ? `${data.localidad} · ` : ''}{data.municipio}</Text>
-
-      {data.calificacion && (
-        <View style={[styles.calBadge, { backgroundColor: calificacionColor(data.calificacion) }]}>
-          <Text style={styles.calBadgeText}>Calificación SIASAR: {data.calificacion}</Text>
-        </View>
-      )}
-
-      <Text style={styles.siasarRow}>
-        Población: {data.poblacion ?? '—'}{data.poblacion_atipica ? ' (dato por verificar)' : ''}
-      </Text>
-      <Text style={styles.siasarRow}>Viviendas: {data.viviendas ?? '—'}</Text>
-      <Text style={styles.siasarRow}>
-        Cobertura de agua: {pctAgua != null ? `${pctAgua}%` : 'sin dato'} · saneamiento: {pctSan != null ? `${pctSan}%` : 'sin dato'}
-      </Text>
-      <Text style={styles.siasarRow}>
-        {data.n_escuelas ? `${data.n_escuelas} escuela(s) registrada(s)` : 'Sin escuelas registradas'}
-      </Text>
-
-      {data.sistemas.length > 0 && (
-        <View style={styles.siasarSection}>
-          <Text style={styles.siasarSectionTitle}>Sistemas que la abastecen</Text>
-          {data.sistemas.map(s => (
-            <View key={s.id_siasar} style={styles.siasarSubItem}>
-              <Text style={styles.siasarSubItemTitle}>{s.nombre}</Text>
-              <Text style={styles.siasarSubItemMeta}>Cloración: {CLORACION_LABEL[s.cloracion]}</Text>
-              <Text style={styles.siasarSubItemMeta}>{formatearPrueba('coliformes', s.prueba_coliformes)}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {data.prestador && <Text style={styles.siasarRow}>Prestador: {data.prestador}</Text>}
-      <Text style={styles.siasarFuente}>{fuenteConFecha(data.fecha_encuesta)}</Text>
+      <SiasarComunidadInfo data={data} />
     </View>
   );
 }

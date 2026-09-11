@@ -401,6 +401,44 @@ were never attributed to SIASAR. `backend/tests/test_contracts.py`'s
   elsewhere in the repo); `npx expo export --platform web` bundles
   successfully with the new theme/API/map-layer code included.
 
+## Decisions and deviations (Phase 4)
+
+- **`vereda_siasar` nesting**: `_select_reporte_detalle_sql()` returns the
+  linked community's columns flat (`vereda_id_siasar`, `vereda_nombre`,
+  ...) via a `LEFT JOIN siasar_comunidad`, and a new
+  `_anidar_vereda_siasar(row)` helper folds them into the nested
+  `vereda_siasar` object (or `None`) `ReporteDetalle` expects, applied at
+  all five call sites that use that SELECT (list, detail, create, change-
+  state, assign-entity). Chosen over a Pydantic `model_validator` because
+  it keeps the transformation next to the SQL it depends on, in the same
+  style already used everywhere else in this router (plain dict
+  manipulation, no ORM/validator magic).
+- **Client-sent `id_siasar_comunidad`/`distancia_siasar_m` are ignored**
+  simply because `ReporteCreateRequest` never declares those fields —
+  Pydantic drops unknown keys by default, so there's nothing to explicitly
+  guard against. Verified by
+  `test_cliente_no_puede_enviar_id_siasar_comunidad`.
+- **Shared `SiasarComunidadInfo` component** (`frontend/src/components/`):
+  the community-detail rendering (population, coverage, schools, rating
+  badge, linked systems, source line) is written once and used by both
+  `MapaScreen`'s marker-press panel (Phase 3) and the entity/moderator
+  "Diagnóstico oficial de la zona" card (Phase 4) — same fields, same
+  labels, so they can never drift apart.
+- **Which roles see the diagnostic card**: `DetalleReporteScreen.tsx`
+  is shared by every role (Ciudadano/Admin via the "classic" view,
+  Entidad via the Andi "Cerrar el reporte" view — Moderador doesn't
+  navigate here today, see Phase 3's decisions). The card is gated on
+  `canChangeStatus` in the classic view (true for Moderador/Admin, false
+  for Ciudadano) so a citizen never sees "official diagnostic of your own
+  neighborhood" bolted onto their own report; it's unconditional in the
+  Entidad view since that whole view is staff-only.
+- **Fetches the full detail, not just the summary**: `vereda_siasar` only
+  carries `id_siasar/nombre/localidad/municipio/calificacion/distancia_m/
+  fecha_encuesta` (per the spec's own field list) — the diagnostic card
+  needs population/coverage/schools/linked-systems too, so it does one
+  extra `GET /siasar/comunidades/{id}` (endpoint 4, as the spec says)
+  rather than trying to stretch the summary shape to cover both uses.
+
 ## Open questions
 
 - None so far — every `infraestructura_hidrica` row with

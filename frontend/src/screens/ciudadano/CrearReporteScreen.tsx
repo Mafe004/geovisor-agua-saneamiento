@@ -1,22 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
-import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { CompositeNavigationProp, ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapCenterChange } from '../../components/MapaWebView.types';
-import { reportesAPI, catalogosAPI } from '../../api/services';
-import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest } from '../../types/domain';
-import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
+import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
+import { AuthContext } from '../../context/AuthContext';
+import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
+import type { RootStackParamList } from '../../navigation/types';
 
+// Usado tanto por el tab "Crear" de Ciudadano (-> navega a 'Reportes') como
+// el de Entidad (-> navega a 'Asignados') -- ParamListBase en vez de un
+// ParamList concreto porque este screen deliberadamente no asume cuál de
+// los dos tab navigators lo está montando.
 type Props = {
   navigation: CompositeNavigationProp<
-    BottomTabNavigationProp<CiudadanoTabParamList, 'Crear'>,
+    BottomTabNavigationProp<ParamListBase>,
     NativeStackNavigationProp<RootStackParamList>
   >;
 };
@@ -25,6 +30,8 @@ type Props = {
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 
 export default function CrearReporteScreen({ navigation }: Props) {
+  const { isCiudadano } = useContext(AuthContext);
+  const destinoMisReportes = isCiudadano ? 'Reportes' : 'Asignados';
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -34,10 +41,25 @@ export default function CrearReporteScreen({ navigation }: Props) {
   const [severidades, setSeveridades] = useState<SeveridadItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
+  const [proximidadSiasar, setProximidadSiasar] = useState<CercanaResponse | null>(null);
 
   useEffect(() => {
     loadCatalogos();
   }, []);
+
+  // Solo informativo -- nunca bloquea el envío ni se manda en el payload
+  // (el backend ya calcula el vínculo real, en el servidor, al crear el
+  // reporte -- ver crear_reporte en reportes.py). Debounce de ~600ms para
+  // no llamar a /siasar/cercana en cada pixel que se arrastra el mapa.
+  useEffect(() => {
+    if (!coordenadas) { setProximidadSiasar(null); return; }
+    const id = setTimeout(() => {
+      siasarAPI.cercana(coordenadas.latitude, coordenadas.longitude, 2000)
+        .then(res => setProximidadSiasar(res.data))
+        .catch(() => setProximidadSiasar(null));
+    }, 600);
+    return () => clearTimeout(id);
+  }, [coordenadas]);
 
   const loadCatalogos = async () => {
     try {
@@ -93,20 +115,22 @@ export default function CrearReporteScreen({ navigation }: Props) {
         direccion: direccion.trim() || null,
         id_tipo_incidente: idTipo,
         id_severidad: idSeveridad,
-        // El schema marca este campo requerido pero el backend ya le pone
-        // este mismo valor por default cuando falta -- se envía explícito
-        // para no depender de un cast, sin cambiar el resultado final.
-        fuente_reporte: 'CIUDADANO',
+        // El backend ignora este campo y deriva la fuente real del rol del
+        // token (ver crear_reporte en reportes.py) -- se envía el valor
+        // honesto de todos modos, por documentación, sin cambiar el
+        // resultado final.
+        fuente_reporte: isCiudadano ? 'CIUDADANO' : 'ENTIDAD',
       };
       await reportesAPI.crear(payload);
       Alert.alert(
         '✅ Reporte creado',
         'Tu reporte fue enviado exitosamente. Un moderador lo revisará pronto.',
-        [{ text: 'Ver mis reportes', onPress: () => navigation.navigate('Reportes') }],
+        [{ text: 'Ver mis reportes', onPress: () => navigation.navigate(destinoMisReportes) }],
       );
       setDescripcion('');
       setDireccion('');
       setCoordenadas(null);
+      setProximidadSiasar(null);
       setIdTipo(null);
       setIdSeveridad(null);
     } catch (e) {
@@ -226,6 +250,14 @@ export default function CrearReporteScreen({ navigation }: Props) {
               ⚠️ Aún no has seleccionado una ubicación
             </Text>
           )}
+
+          {coordenadas && proximidadSiasar && (
+            <Text style={styles.siasarHint}>
+              {proximidadSiasar.comunidad
+                ? `📊 Ubicación cerca de la vereda ${proximidadSiasar.comunidad.nombre}, ${proximidadSiasar.comunidad.municipio} (a ${proximidadSiasar.distancia_m} m)`
+                : '📊 Fuera de las veredas registradas en SIASAR'}
+            </Text>
+          )}
         </View>
 
         {/* ── Botón enviar ── */}
@@ -288,6 +320,7 @@ const styles = StyleSheet.create({
   map: { height: 240, borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: '#E5E7EB' },
   coordText: { fontSize: 11, color: '#6B7280', marginTop: 6, textAlign: 'center' },
   coordTextPending: { fontSize: 11, color: '#F59E0B', marginTop: 6, textAlign: 'center', fontWeight: '600' },
+  siasarHint: { fontSize: 11, color: '#065F46', marginTop: 6, textAlign: 'center' },
   btn: { marginTop: 24, borderRadius: 14, overflow: 'hidden' },
   btnDisabled: { opacity: 0.6 },
   btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },

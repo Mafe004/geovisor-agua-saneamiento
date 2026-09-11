@@ -4,18 +4,42 @@ import {
   TouchableOpacity, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { reportesAPI, catalogosAPI } from '../../api/services';
+import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import StatusBadge from '../../components/StatusBadge';
 import GradientHeader from '../../components/GradientHeader';
+import EstadoChips from '../../components/EstadoChips';
 import MapaWebView from '../../components/MapaWebView';
+import AndiHeader from '../../components/andi/AndiHeader';
+import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
+import { andiColors, andiRadius, andiSpace, andiType, andiElevation } from '../../theme/andi';
 import type { MapMarker } from '../../components/MapaWebView.types';
-import type { Reporte, EstadoReporteItem } from '../../types/domain';
+import type { Reporte, EstadoReporteItem, ComunidadDetalle } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DetalleReporte'>;
+
+/**
+ * Trae el detalle completo de la comunidad SIASAR enlazada (reporte.vereda_siasar
+ * solo trae el resumen -- este pide el endpoint 4 para tener población,
+ * cobertura, sistemas, etc.). null mientras carga o si no hay vínculo; el
+ * caller decide cómo envolverlo (Section clásico vs. sección Andi).
+ */
+function useSiasarDiagnostico(idSiasar: number | undefined): ComunidadDetalle | null {
+  const [detalle, setDetalle] = useState<ComunidadDetalle | null>(null);
+  useEffect(() => {
+    if (idSiasar == null) { setDetalle(null); return; }
+    let mounted = true;
+    siasarAPI.comunidad(idSiasar)
+      .then(res => { if (mounted) setDetalle(res.data); })
+      .catch(() => { if (mounted) setDetalle(null); });
+    return () => { mounted = false; };
+  }, [idSiasar]);
+  return detalle;
+}
 
 function formatDate(d: string | undefined) {
   if (!d) return '—';
@@ -35,13 +59,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
   const { reporte: inicial } = route.params || {};
   const [reporte, setReporte] = useState<Reporte>(inicial);
   const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
-  const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
-  const [comentario, setComentario] = useState('');
-  const [updating, setUpdating] = useState(false);
-  const { user, isModerador, isAdmin } = useContext(AuthContext);
-
-  // Roles que pueden cambiar estado: entidad (2), moderador (3), admin (4)
-  const canChangeStatus = isModerador || isAdmin || (user?.id_rol === 2);
+  const { isModerador, isAdmin, isEntidad } = useContext(AuthContext);
 
   useEffect(() => {
     let mounted = true;
@@ -50,6 +68,61 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
       .catch(() => { if (mounted) setEstadosDisponibles([]); });
     return () => { mounted = false; };
   }, []);
+
+  if (!reporte) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.emptyText}>No se encontró información del reporte.</Text>
+      </View>
+    );
+  }
+
+  // El sistema visual Andi (canvas "Andi - Moderador.dc.html") solo rediseña
+  // Moderador/Entidad -- Ciudadano/Admin conservan la pantalla clásica.
+  // Moderador hoy no navega aquí (su flujo de cambio de estado es
+  // TriageSheet), pero el registro de ruta se deja igual para ambos roles.
+  if (isEntidad) {
+    return (
+      <EntidadCierreView
+        reporte={reporte}
+        estadosDisponibles={estadosDisponibles}
+        onBack={() => navigation.goBack()}
+        onUpdated={setReporte}
+      />
+    );
+  }
+
+  return (
+    <ClassicDetalleView
+      reporte={reporte}
+      estadosDisponibles={estadosDisponibles}
+      canChangeStatus={isModerador || isAdmin}
+      onBack={() => navigation.goBack()}
+      onUpdated={setReporte}
+    />
+  );
+}
+
+/* ── Vista clásica (Ciudadano / Admin) — sin cambios visuales ── */
+
+function ClassicDetalleView({
+  reporte, estadosDisponibles, canChangeStatus, onBack, onUpdated,
+}: {
+  reporte: Reporte;
+  estadosDisponibles: EstadoReporteItem[];
+  canChangeStatus: boolean;
+  onBack: () => void;
+  onUpdated: (r: Reporte) => void;
+}) {
+  const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
+  const [comentario, setComentario] = useState('');
+  const [updating, setUpdating] = useState(false);
+  // "Entity/moderator report detail screen" (canChangeStatus ya excluye a
+  // Ciudadano en esta vista compartida) -- Ciudadano nunca ve el
+  // diagnóstico oficial de su propia zona en su propia pantalla.
+  const siasarDetalle = useSiasarDiagnostico(
+    canChangeStatus ? reporte.vereda_siasar?.id_siasar : undefined
+  );
 
   const handleUpdateEstado = async () => {
     const seleccionado = estadosDisponibles.find(e => e.id_estado === idEstadoNuevo);
@@ -60,14 +133,10 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
     try {
       setUpdating(true);
       const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
-        // seleccionado ya confirmó (línea de arriba) que existe un
-        // e.id_estado === idEstadoNuevo -- como e.id_estado siempre es
-        // number, eso implica que idEstadoNuevo no puede ser null acá,
-        // aunque el tipo de la variable en sí no lo refleje.
         id_estado_nuevo: idEstadoNuevo as number,
         comentario: comentario.trim() || undefined,
       });
-      setReporte(res.data.reporte);
+      onUpdated(res.data.reporte);
       setComentario('');
       setIdEstadoNuevo(null);
       Alert.alert(
@@ -82,21 +151,11 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
     }
   };
 
-  if (!reporte) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.emptyText}>No se encontró información del reporte.</Text>
-      </View>
-    );
-  }
-
-  // Verificar si hay coordenadas válidas
   const hasCoords =
     reporte.latitud != null &&
     reporte.longitud != null &&
     !(reporte.latitud === 0 && reporte.longitud === 0);
 
-  // Construir marcador para el mapa (read-only, sin interacción)
   const mapaMarkers: MapMarker[] = hasCoords
     ? [{
         id: reporte.id_reporte,
@@ -114,22 +173,19 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
       <GradientHeader
         title={`Reporte #${reporte.id_reporte}`}
         subtitle="Detalle del reporte"
-        onBack={() => navigation.goBack()}
+        onBack={onBack}
       />
 
       <ScrollView contentContainerStyle={styles.scroll} nestedScrollEnabled>
-        {/* ── Badges de estado y severidad ── */}
         <View style={styles.badgeRow}>
           <StatusBadge status={reporte.estado} type="status" size="lg" />
           <StatusBadge status={reporte.severidad} type="severity" size="lg" />
         </View>
 
-        {/* ── Descripción ── */}
         <Section title="📝 Descripción">
           <Text style={styles.description}>{reporte.descripcion || '—'}</Text>
         </Section>
 
-        {/* ── Detalles ── */}
         <Section title="ℹ️ Detalles">
           <DetailRow label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
           <DetailRow label="Dirección" value={reporte.direccion || 'No especificada'} />
@@ -137,7 +193,6 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
           <DetailRow label="Fecha reporte" value={formatDate(reporte.created_at)} />
         </Section>
 
-        {/* ── Mapa (read-only) — NO necesita react-native-maps ── */}
         {hasCoords && (
           <Section title="📍 Ubicación">
             <MapaWebView
@@ -155,29 +210,20 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
           </Section>
         )}
 
-        {/* ── Cambiar estado — solo roles autorizados ── */}
+        {siasarDetalle && (
+          <Section title="📊 Diagnóstico oficial de la zona (SIASAR)">
+            <SiasarComunidadInfo data={siasarDetalle} />
+          </Section>
+        )}
+
         {canChangeStatus && (
           <Section title="🔄 Cambiar Estado">
-            <View style={styles.estadoGrid}>
-              {estadosDisponibles.map(e => (
-                <TouchableOpacity
-                  key={e.id_estado}
-                  style={[
-                    styles.estadoChip,
-                    idEstadoNuevo === e.id_estado && styles.estadoChipActive,
-                    reporte.estado === e.nombre && styles.estadoChipCurrent,
-                  ]}
-                  onPress={() => setIdEstadoNuevo(e.id_estado)}
-                >
-                  <Text style={[
-                    styles.estadoChipText,
-                    idEstadoNuevo === e.id_estado && styles.estadoChipTextActive,
-                  ]}>
-                    {e.nombre.replace(/_/g, ' ')}{reporte.estado === e.nombre ? ' ✓' : ''}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <EstadoChips
+              estados={estadosDisponibles}
+              selectedId={idEstadoNuevo}
+              currentNombre={reporte.estado}
+              onSelect={setIdEstadoNuevo}
+            />
 
             <Text style={styles.commentLabel}>Comentario (opcional)</Text>
             <TextInput
@@ -215,7 +261,156 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
   );
 }
 
-/* ── Componentes auxiliares ── */
+/* ── Vista Andi (Entidad) — "Cerrar el reporte", ported from the canvas ── */
+
+function EntidadCierreView({
+  reporte, estadosDisponibles, onBack, onUpdated,
+}: {
+  reporte: Reporte;
+  estadosDisponibles: EstadoReporteItem[];
+  onBack: () => void;
+  onUpdated: (r: Reporte) => void;
+}) {
+  // El backend no soporta una bitácora de avance sin cambio de estado --
+  // "Sigue en proceso" es honesto sobre eso: no llama a la API, solo
+  // descarta el cierre. "Resuelto" es la única transición real que hace.
+  const [resolviendo, setResolviendo] = useState(true);
+  const [comentario, setComentario] = useState('');
+  const [saving, setSaving] = useState(false);
+  const siasarDetalle = useSiasarDiagnostico(reporte.vereda_siasar?.id_siasar);
+
+  const hasCoords =
+    reporte.latitud != null && reporte.longitud != null &&
+    !(reporte.latitud === 0 && reporte.longitud === 0);
+  const mapaMarkers: MapMarker[] = hasCoords
+    ? [{
+        id: reporte.id_reporte,
+        lat: parseFloat(String(reporte.latitud)),
+        lng: parseFloat(String(reporte.longitud)),
+        severidad: reporte.severidad || 'MEDIA',
+        estado: reporte.estado || 'PENDIENTE',
+      }]
+    : [];
+
+  const handleGuardar = async () => {
+    if (!resolviendo) { onBack(); return; }
+    if (!comentario.trim()) {
+      Alert.alert('Comentario requerido', 'Describe qué se hizo antes de marcar como resuelto.');
+      return;
+    }
+    const resuelto = estadosDisponibles.find(e => e.nombre === 'RESUELTO');
+    if (!resuelto) return;
+
+    try {
+      setSaving(true);
+      const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
+        id_estado_nuevo: resuelto.id_estado,
+        comentario: comentario.trim(),
+      });
+      onUpdated(res.data.reporte);
+      onBack();
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      Alert.alert('Error', msg || 'No se pudo actualizar el estado.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={andiStyles.container}>
+      <AndiHeader onBack={onBack} kicker={`#${reporte.id_reporte}`} title={reporte.descripcion || 'Reporte'} />
+
+      <ScrollView contentContainerStyle={andiStyles.scroll} nestedScrollEnabled>
+        {hasCoords && (
+          <MapaWebView
+            style={andiStyles.map}
+            latitude={parseFloat(String(reporte.latitud))}
+            longitude={parseFloat(String(reporte.longitud))}
+            zoom={15}
+            markers={mapaMarkers}
+            showCenterPin={false}
+            interactive={false}
+          />
+        )}
+        <Text style={[andiType.body, andiStyles.description]}>{reporte.descripcion}</Text>
+
+        {siasarDetalle && (
+          <View style={andiStyles.siasarCard}>
+            <Text style={[andiType.label, andiStyles.siasarCardTitle]}>Diagnóstico oficial de la zona (SIASAR)</Text>
+            <SiasarComunidadInfo data={siasarDetalle} />
+          </View>
+        )}
+
+        <View style={andiStyles.titleBlock}>
+          <Text style={andiType.section}>Cerrar el reporte</Text>
+          <Text style={[andiType.caption, andiStyles.caption]}>
+            {reporte.usuario ?? 'El ciudadano'} recibe un aviso con lo que escribas.
+          </Text>
+        </View>
+
+        <View style={andiStyles.section}>
+          <Text style={[andiType.overline, andiStyles.sectionLabel]}>Estado</Text>
+          <View style={andiStyles.estadoRow}>
+            <TouchableOpacity
+              style={[andiStyles.estadoPill, { backgroundColor: andiColors.stProBg, borderColor: andiColors.stProBd, borderWidth: !resolviendo ? 2 : 1 }]}
+              onPress={() => setResolviendo(false)}
+            >
+              <Feather name="refresh-cw" size={13} color={andiColors.stProFg} />
+              <Text style={[andiStyles.estadoPillText, { color: andiColors.stProFg }]}>Sigue en proceso</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[andiStyles.estadoPill, { backgroundColor: andiColors.stResBg, borderColor: andiColors.stResBd, borderWidth: resolviendo ? 2 : 1 }]}
+              onPress={() => setResolviendo(true)}
+            >
+              <Feather name="check" size={13} color={andiColors.stResFg} />
+              <Text style={[andiStyles.estadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={andiStyles.section}>
+          <View style={andiStyles.sectionLabelRow}>
+            <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
+            {resolviendo && <Text style={[andiType.caption, andiStyles.requiredTag]}>Obligatorio al resolver</Text>}
+          </View>
+          <TextInput
+            style={andiStyles.textarea}
+            placeholder="Ej: Se tomó muestra y se purgó la red del sector…"
+            placeholderTextColor={andiColors.onSurfaceVariant}
+            multiline
+            numberOfLines={4}
+            value={comentario}
+            onChangeText={setComentario}
+            textAlignVertical="top"
+          />
+          <Text style={[andiType.caption, andiStyles.helperText]}>
+            Sin esta frase el ciudadano solo ve la palabra &quot;Resuelto&quot;, que es exactamente lo que hace que deje de reportar.
+          </Text>
+        </View>
+
+        <View style={andiStyles.photoRow}>
+          <View style={andiStyles.photoIcon}>
+            <Feather name="camera" size={16} color={andiColors.onSurfaceVariant} />
+          </View>
+          <Text style={[andiType.caption, andiStyles.photoText]}>Foto del arreglo · opcional</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[andiStyles.saveBtn, andiElevation[2], saving && andiStyles.saveBtnDisabled]}
+          onPress={handleGuardar}
+          disabled={saving}
+        >
+          {saving
+            ? <ActivityIndicator color={andiColors.n0} />
+            : <Text style={andiStyles.saveBtnText}>{resolviendo ? 'Marcar como resuelto' : 'Guardar cambio'}</Text>}
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+}
+
+/* ── Componentes auxiliares (vista clásica) ── */
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -235,7 +430,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/* ── Estilos ── */
+/* ── Estilos: vista clásica ── */
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
@@ -262,23 +457,9 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 13, color: '#6B7280', flex: 1 },
   detailValue: { fontSize: 13, color: '#1F2937', fontWeight: '500', flex: 1.5, textAlign: 'right' },
 
-  // Mapa WebView (read-only)
   map: { height: 200, borderRadius: 12, overflow: 'hidden', marginBottom: 6 },
   coordText: { fontSize: 11, color: '#9CA3AF', textAlign: 'center' },
 
-  // Chips de estado
-  estadoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  estadoChip: {
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 16, backgroundColor: '#F3F4F6',
-    borderWidth: 1.5, borderColor: '#E5E7EB',
-  },
-  estadoChipActive: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
-  estadoChipCurrent: { borderColor: '#059669', borderWidth: 2 },
-  estadoChipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
-  estadoChipTextActive: { color: '#fff' },
-
-  // Comentario y botón
   commentLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
   commentInput: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
@@ -289,4 +470,56 @@ const styles = StyleSheet.create({
   updateBtnDisabled: { opacity: 0.6 },
   updateBtnGrad: { height: 48, justifyContent: 'center', alignItems: 'center' },
   updateBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+});
+
+/* ── Estilos: vista Andi (Entidad) ── */
+
+const andiStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: andiColors.surfaceDim },
+  scroll: { padding: andiSpace[5], paddingBottom: andiSpace[8], backgroundColor: andiColors.surface },
+  map: { height: 160, borderRadius: andiRadius.lg, overflow: 'hidden', marginBottom: andiSpace[3] },
+  description: { color: andiColors.onSurface, marginBottom: andiSpace[4] },
+
+  siasarCard: {
+    backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg,
+    padding: andiSpace[3], marginBottom: andiSpace[4],
+  },
+  siasarCardTitle: { color: andiColors.onSurface, marginBottom: andiSpace[2] },
+
+  titleBlock: { marginBottom: andiSpace[4] },
+  caption: { color: andiColors.onSurfaceVariant, marginTop: 2 },
+
+  section: { marginBottom: andiSpace[4] },
+  sectionLabelRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: andiSpace[2] },
+  sectionLabel: { color: andiColors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 1.5 },
+  requiredTag: { color: andiColors.onSurfaceVariant },
+
+  estadoRow: { flexDirection: 'row', gap: andiSpace[2] },
+  estadoPill: {
+    flex: 1, minHeight: 52, borderRadius: andiRadius.lg,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  estadoPillText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+
+  textarea: {
+    backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outlineVariant,
+    borderRadius: andiRadius.lg, padding: andiSpace[3], minHeight: 76,
+    fontSize: 14, lineHeight: 20, color: andiColors.onSurface,
+  },
+  helperText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2] },
+
+  photoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[3],
+    backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg, padding: andiSpace[3],
+    marginBottom: andiSpace[5],
+  },
+  photoIcon: {
+    width: 44, height: 44, borderRadius: andiRadius.sm, borderWidth: 1, borderStyle: 'dashed', borderColor: andiColors.outline,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  photoText: { color: andiColors.onSurfaceVariant, flex: 1 },
+
+  saveBtn: { minHeight: 56, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center' },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: andiColors.n0 },
 });

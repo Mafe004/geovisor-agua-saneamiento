@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.audit import Accion, Modulo, registrar_auditoria
-from app.core.deps import get_client_ip, require_active_user
+from app.core.deps import get_client_ip, require_active_user, require_roles
 from app.core.errors import handle_db_error
 from app.core.policies import puede_cambiar_estado, puede_ver_reporte, scope_reportes
 from app.core.roles import EstadoCuenta, Rol
@@ -16,6 +16,7 @@ from app.schemas.reportes import (
     ReporteDetalle,
     ReporteMapaPunto,
 )
+from app.services.siasar import buscar_comunidad_cercana
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
 
@@ -44,6 +45,10 @@ class ReporteCreateRequest(BaseModel):
 class CambiarEstadoRequest(BaseModel):
     id_estado_nuevo: int = Field(..., ge=1)
     comentario: str | None = Field(None, max_length=500)
+
+
+class AsignarEntidadRequest(BaseModel):
+    id_entidad: int = Field(..., ge=1)
 
 
 # =========================
@@ -93,13 +98,51 @@ def _select_reporte_detalle_sql() -> str:
       u.nombre_completo AS usuario,
       er.nombre         AS estado,
       ti.nombre         AS tipo_incidente,
-      s.nombre          AS severidad
+      s.nombre          AS severidad,
+      tie.id_entidad    AS id_entidad_sugerida,
+      esug.nombre_entidad AS entidad_sugerida,
+      sc.id_siasar      AS vereda_id_siasar,
+      sc.nombre         AS vereda_nombre,
+      sc.localidad      AS vereda_localidad,
+      sc.municipio      AS vereda_municipio,
+      sc.calificacion   AS vereda_calificacion,
+      sc.fecha_encuesta AS vereda_fecha_encuesta,
+      r.distancia_siasar_m AS vereda_distancia_m
     FROM reportes r
     JOIN usuarios      u  ON r.id_usuario        = u.id_usuario
     JOIN estado_reporte er ON r.id_estado         = er.id_estado
     JOIN tipo_incidente ti ON r.id_tipo_incidente = ti.id_tipo_incidente
     JOIN severidad      s  ON r.id_severidad      = s.id_severidad
+    LEFT JOIN tipo_incidente_entidad tie ON r.id_tipo_incidente = tie.id_tipo_incidente
+    LEFT JOIN entidades esug ON tie.id_entidad = esug.id_entidad
+    LEFT JOIN siasar_comunidad sc ON r.id_siasar_comunidad = sc.id_siasar
     """
+
+
+def _anidar_vereda_siasar(row: dict[str, Any]) -> dict[str, Any]:
+    """
+    _select_reporte_detalle_sql() trae las columnas de la comunidad SIASAR
+    enlazada "planas" (vereda_*, por el LEFT JOIN) -- ReporteDetalle.vereda_siasar
+    las espera anidadas en un solo objeto (o None si el reporte no tiene
+    comunidad enlazada). Muta y devuelve la misma fila.
+    """
+    id_siasar = row.pop("vereda_id_siasar")
+    nombre = row.pop("vereda_nombre")
+    localidad = row.pop("vereda_localidad")
+    municipio = row.pop("vereda_municipio")
+    calificacion = row.pop("vereda_calificacion")
+    fecha_encuesta = row.pop("vereda_fecha_encuesta")
+    distancia_m = row.pop("vereda_distancia_m")
+    row["vereda_siasar"] = None if id_siasar is None else {
+        "id_siasar": id_siasar,
+        "nombre": nombre,
+        "localidad": localidad,
+        "municipio": municipio,
+        "calificacion": calificacion,
+        "distancia_m": distancia_m,
+        "fecha_encuesta": fecha_encuesta,
+    }
+    return row
 
 
 def _insertar_historial(
@@ -152,6 +195,9 @@ def listar_reportes(
     id_severidad: int | None = Query(None),
     id_tipo_incidente: int | None = Query(None),
     solo_activos: bool = Query(False, description="Excluye RESUELTO y RECHAZADO"),
+    municipio_siasar: str | None = Query(
+        None, description="Filtra por el municipio de la comunidad SIASAR enlazada"
+    ),
     limite: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     user: dict[str, Any] = Depends(require_active_user),
@@ -172,6 +218,12 @@ def listar_reportes(
         if id_tipo_incidente is not None:
             conditions.append("r.id_tipo_incidente = %s")
             params.append(id_tipo_incidente)
+        if municipio_siasar is not None:
+            # sc = LEFT JOIN siasar_comunidad en _select_reporte_detalle_sql();
+            # un reporte sin comunidad enlazada tiene sc.municipio NULL y
+            # nunca coincide, que es exactamente lo que se quiere.
+            conditions.append("sc.municipio = %s")
+            params.append(municipio_siasar)
 
         with conn.cursor() as cursor:
             if solo_activos:
@@ -188,7 +240,7 @@ def listar_reportes(
             params.extend([limite, offset])
 
             cursor.execute(sql, params)
-            return cursor.fetchall()
+            return [_anidar_vereda_siasar(row) for row in cursor.fetchall()]
 
     except HTTPException:
         raise
@@ -379,6 +431,7 @@ def obtener_reporte(
 
         if not row:
             raise HTTPException(status_code=404, detail="Reporte no encontrado")
+        row = _anidar_vereda_siasar(row)
 
         if not puede_ver_reporte(user, row):
             if user["id_rol"] == Rol.CIUDADANO:
@@ -462,6 +515,23 @@ def crear_reporte(
             )
             new_id = cursor.lastrowid
 
+            # Vínculo SIASAR: el cliente nunca envía id_siasar_comunidad/
+            # distancia_siasar_m (ReporteCreateRequest no declara esos
+            # campos, así que si los manda se ignoran) -- se calculan acá,
+            # en la misma transacción del INSERT, igual que hace el
+            # backfill del importador para reportes ya existentes.
+            if payload.latitud is not None and payload.longitud is not None:
+                resultado_siasar = buscar_comunidad_cercana(
+                    cursor, payload.latitud, payload.longitud, 2000
+                )
+                if resultado_siasar:
+                    comunidad_row, distancia_m = resultado_siasar
+                    cursor.execute(
+                        "UPDATE reportes SET id_siasar_comunidad = %s, distancia_siasar_m = %s "
+                        "WHERE id_reporte = %s;",
+                        (comunidad_row["id_siasar"], distancia_m, new_id),
+                    )
+
             # ✅ REGISTRAR EN HISTORIAL: evento de creación
             _insertar_historial(
                 cursor,
@@ -492,7 +562,7 @@ def crear_reporte(
             # Retornar el reporte recién creado con todos los datos
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (new_id,))
-            row = cursor.fetchone()
+            row = _anidar_vereda_siasar(cursor.fetchone())
 
         return {"message": "created", "reporte": row}
 
@@ -590,7 +660,70 @@ def cambiar_estado(
             # Retornar reporte actualizado
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = cursor.fetchone()
+            row = _anidar_vereda_siasar(cursor.fetchone())
+
+        return {"message": "updated", "reporte": row}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
+
+
+@router.put(
+    "/{id_reporte}/entidad",
+    summary="Asignar/reasignar la entidad de un reporte (MODERADOR/ADMIN)",
+    response_model=CambiarEstadoResponse,
+    responses={
+        404: {"description": "Reporte o entidad no encontrada"},
+        403: {"description": "Sin permiso"},
+    },
+)
+def asignar_entidad(
+    id_reporte: int,
+    payload: AsignarEntidadRequest,
+    user: dict[str, Any] = Depends(require_roles(Rol.MODERADOR, Rol.ADMIN)),
+    ip: str | None = Depends(get_client_ip),
+) -> dict[str, Any]:
+    """
+    A diferencia de cambiar_estado, esto SIEMPRE es MODERADOR/ADMIN (nunca
+    la propia entidad ni el ciudadano dueño) — reasignar de qué entidad es
+    un reporte es una decisión de triage, no algo que a nadie le convenga
+    hacerse a sí mismo. Por eso el gate es require_roles a nivel de ruta
+    (igual que infraestructura.py), no un chequeo puede_* a nivel de fila
+    como cambiar_estado (que sí necesita dejar pasar a la propia entidad).
+    """
+    try:
+        with transaccion() as cursor:
+            cursor.execute("SELECT id_reporte FROM reportes WHERE id_reporte = %s;", (id_reporte,))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+            cursor.execute(
+                "SELECT id_entidad FROM entidades WHERE id_entidad = %s;", (payload.id_entidad,)
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Entidad no encontrada")
+
+            cursor.execute(
+                "UPDATE reportes SET id_entidad = %s, updated_at = NOW() WHERE id_reporte = %s;",
+                (payload.id_entidad, id_reporte),
+            )
+
+            # No se toca historial_reportes: esa tabla es para transiciones
+            # de estado, no para reasignaciones de entidad -- el registro
+            # de auditoría es el rastro de esta acción.
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ASIGNAR_ENTIDAD,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
+            sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
+            cursor.execute(sql, (id_reporte,))
+            row = _anidar_vereda_siasar(cursor.fetchone())
 
         return {"message": "updated", "reporte": row}
 

@@ -226,6 +226,7 @@ EXPECTED_REPORTE_DETALLE_FIELDS = {
     "severidad",
     "id_entidad_sugerida",
     "entidad_sugerida",
+    "vereda_siasar",
 }
 
 

@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, ScrollView,
+  ActivityIndicator, ScrollView, Alert,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
 import MapaWebView from '../../components/MapaWebView';
+import type { MapMarker } from '../../components/MapaWebView.types';
+import type { ReporteMapaPunto } from '../../types/domain';
+import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
+
+type Props = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<CiudadanoTabParamList, 'Mapa'>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+};
 
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 
@@ -19,20 +32,19 @@ const FILTERS = [
   { key: 'RESUELTO',    label: 'Resuelto'  },
 ];
 
-export default function MapaScreen({ navigation }) {
-  const [pines, setPines]           = useState([]);
+export default function MapaScreen({ navigation }: Props) {
+  const [pines, setPines]           = useState<ReporteMapaPunto[]>([]);
   const [loading, setLoading]       = useState(true);
   const [filter, setFilter]         = useState('');
   const [center, setCenter]         = useState(ZIPAQUIRA);
-  const [selectedPin, setSelectedPin] = useState(null);
+  const [selectedPin, setSelectedPin] = useState<MapMarker | null>(null);
 
   useEffect(() => { loadPines(); requestLocation(); }, []);
 
   const loadPines = async () => {
     try {
       const res = await reportesAPI.mapa();
-      const puntos = res.data?.puntos || res.data || [];
-      setPines(puntos);
+      setPines(res.data || []);
     } catch (_) {
       // Mapa público — si falla, mostrar mapa vacío sin alerta
       setPines([]);
@@ -50,19 +62,36 @@ export default function MapaScreen({ navigation }) {
     } catch (_) {}
   };
 
+  const verDetalle = async (idReporte: number | undefined) => {
+    if (idReporte == null) return;
+    try {
+      // selectedPin es un MapMarker (id_reporte/lat/lng/severidad/estado),
+      // no un Reporte completo -- se busca el reporte real antes de
+      // navegar en vez de pasar el marker con un cast, así
+      // DetalleReporteScreen recibe todos sus campos (incluida
+      // latitud/longitud, así que su mapa sí puede mostrarse).
+      const res = await reportesAPI.obtener(idReporte);
+      navigation.navigate('DetalleReporte', { reporte: res.data });
+      setSelectedPin(null);
+    } catch (_) {
+      Alert.alert('Error', 'No se pudo cargar el detalle del reporte.');
+    }
+  };
+
   const pinesFiltrados = filter
     ? pines.filter(p => (p.estado || '').toUpperCase() === filter)
     : pines;
 
-  const markers = pinesFiltrados
+  const markers: MapMarker[] = pinesFiltrados
     .filter(p => p.latitud && p.longitud && p.latitud !== 0 && p.longitud !== 0)
     .map(p => ({
       id_reporte: p.id_reporte,
-      lat: parseFloat(p.latitud),
-      lng: parseFloat(p.longitud),
+      lat: parseFloat(String(p.latitud)),
+      lng: parseFloat(String(p.longitud)),
       severidad: (p.severidad || '').toUpperCase(),
       estado:    (p.estado    || '').toUpperCase(),
-      descripcion: p.descripcion,
+      // ReporteMapaPunto no tiene un campo de descripción -- no hay nada
+      // real al que renombrar esto.
     }));
 
   return (
@@ -123,10 +152,7 @@ export default function MapaScreen({ navigation }) {
           </View>
           <TouchableOpacity
             style={styles.pinDetailBtn}
-            onPress={() => {
-              navigation.navigate('DetalleReporte', { reporte: selectedPin });
-              setSelectedPin(null);
-            }}
+            onPress={() => verDetalle(selectedPin.id_reporte)}
           >
             <Text style={styles.pinDetailText}>Ver detalle →</Text>
           </TouchableOpacity>

@@ -4,20 +4,34 @@ import {
   ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MapaWebView from '../../components/MapaWebView';
+import type { MapCenterChange } from '../../components/MapaWebView.types';
 import { reportesAPI, catalogosAPI } from '../../api/services';
+import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest } from '../../types/domain';
+import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
+
+type Props = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<CiudadanoTabParamList, 'Crear'>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+};
 
 // Coordenadas centro de Zipaquirá (Colombia)
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 
-export default function CrearReporteScreen({ navigation }) {
+export default function CrearReporteScreen({ navigation }: Props) {
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
-  const [coordenadas, setCoordenadas] = useState(null);
-  const [idTipo, setIdTipo] = useState(null);
-  const [idSeveridad, setIdSeveridad] = useState(null);
-  const [tipos, setTipos] = useState([]);
-  const [severidades, setSeveridades] = useState([]);
+  const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [idTipo, setIdTipo] = useState<number | null>(null);
+  const [idSeveridad, setIdSeveridad] = useState<number | null>(null);
+  const [tipos, setTipos] = useState<TipoIncidenteItem[]>([]);
+  const [severidades, setSeveridades] = useState<SeveridadItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
 
@@ -60,7 +74,7 @@ export default function CrearReporteScreen({ navigation }) {
   };
 
   // Callback del pin central de MapaWebView
-  const handleCenterChange = ({ latitude, longitude }) => {
+  const handleCenterChange = ({ latitude, longitude }: MapCenterChange) => {
     setCoordenadas({ latitude, longitude });
   };
 
@@ -72,14 +86,19 @@ export default function CrearReporteScreen({ navigation }) {
 
     try {
       setLoading(true);
-      await reportesAPI.crear({
+      const payload: ReporteCreateRequest = {
         descripcion: descripcion.trim(),
         latitud: coordenadas.latitude,
         longitud: coordenadas.longitude,
-        direccion_aproximada: direccion.trim() || null,
+        direccion: direccion.trim() || null,
         id_tipo_incidente: idTipo,
         id_severidad: idSeveridad,
-      });
+        // El schema marca este campo requerido pero el backend ya le pone
+        // este mismo valor por default cuando falta -- se envía explícito
+        // para no depender de un cast, sin cambiar el resultado final.
+        fuente_reporte: 'CIUDADANO',
+      };
+      await reportesAPI.crear(payload);
       Alert.alert(
         '✅ Reporte creado',
         'Tu reporte fue enviado exitosamente. Un moderador lo revisará pronto.',
@@ -91,7 +110,8 @@ export default function CrearReporteScreen({ navigation }) {
       setIdTipo(null);
       setIdSeveridad(null);
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.detail || 'No se pudo enviar el reporte.');
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      Alert.alert('Error', msg || 'No se pudo enviar el reporte.');
     } finally {
       setLoading(false);
     }
@@ -140,11 +160,11 @@ export default function CrearReporteScreen({ navigation }) {
           )}
           {tipos.map(t => (
             <TouchableOpacity
-              key={t.id_tipo}
-              style={[styles.chip, idTipo === t.id_tipo && styles.chipActive]}
-              onPress={() => setIdTipo(t.id_tipo)}
+              key={t.id_tipo_incidente}
+              style={[styles.chip, idTipo === t.id_tipo_incidente && styles.chipActive]}
+              onPress={() => setIdTipo(t.id_tipo_incidente)}
             >
-              <Text style={[styles.chipText, idTipo === t.id_tipo && styles.chipTextActive]}>
+              <Text style={[styles.chipText, idTipo === t.id_tipo_incidente && styles.chipTextActive]}>
                 {t.nombre}
               </Text>
             </TouchableOpacity>

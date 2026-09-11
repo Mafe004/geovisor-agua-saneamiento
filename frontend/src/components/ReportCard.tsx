@@ -2,14 +2,20 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import StatusBadge from './StatusBadge';
 import { COLORS } from '../theme/colors';
+import type { Reporte } from '../types/domain';
 
-function formatDate(dateStr) {
+function formatDate(dateStr: string | undefined) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function ReportCard({ reporte, onPress }) {
+interface ReportCardProps {
+  reporte: Reporte;
+  onPress?: (reporte: Reporte) => void;
+}
+
+export default function ReportCard({ reporte, onPress }: ReportCardProps) {
   return (
     <TouchableOpacity
       style={styles.card}
@@ -48,7 +54,7 @@ export default function ReportCard({ reporte, onPress }) {
           <View style={styles.metaItem}>
             <Text style={styles.metaIcon}>📍</Text>
             <Text style={styles.metaText} numberOfLines={1}>
-              {reporte.direccion_aproximada
+              {reporte.direccion
                 || `${Number(reporte.latitud).toFixed(4)}, ${Number(reporte.longitud).toFixed(4)}`}
             </Text>
           </View>
@@ -63,7 +69,7 @@ export default function ReportCard({ reporte, onPress }) {
         {/* Footer */}
         <View style={styles.footer}>
           <StatusBadge status={reporte.severidad} type="severity" size="sm" />
-          <Text style={styles.date}>{formatDate(reporte.fecha_creacion)}</Text>
+          <Text style={styles.date}>{formatDate(reporte.created_at)}</Text>
         </View>
       </View>
     </TouchableOpacity>

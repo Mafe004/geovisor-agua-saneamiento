@@ -4,21 +4,40 @@ import {
   RefreshControl, TouchableOpacity, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import ReportCard from '../../components/ReportCard';
+import type { Reporte } from '../../types/domain';
+import type { operations } from '../../types/api';
+import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
 
-export default function MisReportesScreen({ navigation }) {
+type Props = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<CiudadanoTabParamList, 'Reportes'>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+};
+
+type ReportesQuery = operations['listar_reportes_reportes__get']['parameters']['query'];
+
+export default function MisReportesScreen({ navigation }: Props) {
   const { user } = useContext(AuthContext);
-  const [reportes, setReportes] = useState([]);
+  const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadReportes = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await reportesAPI.listar({ id_usuario: user?.id_usuario });
+      // id_usuario no existe en el query de GET /reportes/ (ver
+      // MIGRATION_FINDINGS.md) -- el backend ya filtra "mis reportes" por
+      // el JWT del lado del servidor para el rol ciudadano, así que este
+      // parámetro se ignora en silencio. Se preserva el envío tal cual.
+      const params: ReportesQuery & { id_usuario?: number } = { id_usuario: user?.id_usuario };
+      const res = await reportesAPI.listar(params);
       setReportes(res.data || []);
     } catch (_) {
       Alert.alert('Error', 'No se pudieron cargar tus reportes.');
@@ -32,7 +51,7 @@ export default function MisReportesScreen({ navigation }) {
 
   const onRefresh = () => { setRefreshing(true); loadReportes(true); };
 
-  const counts = reportes.reduce((acc, r) => {
+  const counts = reportes.reduce<Record<string, number>>((acc, r) => {
     acc[r.estado] = (acc[r.estado] || 0) + 1;
     return acc;
   }, {});

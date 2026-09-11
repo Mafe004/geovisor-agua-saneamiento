@@ -1,13 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '../api/services';
 import { registerSessionExpiredHandler } from '../api/client';
+import type { AuthContextValue } from '../types/models';
+import type { UserPublic } from '../types/domain';
 
-export const AuthContext = createContext();
+// Nunca se lee antes de que AuthProvider monte (App.js siempre envuelve todo
+// en AuthProvider), así que este valor por defecto nunca se usa de verdad —
+// existe solo para que createContext no exija `| undefined` en todo
+// consumidor de useAuth().
+export const AuthContext = createContext<AuthContextValue>({} as AuthContextValue);
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<UserPublic | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,6 +23,7 @@ export const AuthProvider = ({ children }) => {
     // un token que el backend ya rechazó.
     registerSessionExpiredHandler(logout);
     loadStoredAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadStoredAuth = async () => {
@@ -37,7 +45,7 @@ export const AuthProvider = ({ children }) => {
         setToken(storedToken);
         setUser(freshUser);
       } catch (err) {
-        const status = err?.response?.status;
+        const status = axios.isAxiosError(err) ? err.response?.status : undefined;
         if (status === 401 || status === 403) {
           // El token ya no es válido de verdad (vencido, rechazado, cuenta
           // suspendida) — cerrar sesión y mandar a login.
@@ -59,7 +67,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = async (correo, password) => {
+  const login = async (correo: string, password: string) => {
     const res = await authAPI.login(correo, password);
     const { access_token, user: userData } = res.data;
     await AsyncStorage.setItem('token', access_token);
@@ -76,7 +84,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const updateUser = (userData) => {
+  const updateUser = (userData: UserPublic) => {
     setUser(userData);
     AsyncStorage.setItem('user', JSON.stringify(userData));
   };

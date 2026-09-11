@@ -4,13 +4,22 @@ import {
   TextInput, TouchableOpacity, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
 import { usuariosAPI } from '../../api/services';
+import type { UsuarioListItem } from '../../types/domain';
 
-const ROL_COLOR = { 1: '#10B981', 2: '#3B82F6', 3: '#8B5CF6', 4: '#EF4444' };
-const ROL_LABEL = { 1: 'Ciudadano', 2: 'Entidad', 3: 'Moderador', 4: 'Admin' };
+// Valores reales de los catálogos roles.nombre / estado_cuenta.nombre
+// (ver backend/geovisor_backup_limpio.sql) -- rol es el NOMBRE del rol,
+// no un id numérico, y estado_cuenta es un string de catálogo, no boolean.
+const ROL_COLOR: Record<string, string> = {
+  CIUDADANO: '#10B981', ENTIDAD: '#3B82F6', MODERADOR: '#8B5CF6', ADMINISTRADOR: '#EF4444',
+};
+const ROL_LABEL: Record<string, string> = {
+  CIUDADANO: 'Ciudadano', ENTIDAD: 'Entidad', MODERADOR: 'Moderador', ADMINISTRADOR: 'Admin',
+};
 
 export default function UsuariosScreen() {
-  const [usuarios, setUsuarios] = useState([]);
+  const [usuarios, setUsuarios] = useState<UsuarioListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busqueda, setBusqueda] = useState('');
@@ -26,20 +35,27 @@ export default function UsuariosScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  const toggleEstado = (usuario) => {
+  const toggleEstado = (usuario: UsuarioListItem) => {
+    const activo = usuario.estado_cuenta === 'ACTIVO';
     Alert.alert(
-      usuario.activo ? 'Desactivar usuario' : 'Activar usuario',
-      `¿Confirmas ${usuario.activo ? 'desactivar' : 'activar'} la cuenta de ${usuario.nombre} ${usuario.apellido}?`,
+      activo ? 'Desactivar usuario' : 'Activar usuario',
+      `¿Confirmas ${activo ? 'desactivar' : 'activar'} la cuenta de ${usuario.nombre_completo}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
           onPress: async () => {
             try {
-              await usuariosAPI.toggleEstado(usuario.id_usuario);
+              // No existe un endpoint de "toggle" -- se usa el real
+              // (PUT /usuarios/{id}/estado) pasando el estado contrario
+              // al actual (1=ACTIVO, 2=INACTIVO).
+              await usuariosAPI.cambiarEstado(usuario.id_usuario, {
+                id_estado_cuenta: activo ? 2 : 1,
+              });
               loadUsuarios(true);
             } catch (e) {
-              Alert.alert('Error', e?.response?.data?.detail || 'No se pudo actualizar.');
+              const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+              Alert.alert('Error', msg || 'No se pudo actualizar.');
             }
           },
         },
@@ -49,7 +65,7 @@ export default function UsuariosScreen() {
 
   const usuariosFiltrados = busqueda.trim()
     ? usuarios.filter(u =>
-        `${u.nombre} ${u.apellido} ${u.correo}`.toLowerCase().includes(busqueda.toLowerCase())
+        `${u.nombre_completo} ${u.correo}`.toLowerCase().includes(busqueda.toLowerCase())
       )
     : usuarios;
 
@@ -78,43 +94,44 @@ export default function UsuariosScreen() {
         }
         contentContainerStyle={{ padding: 12 }}
         renderItem={({ item }) => {
-          const nombreCompleto = item.nombre_completo || `${item.nombre || ''} ${item.apellido || ''}`.trim() || '?';
-          const partes = nombreCompleto.split(' ');
-          const initial = ((partes[0] || '?')[0] + (partes[1] || '')[0]).toUpperCase();
+          const activo = item.estado_cuenta === 'ACTIVO';
+          const partes = item.nombre_completo.split(' ');
+          const initial = (String((partes[0] || '?')[0]) + String((partes[1] || '')[0])).toUpperCase();
+          const rolColor = ROL_COLOR[item.rol] || '#6B7280';
           return (
-            <View style={[styles.card, !item.activo && styles.cardInactive]}>
-              <View style={[styles.avatar, { backgroundColor: ROL_COLOR[item.id_rol] + '25' }]}>
-                <Text style={[styles.avatarText, { color: ROL_COLOR[item.id_rol] }]}>{initial}</Text>
+            <View style={[styles.card, !activo && styles.cardInactive]}>
+              <View style={[styles.avatar, { backgroundColor: rolColor + '25' }]}>
+                <Text style={[styles.avatarText, { color: rolColor }]}>{initial}</Text>
               </View>
               <View style={styles.userInfo}>
-                <Text style={styles.userName}>{item.nombre_completo || `${item.nombre || ''} ${item.apellido || ''}`.trim()}</Text>
+                <Text style={styles.userName}>{item.nombre_completo}</Text>
                 <Text style={styles.userEmail}>{item.correo}</Text>
                 <View style={styles.userMeta}>
-                  <View style={[styles.rolBadge, { backgroundColor: ROL_COLOR[item.id_rol] + '20' }]}>
-                    <Text style={[styles.rolText, { color: ROL_COLOR[item.id_rol] }]}>
-                      {ROL_LABEL[item.id_rol]}
+                  <View style={[styles.rolBadge, { backgroundColor: rolColor + '20' }]}>
+                    <Text style={[styles.rolText, { color: rolColor }]}>
+                      {ROL_LABEL[item.rol] || item.rol}
                     </Text>
                   </View>
-                  <View style={[styles.estadoBadge, { backgroundColor: item.activo ? '#D1FAE5' : '#FEE2E2' }]}>
-                    <Text style={[styles.estadoText, { color: item.activo ? '#065F46' : '#991B1B' }]}>
-                      {item.activo ? 'Activo' : 'Inactivo'}
+                  <View style={[styles.estadoBadge, { backgroundColor: activo ? '#D1FAE5' : '#FEE2E2' }]}>
+                    <Text style={[styles.estadoText, { color: activo ? '#065F46' : '#991B1B' }]}>
+                      {activo ? 'Activo' : 'Inactivo'}
                     </Text>
                   </View>
                 </View>
               </View>
               <TouchableOpacity style={styles.toggleBtn} onPress={() => toggleEstado(item)}>
-                <Text style={styles.toggleIcon}>{item.activo ? '🔒' : '🔓'}</Text>
+                <Text style={styles.toggleIcon}>{activo ? '🔒' : '🔓'}</Text>
               </TouchableOpacity>
             </View>
           );
         }}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>👥</Text>
               <Text style={styles.emptyTitle}>Sin usuarios</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

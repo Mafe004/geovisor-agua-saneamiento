@@ -1,14 +1,21 @@
+import type { ViewStyle } from 'react-native';
 import { GOOGLE_MAPS_API_KEY } from '../config/maps';
+import type { MapaWebViewProps } from './MapaWebView.types';
 
-const SEVERITY_COLOR = {
+const SEVERITY_COLOR: Record<string, string> = {
   ALTA: '#EF4444', CRITICA: '#7C3AED',
   MEDIA: '#F59E0B', BAJA: '#10B981',
 };
-const STATUS_COLOR = {
+const STATUS_COLOR: Record<string, string> = {
   PENDIENTE: '#F59E0B', EN_REVISION: '#3B82F6',
   EN_PROCESO: '#8B5CF6', RESUELTO: '#10B981',
   RECHAZADO: '#EF4444', CERRADO: '#6B7280',
 };
+
+type BuildMapHtmlOptions = Pick<
+  MapaWebViewProps,
+  'latitude' | 'longitude' | 'markers' | 'zoom' | 'interactive' | 'showCenterPin'
+>;
 
 /**
  * Construye el documento HTML del mapa (Google Maps JS API).
@@ -26,7 +33,7 @@ export function buildMapHtml({
   zoom = 14,
   interactive = true,
   showCenterPin = false,
-}) {
+}: BuildMapHtmlOptions) {
   // Datos de los marcadores serializados como JSON (evita bugs de
   // escapado manual de comillas que tenía la versión Leaflet).
   // < evita que un "</script>" dentro de una descripción rompa el HTML.
@@ -34,7 +41,13 @@ export function buildMapHtml({
     id: m.id ?? m.id_reporte ?? 0,
     lat: m.lat ?? m.latitud,
     lng: m.lng ?? m.longitud,
-    color: m.color || SEVERITY_COLOR[m.severidad] || STATUS_COLOR[m.estado] || '#1565C0',
+    // (m.severidad ?? '') / (m.estado ?? '') en vez de m.severidad/m.estado
+    // directo -- solo para el tipo del índice (Record<string, string> no
+    // acepta `undefined`), sin normalizar mayúsculas/minúsculas: "" no es
+    // una key real de ninguno de los dos mapas, así que cuando el campo
+    // falta esto cae en el mismo fallback '#1565C0' que antes.
+    color: m.color || SEVERITY_COLOR[m.severidad ?? '']
+      || STATUS_COLOR[m.estado ?? ''] || '#1565C0',
     title: m.title || m.descripcion || `#${m.id || m.id_reporte}`,
     description: m.description || m.estado || '',
   }))).replace(/</g, '\\u003c');
@@ -147,7 +160,11 @@ export function buildMapHtml({
 }
 
 /** Combina el style del caller (soporta flex:1) con la altura numérica default. */
-export function resolveMapContainerStyle(style, height, baseStyle) {
+export function resolveMapContainerStyle(
+  style: ViewStyle | undefined,
+  height: number | undefined,
+  baseStyle: ViewStyle,
+) {
   const hasFlexStyle = style && style.flex != null;
   return hasFlexStyle
     ? [baseStyle, style]

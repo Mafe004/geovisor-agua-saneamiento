@@ -5,8 +5,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { historialAPI } from '../../api/services';
 import StatusBadge from '../../components/StatusBadge';
+import type { HistorialEntry } from '../../types/domain';
 
-function formatDate(d) {
+function formatDate(d: string | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleString('es-CO', {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -14,7 +15,7 @@ function formatDate(d) {
 }
 
 export default function HistorialScreen() {
-  const [historial, setHistorial] = useState([]);
+  const [historial, setHistorial] = useState<HistorialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -92,11 +93,7 @@ export default function HistorialScreen() {
                 {item.comentario ? (
                   <Text style={styles.comentario}>&quot;{item.comentario}&quot;</Text>
                 ) : null}
-                {item.usuario_nombre && (
-                  <Text style={styles.usuario}>
-                    👤 {item.usuario_nombre} {item.usuario_apellido || ''}
-                  </Text>
-                )}
+                <Text style={styles.usuario}>👤 {item.usuario_accion}</Text>
               </View>
             </View>
           )}

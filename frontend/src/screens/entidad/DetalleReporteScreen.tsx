@@ -1,16 +1,23 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, type ReactNode } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { reportesAPI, catalogosAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import StatusBadge from '../../components/StatusBadge';
 import GradientHeader from '../../components/GradientHeader';
 import MapaWebView from '../../components/MapaWebView';
+import type { MapMarker } from '../../components/MapaWebView.types';
+import type { Reporte, EstadoReporteItem } from '../../types/domain';
+import type { RootStackParamList } from '../../navigation/types';
 
-function formatDate(d) {
+type Props = NativeStackScreenProps<RootStackParamList, 'DetalleReporte'>;
+
+function formatDate(d: string | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleString('es-CO', {
     day: '2-digit', month: 'short', year: 'numeric',
@@ -18,11 +25,17 @@ function formatDate(d) {
   });
 }
 
-export default function DetalleReporteScreen({ route, navigation }) {
+export default function DetalleReporteScreen({ route, navigation }: Props) {
+  // route.params.reporte es requerido en RootStackParamList (ver
+  // navigation/types.ts), así que `route.params || {}` y el chequeo
+  // `if (!reporte)` más abajo quedan como código muerto una vez tipado
+  // honestamente -- un objeto nunca es falsy. Se preservan sin tocar (ver
+  // MIGRATION_FINDINGS.md): es la inconsistencia que Step 4 pidió anotar,
+  // no arreglar.
   const { reporte: inicial } = route.params || {};
-  const [reporte, setReporte] = useState(inicial);
-  const [estadosDisponibles, setEstadosDisponibles] = useState([]);
-  const [idEstadoNuevo, setIdEstadoNuevo] = useState(null);
+  const [reporte, setReporte] = useState<Reporte>(inicial);
+  const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
+  const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
   const [comentario, setComentario] = useState('');
   const [updating, setUpdating] = useState(false);
   const { user, isModerador, isAdmin } = useContext(AuthContext);
@@ -47,7 +60,11 @@ export default function DetalleReporteScreen({ route, navigation }) {
     try {
       setUpdating(true);
       const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
-        id_estado_nuevo: idEstadoNuevo,
+        // seleccionado ya confirmó (línea de arriba) que existe un
+        // e.id_estado === idEstadoNuevo -- como e.id_estado siempre es
+        // number, eso implica que idEstadoNuevo no puede ser null acá,
+        // aunque el tipo de la variable en sí no lo refleje.
+        id_estado_nuevo: idEstadoNuevo as number,
         comentario: comentario.trim() || undefined,
       });
       setReporte(res.data.reporte);
@@ -58,7 +75,8 @@ export default function DetalleReporteScreen({ route, navigation }) {
         `El reporte ahora está en: ${seleccionado.nombre.replace(/_/g, ' ')}`
       );
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.detail || 'No se pudo actualizar el estado.');
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      Alert.alert('Error', msg || 'No se pudo actualizar el estado.');
     } finally {
       setUpdating(false);
     }
@@ -79,11 +97,11 @@ export default function DetalleReporteScreen({ route, navigation }) {
     !(reporte.latitud === 0 && reporte.longitud === 0);
 
   // Construir marcador para el mapa (read-only, sin interacción)
-  const mapaMarkers = hasCoords
+  const mapaMarkers: MapMarker[] = hasCoords
     ? [{
         id: reporte.id_reporte,
-        lat: parseFloat(reporte.latitud),
-        lng: parseFloat(reporte.longitud),
+        lat: parseFloat(String(reporte.latitud)),
+        lng: parseFloat(String(reporte.longitud)),
         titulo: `Reporte #${reporte.id_reporte}`,
         descripcion: reporte.descripcion || '',
         severidad: reporte.severidad || 'MEDIA',
@@ -114,22 +132,9 @@ export default function DetalleReporteScreen({ route, navigation }) {
         {/* ── Detalles ── */}
         <Section title="ℹ️ Detalles">
           <DetailRow label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
-          <DetailRow label="Dirección" value={reporte.direccion_aproximada || 'No especificada'} />
-          <DetailRow
-            label="Reportado por"
-            value={
-              reporte.usuario_nombre
-                ? `${reporte.usuario_nombre} ${reporte.usuario_apellido || ''}`.trim()
-                : '—'
-            }
-          />
-          <DetailRow label="Fecha reporte" value={formatDate(reporte.fecha_creacion)} />
-          {reporte.fecha_actualizacion && (
-            <DetailRow label="Última actualización" value={formatDate(reporte.fecha_actualizacion)} />
-          )}
-          {reporte.entidad_nombre && (
-            <DetailRow label="Entidad asignada" value={reporte.entidad_nombre} />
-          )}
+          <DetailRow label="Dirección" value={reporte.direccion || 'No especificada'} />
+          <DetailRow label="Reportado por" value={reporte.usuario || '—'} />
+          <DetailRow label="Fecha reporte" value={formatDate(reporte.created_at)} />
         </Section>
 
         {/* ── Mapa (read-only) — NO necesita react-native-maps ── */}
@@ -137,15 +142,15 @@ export default function DetalleReporteScreen({ route, navigation }) {
           <Section title="📍 Ubicación">
             <MapaWebView
               style={styles.map}
-              latitude={parseFloat(reporte.latitud)}
-              longitude={parseFloat(reporte.longitud)}
+              latitude={parseFloat(String(reporte.latitud))}
+              longitude={parseFloat(String(reporte.longitud))}
               zoom={15}
               markers={mapaMarkers}
               showCenterPin={false}
               interactive={false}
             />
             <Text style={styles.coordText}>
-              {parseFloat(reporte.latitud).toFixed(5)}, {parseFloat(reporte.longitud).toFixed(5)}
+              {parseFloat(String(reporte.latitud)).toFixed(5)}, {parseFloat(String(reporte.longitud)).toFixed(5)}
             </Text>
           </Section>
         )}
@@ -212,7 +217,7 @@ export default function DetalleReporteScreen({ route, navigation }) {
 
 /* ── Componentes auxiliares ── */
 
-function Section({ title, children }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -221,7 +226,7 @@ function Section({ title, children }) {
   );
 }
 
-function DetailRow({ label, value }) {
+function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>

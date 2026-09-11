@@ -1,15 +1,27 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { buildMapHtml, resolveMapContainerStyle } from './mapHtml';
+import type { MapaWebViewProps } from './MapaWebView.types';
+
+// Mismo contrato que postToHost() en mapHtml.ts -- ver la nota equivalente
+// en MapaWebView.tsx. HTMLIFrameElement/MessageEvent son tipos DOM: se usan
+// solo acá (la versión web), nunca en MapaWebView.types.ts ni en mapHtml.ts,
+// para no filtrar dependencia de lib DOM hacia el build nativo.
+interface MapMessage {
+  type: 'markerPress' | 'centerChange';
+  id?: number;
+  latitude?: number;
+  longitude?: number;
+}
 
 /**
  * Versión web de MapaWebView: react-native-webview no tiene implementación
  * para "web" (solo iOS/Android/macOS/Windows), así que en el navegador
- * usamos un <iframe> normal con el mismo HTML (ver mapHtml.js).
+ * usamos un <iframe> normal con el mismo HTML (ver mapHtml.ts).
  *
- * Metro elige este archivo automáticamente en vez de MapaWebView.js
- * cuando el bundle es para "web" (convención de nombre .web.js).
- * Mismas props que la versión nativa.
+ * Metro elige este archivo automáticamente en vez de MapaWebView.tsx
+ * cuando el bundle es para "web" (convención de nombre .web.tsx).
+ * Mismas props que la versión nativa (MapaWebViewProps).
  */
 export default function MapaWebView({
   latitude = 5.0231,
@@ -22,22 +34,22 @@ export default function MapaWebView({
   showCenterPin = false,
   onCenterChange,
   style,
-}) {
-  const iframeRef = useRef(null);
+}: MapaWebViewProps) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const html = buildMapHtml({ latitude, longitude, markers, zoom, interactive, showCenterPin });
   const containerStyle = resolveMapContainerStyle(style, height, styles.container);
 
   useEffect(() => {
-    function handleMessage(e) {
+    function handleMessage(e: MessageEvent) {
       if (!iframeRef.current || e.source !== iframeRef.current.contentWindow) return;
-      const data = e.data;
+      const data = e.data as MapMessage | null | undefined;
       if (!data || typeof data !== 'object') return;
       if (data.type === 'markerPress' && onMarkerPress) {
         const found = markers.find(m => (m.id || m.id_reporte) === data.id);
         if (found) onMarkerPress(found);
       }
       if (data.type === 'centerChange' && onCenterChange) {
-        onCenterChange({ latitude: data.latitude, longitude: data.longitude });
+        onCenterChange({ latitude: data.latitude as number, longitude: data.longitude as number });
       }
     }
     window.addEventListener('message', handleMessage);

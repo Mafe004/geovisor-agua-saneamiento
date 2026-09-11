@@ -5,11 +5,18 @@ import {
   Platform, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import { usuariosAPI } from '../../api/services';
+import type { UserPublic } from '../../types/domain';
 
-const ROL_LABEL = { 1: 'Ciudadano', 2: 'Entidad', 3: 'Moderador', 4: 'Administrador' };
-const ROL_COLOR = {
+// user (AuthContext) es UserPublic -- nunca trae `telefono` (ver
+// MIGRATION_FINDINGS.md). Se preserva el acceso con este tipo local en vez
+// de arreglarlo.
+type UserLegacy = UserPublic & { telefono?: string | null };
+
+const ROL_LABEL: Record<number, string> = { 1: 'Ciudadano', 2: 'Entidad', 3: 'Moderador', 4: 'Administrador' };
+const ROL_COLOR: Record<number, readonly [string, string]> = {
   1: ['#1565C0', '#00ACC1'],
   2: ['#0E7490', '#06B6D4'],
   3: ['#7C3AED', '#A78BFA'],
@@ -17,7 +24,8 @@ const ROL_COLOR = {
 };
 
 export default function PerfilScreen() {
-  const { user, logout, updateUser } = useContext(AuthContext);
+  const { user: userReal, logout, updateUser } = useContext(AuthContext);
+  const user = userReal as UserLegacy | null;
 
   // ── Editar datos ──
   const [editMode, setEditMode]     = useState(false);
@@ -39,7 +47,10 @@ export default function PerfilScreen() {
   const nombreCompleto = user.nombre_completo || '';
   const partes   = nombreCompleto.trim().split(' ');
   const initials = ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || '?';
-  const gradColors = ROL_COLOR[user.id_rol] || ROL_COLOR[1];
+  // ROL_COLOR[1] siempre existe (clave fija del literal) -- el `!` es
+  // seguro, noUncheckedIndexedAccess solo no puede verlo a través del
+  // index signature (mismo caso que StatusBadge.tsx).
+  const gradColors = (ROL_COLOR[user.id_rol] || ROL_COLOR[1])!;
 
   // ── Guardar datos de perfil ──
   const handleSave = async () => {
@@ -53,11 +64,17 @@ export default function PerfilScreen() {
         nombre_completo: nombre.trim(),
         telefono: telefono.trim() || null,
       });
-      updateUser({ ...user, nombre_completo: nombre.trim(), telefono: telefono.trim() || null });
+      // updateUser espera UserPublic (AuthContextValue) -- telefono no es
+      // un campo real ahí (ver UserLegacy arriba). Se arma el objeto con
+      // ese tipo ampliado localmente para no tocar el contrato de
+      // AuthContext ni el valor que efectivamente se guarda en memoria.
+      const actualizado: UserLegacy = { ...user, nombre_completo: nombre.trim(), telefono: telefono.trim() || null };
+      updateUser(actualizado);
       setEditMode(false);
       Alert.alert('✅ Actualizado', 'Tu perfil fue guardado correctamente.');
     } catch (e) {
-      Alert.alert('Error', e?.response?.data?.detail || 'No se pudo actualizar el perfil.');
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      Alert.alert('Error', msg || 'No se pudo actualizar el perfil.');
     } finally {
       setSaving(false);
     }
@@ -93,7 +110,8 @@ export default function PerfilScreen() {
       setPassActual(''); setPassNueva(''); setPassConfirm('');
       Alert.alert('✅ Contraseña cambiada', 'Tu contraseña fue actualizada correctamente.');
     } catch (e) {
-      const msg = e?.response?.data?.detail || 'No se pudo cambiar la contraseña.';
+      const msg = (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail)
+        || 'No se pudo cambiar la contraseña.';
       Alert.alert('Error', msg);
     } finally {
       setSavingPass(false);
@@ -303,7 +321,14 @@ export default function PerfilScreen() {
 
 /* ── Subcomponentes ── */
 
-function QuickAction({ icon, label, color, onPress }) {
+function QuickAction({
+  icon, label, color, onPress,
+}: {
+  icon: string;
+  label: string;
+  color: string;
+  onPress: () => void;
+}) {
   return (
     <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.75}>
       <View style={[styles.quickIconWrap, { backgroundColor: color + '18' }]}>
@@ -314,7 +339,14 @@ function QuickAction({ icon, label, color, onPress }) {
   );
 }
 
-function InfoRow({ icon, label, value, valueColor }) {
+function InfoRow({
+  icon, label, value, valueColor,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoIcon}>{icon}</Text>

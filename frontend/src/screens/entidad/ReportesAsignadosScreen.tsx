@@ -4,11 +4,18 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI } from '../../api/services';
 import ReportCard from '../../components/ReportCard';
+import type { Reporte } from '../../types/domain';
+import type { RootStackParamList } from '../../navigation/types';
 
-export default function ReportesAsignadosScreen({ navigation }) {
-  const [reportes, setReportes] = useState([]);
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList>;
+};
+
+export default function ReportesAsignadosScreen({ navigation }: Props) {
+  const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -69,13 +76,13 @@ export default function ReportesAsignadosScreen({ navigation }) {
         }
         contentContainerStyle={reportes.length === 0 && styles.emptyContainer}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>✅</Text>
               <Text style={styles.emptyTitle}>Sin reportes asignados</Text>
               <Text style={styles.emptyText}>No tienes reportes asignados actualmente.</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

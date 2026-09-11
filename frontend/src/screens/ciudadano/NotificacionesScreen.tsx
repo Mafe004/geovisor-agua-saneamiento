@@ -5,10 +5,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { notificacionesAPI } from '../../api/services';
+import type { NotificacionItem } from '../../types/domain';
 
-function timeAgo(dateStr) {
+function timeAgo(dateStr: string | undefined) {
   if (!dateStr) return '';
-  const diff = (Date.now() - new Date(dateStr)) / 1000;
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
   if (diff < 60) return 'hace un momento';
   if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
   if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
@@ -16,7 +17,7 @@ function timeAgo(dateStr) {
 }
 
 export default function NotificacionesScreen() {
-  const [notis, setNotis] = useState([]);
+  const [notis, setNotis] = useState<NotificacionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -35,7 +36,7 @@ export default function NotificacionesScreen() {
     }
   };
 
-  const markRead = async (id) => {
+  const markRead = async (id: number) => {
     try {
       await notificacionesAPI.marcarLeida(id);
       setNotis(prev => prev.map(n => n.id_notificacion === id ? { ...n, leida: true } : n));
@@ -74,7 +75,11 @@ export default function NotificacionesScreen() {
           >
             <View style={[styles.notiDot, { opacity: item.leida ? 0 : 1 }]} />
             <View style={styles.notiContent}>
-              <Text style={styles.notiTitle}>{item.titulo || 'Actualización de reporte'}</Text>
+              {/* NotificacionItem no tiene un campo de título -- tipo_notificacion
+                  es un código interno, no un texto de UI listo para mostrar, así
+                  que no hay un campo real al que renombrar esto sin inventar un
+                  mapeo tipo_notificacion -> texto que no estaba en el original. */}
+              <Text style={styles.notiTitle}>Actualización de reporte</Text>
               <Text style={styles.notiMsg} numberOfLines={2}>{item.mensaje}</Text>
               <Text style={styles.notiTime}>{timeAgo(item.fecha_envio)}</Text>
             </View>
@@ -82,13 +87,13 @@ export default function NotificacionesScreen() {
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🔔</Text>
               <Text style={styles.emptyTitle}>Sin notificaciones</Text>
               <Text style={styles.emptyText}>Aquí verás los cambios en tus reportes.</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

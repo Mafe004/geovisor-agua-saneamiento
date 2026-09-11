@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export default function GradientHeader({ title, subtitle, onBack, rightAction }) {
+interface GradientHeaderProps {
+  title: string;
+  subtitle?: string;
+  onBack?: () => void;
+  rightAction?: ReactNode;
+}
+
+export default function GradientHeader({ title, subtitle, onBack, rightAction }: GradientHeaderProps) {
   return (
     <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.container}>
       <StatusBar barStyle="light-content" />

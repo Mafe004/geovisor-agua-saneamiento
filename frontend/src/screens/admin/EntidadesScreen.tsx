@@ -3,10 +3,12 @@ import {
   View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import axios from 'axios';
 import { entidadesAPI } from '../../api/services';
+import type { EntidadDetalle } from '../../types/domain';
 
 export default function EntidadesScreen() {
-  const [entidades, setEntidades] = useState([]);
+  const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -21,20 +23,27 @@ export default function EntidadesScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  const toggleEstado = (entidad) => {
+  const toggleEstado = (entidad: EntidadDetalle) => {
+    const activo = entidad.estado_cuenta === 'ACTIVO';
     Alert.alert(
-      entidad.activo ? 'Desactivar entidad' : 'Activar entidad',
-      `¿Confirmas cambiar el estado de "${entidad.nombre}"?`,
+      activo ? 'Desactivar entidad' : 'Activar entidad',
+      `¿Confirmas cambiar el estado de "${entidad.nombre_entidad}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
           onPress: async () => {
             try {
-              await entidadesAPI.cambiarEstado(entidad.id_entidad, !entidad.activo);
+              // El body real es { id_estado_cuenta }, no { activo } --
+              // se envía el estado contrario al actual (1=ACTIVO,
+              // 2=INACTIVO), mismo criterio que UsuariosScreen.
+              await entidadesAPI.cambiarEstado(entidad.id_entidad, {
+                id_estado_cuenta: activo ? 2 : 1,
+              });
               loadEntidades(true);
             } catch (e) {
-              Alert.alert('Error', e?.response?.data?.detail || 'No se pudo actualizar.');
+              const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+              Alert.alert('Error', msg || 'No se pudo actualizar.');
             }
           },
         },
@@ -47,7 +56,7 @@ export default function EntidadesScreen() {
       <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
         <Text style={styles.headerTitle}>🏢 Gestión de Entidades</Text>
         <Text style={styles.headerSub}>
-          {entidades.filter(e => e.activo).length} activas · {entidades.length} total
+          {entidades.filter(e => e.estado_cuenta === 'ACTIVO').length} activas · {entidades.length} total
         </Text>
       </LinearGradient>
 
@@ -58,38 +67,40 @@ export default function EntidadesScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadEntidades(true); }} colors={['#1565C0']} />
         }
         contentContainerStyle={{ padding: 12 }}
-        renderItem={({ item }) => (
-          <View style={[styles.card, !item.activo && styles.cardInactive]}>
-            <View style={styles.iconWrap}>
-              <Text style={styles.entidadIcon}>🏢</Text>
-            </View>
-            <View style={styles.entidadInfo}>
-              <Text style={styles.entidadNombre}>{item.nombre}</Text>
-              {item.descripcion ? (
-                <Text style={styles.entidadDesc} numberOfLines={1}>{item.descripcion}</Text>
-              ) : null}
-              <View style={styles.entidadMeta}>
-                {item.telefono && <Text style={styles.metaText}>📱 {item.telefono}</Text>}
-                {item.email && <Text style={styles.metaText} numberOfLines={1}>✉️ {item.email}</Text>}
+        renderItem={({ item }) => {
+          const activo = item.estado_cuenta === 'ACTIVO';
+          return (
+            <View style={[styles.card, !activo && styles.cardInactive]}>
+              <View style={styles.iconWrap}>
+                <Text style={styles.entidadIcon}>🏢</Text>
               </View>
-              <View style={[styles.estadoBadge, { backgroundColor: item.activo ? '#D1FAE5' : '#FEE2E2' }]}>
-                <Text style={[styles.estadoText, { color: item.activo ? '#065F46' : '#991B1B' }]}>
-                  {item.activo ? 'Activa' : 'Inactiva'}
-                </Text>
+              <View style={styles.entidadInfo}>
+                <Text style={styles.entidadNombre}>{item.nombre_entidad}</Text>
+                <View style={styles.entidadMeta}>
+                  {item.telefono && <Text style={styles.metaText}>📱 {item.telefono}</Text>}
+                  {item.correo_institucional && (
+                    <Text style={styles.metaText} numberOfLines={1}>✉️ {item.correo_institucional}</Text>
+                  )}
+                </View>
+                <View style={[styles.estadoBadge, { backgroundColor: activo ? '#D1FAE5' : '#FEE2E2' }]}>
+                  <Text style={[styles.estadoText, { color: activo ? '#065F46' : '#991B1B' }]}>
+                    {activo ? 'Activa' : 'Inactiva'}
+                  </Text>
+                </View>
               </View>
+              <TouchableOpacity style={styles.toggleBtn} onPress={() => toggleEstado(item)}>
+                <Text style={styles.toggleIcon}>{activo ? '🔒' : '🔓'}</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.toggleBtn} onPress={() => toggleEstado(item)}>
-              <Text style={styles.toggleIcon}>{item.activo ? '🔒' : '🔓'}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          );
+        }}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🏢</Text>
               <Text style={styles.emptyTitle}>Sin entidades registradas</Text>
             </View>
-          )
+          ) : null
         }
       />
     </View>

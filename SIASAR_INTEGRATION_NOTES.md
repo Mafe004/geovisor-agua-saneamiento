@@ -364,6 +364,43 @@ were never attributed to SIASAR. `backend/tests/test_contracts.py`'s
   returns real per-municipio diagnostic counts. `/siasar/resumen-municipios`
   as CIUDADANO correctly 403s.
 
+## Decisions and deviations (Phase 3)
+
+- **Marker `shape: 'pin' | 'circle'`** — the spec assumes the *current*
+  report marker is a literal map pin and 'circle' is new. It isn't: every
+  report marker already renders as a filled `google.maps.SymbolPath.CIRCLE`
+  (scale 10) — there's no pin shape anywhere in this codebase today (only
+  the Andi Moderador/Infra work added a `'square'` option, this session,
+  for infrastructure markers). Implemented the spirit instead: SIASAR
+  markers reuse the existing default circle rendering but pass a new
+  optional `scale` (`MapMarker.scale`, default 10) at `7`, so they read as
+  visually smaller/secondary next to a report's circle on the same map —
+  matches the intent ("distinct from a report pin") without inventing a
+  shape the app has never actually had.
+- **System map-marker color** isn't specified by the task (only the
+  community rating A–D legend is). Colored by `prueba_coliformes`
+  (PASA/NO_PASA/SIN_PRUEBA, same `PRUEBA_COLOR` map the detail card uses)
+  since a water-quality test result is the most decision-relevant signal
+  for a citizen glancing at the map.
+- **Layer toggles live only on `ciudadano/MapaScreen.tsx`** — it's the only
+  full-screen interactive map with layer-control real estate in the app
+  (confirmed in Phase 0 discovery). Moderador and Entidad have no "Mapa"
+  tab in their navigators today (Moderador: Triage/Historial/Infra/Perfil;
+  Entidad: Asignados/Cifras/Crear/Historial/Perfil) — adding one wasn't
+  part of this task's scope (constraint 1, additive only, plus no request
+  to add navigation surface).
+- **`"potable"` grep**: one pre-existing occurrence remains in
+  `frontend/src/screens/auth/LoginScreen.tsx` ("Saneamiento y Agua Potable
+  · Zipaquirá", a generic tagline predating this feature, unrelated to
+  SIASAR data). Not touched — the constraint is "no *new* occurrences" and
+  this isn't near any SIASAR view. `src/theme/siasar.ts` also contains the
+  word once, inside a comment *documenting* the rule itself, not as
+  user-facing text.
+- **Verified**: `npx tsc --noEmit` and `npx expo lint` both clean (0 lint
+  errors; only the same pre-existing warning patterns already present
+  elsewhere in the repo); `npx expo export --platform web` bundles
+  successfully with the new theme/API/map-layer code included.
+
 ## Open questions
 
 - None so far — every `infraestructura_hidrica` row with

@@ -9,7 +9,10 @@ import type { ViewStyle } from 'react-native';
  * type documents that existing flexibility, it doesn't add any.
  */
 export interface MapMarker {
-  id?: number;
+  /** String ids are used to namespace non-report layers, e.g. SIASAR's
+   * "com-<id_siasar>" / "sis-<id_siasar>" so the press handler can tell
+   * which layer a marker belongs to without a separate lookup. */
+  id?: number | string;
   id_reporte?: number;
   lat?: number;
   lng?: number;
@@ -22,6 +25,15 @@ export interface MapMarker {
   descripcion?: string;
   estado?: string;
   severidad?: string;
+  /** 'square' for infrastructure points vs the default 'circle' for reports
+   * — the two marker layers the app never wants confused on the same map. */
+  shape?: 'circle' | 'square';
+  /** 1-2 char label drawn on a 'square' marker (e.g. "PT" for a PTAR). */
+  label?: string;
+  /** Circle radius in px (google.maps.Symbol scale). Reports default to
+   * 10 when unset; SIASAR layers pass ~7 to read as visually smaller/
+   * secondary next to a report pin. */
+  scale?: number;
 }
 
 export interface MapCenterChange {

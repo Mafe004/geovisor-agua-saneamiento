@@ -5,6 +5,7 @@ import type {
   ActualizarInfraestructuraResponse,
   ActualizarPerfil,
   ActualizarPerfilResponse,
+  AsignarEntidadRequest,
   AsignarUsuarioResponse,
   CambiarEstadoCuenta,
   CambiarEstadoEntidad,
@@ -15,6 +16,9 @@ import type {
   CambiarPassword,
   CambiarPasswordResponse,
   CategoriaIncidenteItem,
+  CercanaResponse,
+  ComunidadDetalle,
+  ComunidadMapa,
   CrearEntidadResponse,
   CrearInfraestructuraResponse,
   CrearReporteResponse,
@@ -31,6 +35,7 @@ import type {
   LoginResponse,
   MarcarLeidaResponse,
   MarcarTodasLeidasResponse,
+  MunicipioSiasar,
   NotificacionItem,
   PerfilResponse,
   RegistroResponse,
@@ -39,7 +44,10 @@ import type {
   ReporteCreateRequest,
   ReporteMapaPunto,
   ResumenModuloItem,
+  ResumenMunicipio,
   SeveridadItem,
+  SistemaDetalle,
+  SistemaMapa,
   TipoIncidenteItem,
   UserPublic,
   UsuarioDetalleResponse,
@@ -91,6 +99,8 @@ export const reportesAPI = {
   crear: (data: ReporteCreateRequest) => client.post<CrearReporteResponse>('/reportes/', data),
   cambiarEstado: (id: number, data: CambiarEstadoRequest) =>
     client.put<CambiarEstadoResponse>(`/reportes/${id}/estado`, data),
+  asignarEntidad: (id: number, data: AsignarEntidadRequest) =>
+    client.put<CambiarEstadoResponse>(`/reportes/${id}/entidad`, data),
   mapa: () => client.get<ReporteMapaPunto[]>('/reportes/mapa'),
   estadisticas: () => client.get<EstadisticasResponse>('/reportes/estadisticas'),
   historial: (id: number) => client.get<HistorialEntry[]>(`/reportes/${id}/historial`),
@@ -162,4 +172,20 @@ export const catalogosAPI = {
 export const auditoriaAPI = {
   listar: (params?: AuditoriaQuery) => client.get<ListarLogsResponse>('/auditoria/', { params }),
   modulos: () => client.get<ResumenModuloItem[]>('/auditoria/modulos'),
+};
+
+// ========================
+// SIASAR (capa oficial de solo lectura -- ver backend/app/routers/siasar.py)
+// ========================
+export const siasarAPI = {
+  municipios: () => client.get<MunicipioSiasar[]>('/siasar/municipios'),
+  comunidadesMapa: (municipio: string) =>
+    client.get<ComunidadMapa[]>('/siasar/comunidades/mapa', { params: { municipio } }),
+  sistemasMapa: (municipio: string) =>
+    client.get<SistemaMapa[]>('/siasar/sistemas/mapa', { params: { municipio } }),
+  comunidad: (idSiasar: number) => client.get<ComunidadDetalle>(`/siasar/comunidades/${idSiasar}`),
+  sistema: (idSiasar: number) => client.get<SistemaDetalle>(`/siasar/sistemas/${idSiasar}`),
+  cercana: (lat: number, lon: number, radioM = 2000) =>
+    client.get<CercanaResponse>('/siasar/cercana', { params: { lat, lon, radio_m: radioM } }),
+  resumenMunicipios: () => client.get<ResumenMunicipio[]>('/siasar/resumen-municipios'),
 };

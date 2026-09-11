@@ -209,6 +209,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reportes/{id_reporte}/entidad": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Asignar/reasignar la entidad de un reporte (MODERADOR/ADMIN)
+         * @description A diferencia de cambiar_estado, esto SIEMPRE es MODERADOR/ADMIN (nunca
+         *     la propia entidad ni el ciudadano dueño) — reasignar de qué entidad es
+         *     un reporte es una decisión de triage, no algo que a nadie le convenga
+         *     hacerse a sí mismo. Por eso el gate es require_roles a nivel de ruta
+         *     (igual que infraestructura.py), no un chequeo puede_* a nivel de fila
+         *     como cambiar_estado (que sí necesita dejar pasar a la propia entidad).
+         */
+        put: operations["asignar_entidad_reportes__id_reporte__entidad_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reportes/{id_reporte}/historial": {
         parameters: {
             query?: never;
@@ -240,9 +265,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Historial global de cambios (MODERADOR / ADMIN)
+         * Historial global de cambios (MODERADOR / ADMIN ven todo, ENTIDAD solo lo suyo)
          * @description Feed global de cambios de estado, más reciente primero.
-         *     Restringido a MODERADOR y ADMIN.
+         *     MODERADOR/ADMIN ven todo; ENTIDAD solo el historial de reportes de su
+         *     propia entidad (mismo scope_reportes que listar_reportes/reportes_mapa/
+         *     estadisticas_reportes -- nunca se había aplicado acá porque este
+         *     endpoint nunca dejaba pasar a ENTIDAD en absoluto).
          */
         get: operations["listar_historial_global_historial__get"];
         put?: never;
@@ -668,6 +696,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/siasar/municipios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Municipios con datos SIASAR y sus conteos */
+        get: operations["listar_municipios_siasar_municipios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/siasar/comunidades/mapa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comunidades SIASAR de un municipio (para el mapa) */
+        get: operations["comunidades_mapa_siasar_comunidades_mapa_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/siasar/sistemas/mapa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sistemas (acueductos) SIASAR de un municipio (para el mapa) */
+        get: operations["sistemas_mapa_siasar_sistemas_mapa_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/siasar/cercana": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comunidad SIASAR más cercana a un punto */
+        get: operations["cercana_siasar_cercana_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/siasar/resumen-municipios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** SIASAR vs. reportes ciudadanos, agregado por municipio (ADMIN/MODERADOR) */
+        get: operations["resumen_municipios_siasar_resumen_municipios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/siasar/comunidades/{id_siasar}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detalle de una comunidad (vereda) SIASAR */
+        get: operations["obtener_comunidad_siasar_comunidades__id_siasar__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/siasar/sistemas/{id_siasar}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detalle de un sistema (acueducto) SIASAR */
+        get: operations["obtener_sistema_siasar_sistemas__id_siasar__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auditoria/": {
         parameters: {
             query?: never;
@@ -785,6 +932,11 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** AsignarEntidadRequest */
+        AsignarEntidadRequest: {
+            /** Id Entidad */
+            id_entidad: number;
+        };
         /** AsignarUsuarioResponse */
         AsignarUsuarioResponse: {
             /** Message */
@@ -794,6 +946,11 @@ export interface components {
             /** Entidad */
             entidad: string;
         };
+        /**
+         * Calificacion
+         * @enum {string}
+         */
+        Calificacion: "A" | "B" | "C" | "D";
         /** CambiarEstadoCuenta */
         CambiarEstadoCuenta: {
             /**
@@ -865,6 +1022,86 @@ export interface components {
             id_categoria: number;
             /** Nombre */
             nombre: string;
+        };
+        /** CercanaResponse */
+        CercanaResponse: {
+            comunidad: components["schemas"]["ComunidadDetalle"] | null;
+            /** Distancia M */
+            distancia_m: number | null;
+        };
+        /**
+         * Cloracion
+         * @enum {string}
+         */
+        Cloracion: "FUNCIONA" | "NO_FUNCIONA" | "NO_SE_REALIZA" | "SIN_DATO";
+        /** ComunidadDetalle */
+        ComunidadDetalle: {
+            /** Id Siasar */
+            id_siasar: number;
+            /** Nombre */
+            nombre: string;
+            /** Municipio */
+            municipio: string;
+            /** Localidad */
+            localidad: string | null;
+            /** Latitud */
+            latitud: number;
+            /** Longitud */
+            longitud: number;
+            /** Poblacion */
+            poblacion: number | null;
+            /** Viviendas */
+            viviendas: number | null;
+            /** Poblacion Atipica */
+            poblacion_atipica: boolean;
+            /** Cobertura Agua */
+            cobertura_agua: number | null;
+            /** Cobertura Saneamiento */
+            cobertura_saneamiento: number | null;
+            /** N Escuelas */
+            n_escuelas: number | null;
+            /** Sistemas Texto */
+            sistemas_texto: string | null;
+            /** Prestador */
+            prestador: string | null;
+            calificacion: components["schemas"]["Calificacion"] | null;
+            /**
+             * Fecha Encuesta
+             * Format: date
+             */
+            fecha_encuesta: string;
+            /**
+             * Fecha Importacion
+             * Format: date-time
+             */
+            fecha_importacion: string;
+            /** Sistemas */
+            sistemas: components["schemas"]["SistemaResumen"][];
+            /** Fuente */
+            fuente: string;
+        };
+        /** ComunidadMapa */
+        ComunidadMapa: {
+            /** Id Siasar */
+            id_siasar: number;
+            /** Nombre */
+            nombre: string;
+            /** Latitud */
+            latitud: number;
+            /** Longitud */
+            longitud: number;
+            calificacion: components["schemas"]["Calificacion"] | null;
+        };
+        /**
+         * ComunidadResumen
+         * @description Comunidad tal como aparece dentro de SistemaDetalle.comunidades.
+         */
+        ComunidadResumen: {
+            /** Id Siasar */
+            id_siasar: number;
+            /** Nombre */
+            nombre: string;
+            calificacion: components["schemas"]["Calificacion"] | null;
         };
         /** CrearEntidadResponse */
         CrearEntidadResponse: {
@@ -1212,6 +1449,15 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** MunicipioSiasar */
+        MunicipioSiasar: {
+            /** Municipio */
+            municipio: string;
+            /** Comunidades */
+            comunidades: number;
+            /** Sistemas */
+            sistemas: number;
+        };
         /**
          * NotificacionItem
          * @description `leida` es tinyint(1) en MySQL (0/1); Pydantic lo coerciona a bool.
@@ -1289,6 +1535,11 @@ export interface components {
              */
             updated_at: string;
         };
+        /**
+         * PruebaLaboratorio
+         * @enum {string}
+         */
+        PruebaLaboratorio: "PASA" | "NO_PASA" | "SIN_PRUEBA";
         /** RegistroResponse */
         RegistroResponse: {
             /** Message */
@@ -1364,8 +1615,12 @@ export interface components {
         };
         /**
          * ReporteDetalle
-         * @description Forma de _select_reporte_detalle_sql() en reportes.py — todos los JOIN son INNER,
-         *     así que usuario/estado/tipo_incidente/severidad nunca son None.
+         * @description Forma de _select_reporte_detalle_sql() en reportes.py — los JOIN a
+         *     usuarios/estado_reporte/tipo_incidente/severidad son INNER (nunca None),
+         *     pero los de tipo_incidente_entidad/entidades (la sugerencia de a qué
+         *     entidad triar el reporte) son LEFT — un tipo_incidente sin fila en
+         *     tipo_incidente_entidad da id_entidad_sugerida/entidad_sugerida = None,
+         *     y eso es válido: significa "sin sugerencia todavía", no un error.
          */
         ReporteDetalle: {
             /** Id Reporte */
@@ -1405,6 +1660,10 @@ export interface components {
             tipo_incidente: string;
             /** Severidad */
             severidad: string;
+            /** Id Entidad Sugerida */
+            id_entidad_sugerida: number | null;
+            /** Entidad Sugerida */
+            entidad_sugerida: string | null;
         };
         /**
          * ReporteMapaPunto
@@ -1450,6 +1709,37 @@ export interface components {
             /** Total Acciones */
             total_acciones: number;
         };
+        /** ResumenMunicipio */
+        ResumenMunicipio: {
+            /** Municipio */
+            municipio: string;
+            /** Comunidades */
+            comunidades: number;
+            /** Comunidades D */
+            comunidades_d: number;
+            /** Sistemas */
+            sistemas: number;
+            /** Sistemas Sin Cloracion */
+            sistemas_sin_cloracion: number;
+            /** Sistemas No Pasa Coliformes */
+            sistemas_no_pasa_coliformes: number;
+            /** Sistemas Sin Prueba Coliformes */
+            sistemas_sin_prueba_coliformes: number;
+            /** Reportes Total */
+            reportes_total: number;
+            /** Reportes Abiertos */
+            reportes_abiertos: number;
+            /**
+             * Fecha Encuesta Min
+             * Format: date
+             */
+            fecha_encuesta_min: string;
+            /**
+             * Fecha Encuesta Max
+             * Format: date
+             */
+            fecha_encuesta_max: string;
+        };
         /** RootResponse */
         RootResponse: {
             /** Message */
@@ -1461,6 +1751,83 @@ export interface components {
             id_severidad: number;
             /** Nombre */
             nombre: string;
+        };
+        /** SistemaDetalle */
+        SistemaDetalle: {
+            /** Id Siasar */
+            id_siasar: number;
+            /** Nombre */
+            nombre: string;
+            /** Municipio */
+            municipio: string;
+            /** Localidad */
+            localidad: string | null;
+            /** Latitud */
+            latitud: number;
+            /** Longitud */
+            longitud: number;
+            /** Comunidades Texto */
+            comunidades_texto: string | null;
+            /** Prestador */
+            prestador: string | null;
+            /** Poblacion Servida */
+            poblacion_servida: number | null;
+            /** Viviendas Servidas */
+            viviendas_servidas: number | null;
+            /** Poblacion Atipica */
+            poblacion_atipica: boolean;
+            /** Horas Servicio */
+            horas_servicio: number | null;
+            cloracion: components["schemas"]["Cloracion"];
+            prueba_coliformes: components["schemas"]["PruebaLaboratorio"];
+            prueba_fisicoquimica: components["schemas"]["PruebaLaboratorio"];
+            /**
+             * Fecha Encuesta
+             * Format: date
+             */
+            fecha_encuesta: string;
+            /**
+             * Fecha Importacion
+             * Format: date-time
+             */
+            fecha_importacion: string;
+            /** Comunidades */
+            comunidades: components["schemas"]["ComunidadResumen"][];
+            /** Fuente */
+            fuente: string;
+        };
+        /** SistemaMapa */
+        SistemaMapa: {
+            /** Id Siasar */
+            id_siasar: number;
+            /** Nombre */
+            nombre: string;
+            /** Latitud */
+            latitud: number;
+            /** Longitud */
+            longitud: number;
+            cloracion: components["schemas"]["Cloracion"];
+            prueba_coliformes: components["schemas"]["PruebaLaboratorio"];
+        };
+        /**
+         * SistemaResumen
+         * @description Sistema tal como aparece dentro de ComunidadDetalle.sistemas.
+         */
+        SistemaResumen: {
+            /** Id Siasar */
+            id_siasar: number;
+            /** Nombre */
+            nombre: string;
+            cloracion: components["schemas"]["Cloracion"];
+            prueba_coliformes: components["schemas"]["PruebaLaboratorio"];
+            prueba_fisicoquimica: components["schemas"]["PruebaLaboratorio"];
+            /** Horas Servicio */
+            horas_servicio: number | null;
+            /**
+             * Fecha Encuesta
+             * Format: date
+             */
+            fecha_encuesta: string;
         };
         /** SolicitarRecuperacion */
         SolicitarRecuperacion: {
@@ -2016,6 +2383,55 @@ export interface operations {
                 content?: never;
             };
             /** @description Reporte no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    asignar_entidad_reportes__id_reporte__entidad_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AsignarEntidadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CambiarEstadoResponse"];
+                };
+            };
+            /** @description Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reporte o entidad no encontrada */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -3008,6 +3424,219 @@ export interface operations {
                 };
             };
             /** @description Entidad no encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_municipios_siasar_municipios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MunicipioSiasar"][];
+                };
+            };
+        };
+    };
+    comunidades_mapa_siasar_comunidades_mapa_get: {
+        parameters: {
+            query: {
+                /** @description Debe coincidir exactamente con /siasar/municipios */
+                municipio: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComunidadMapa"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sistemas_mapa_siasar_sistemas_mapa_get: {
+        parameters: {
+            query: {
+                /** @description Debe coincidir exactamente con /siasar/municipios */
+                municipio: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SistemaMapa"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cercana_siasar_cercana_get: {
+        parameters: {
+            query: {
+                lat: number;
+                lon: number;
+                radio_m?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CercanaResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_municipios_siasar_resumen_municipios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenMunicipio"][];
+                };
+            };
+        };
+    };
+    obtener_comunidad_siasar_comunidades__id_siasar__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_siasar: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComunidadDetalle"];
+                };
+            };
+            /** @description Comunidad no encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_sistema_siasar_sistemas__id_siasar__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_siasar: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SistemaDetalle"];
+                };
+            };
+            /** @description Sistema no encontrado */
             404: {
                 headers: {
                     [name: string]: unknown;

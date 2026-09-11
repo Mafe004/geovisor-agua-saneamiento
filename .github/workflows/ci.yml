@@ -1,6 +1,10 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   backend:
@@ -12,14 +16,41 @@ jobs:
           MYSQL_ALLOW_EMPTY_PASSWORD: yes
         ports: ["3306:3306"]
         options: >-
-          --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=3s --health-retries=10
+          --health-cmd="mysqladmin ping"
+          --health-interval=5s --health-timeout=3s --health-retries=10
+    env:
+      # tests/.env.test (committed) already sets these two for local runs;
+      # set here too so CI doesn't silently depend on that file existing.
+      DB_NAME: geovisor_test
+      SECRET_KEY: ci-dummy-secret-key-only-for-pytest-3f9a7b2c1d
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
+        with:
+          python-version: "3.11"
       - run: pip install -r requirements-dev.txt
-      - run: ruff check .
-      - run: pytest
+      - run: ruff check app/
+      - run: pytest --cov=app --cov-report=term-missing
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      # Run at repo root (npm workspaces) so the root `overrides` field
+      # (react-native-web's react/react-dom pins) actually applies -
+      # frontend/package-lock.json alone would miss it.
+      - run: npm ci
+      - run: npx tsc --noEmit
+        working-directory: frontend
+      - run: npx expo export --platform android
+        working-directory: frontend
+      - run: npx expo export --platform web
+        working-directory: frontend

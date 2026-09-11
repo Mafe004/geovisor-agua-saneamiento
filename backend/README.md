@@ -256,6 +256,7 @@ curl http://localhost:8000/health
 
 ```bash
 pip install -r requirements-dev.txt   # incluye pytest, pytest-cov, httpx, ruff
+ruff check app/                        # lint — mismo comando que corre CI
 pytest                                 # corre toda la suite
 pytest --cov=app --cov-report=term-missing   # con reporte de cobertura
 pytest -m "not integration"            # solo tests unitarios puros (sin BD)

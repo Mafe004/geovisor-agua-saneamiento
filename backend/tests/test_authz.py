@@ -57,7 +57,10 @@ def test_matrix_cambiar_estado_reporte(request):
 
 
 def test_matrix_historial_global(request):
-    _assert_matrix(request, "GET", "/historial/", (401, 403, 403, 200, 200))
+    # ENTIDAD ahora ve su propio historial (mismo scope_reportes que
+    # estadisticas_reportes arriba) -- antes este endpoint no dejaba pasar
+    # a ENTIDAD en absoluto, ver test_historial.py para el detalle del scope.
+    _assert_matrix(request, "GET", "/historial/", (401, 403, 200, 200, 200))
 
 
 def test_matrix_auditoria(request):

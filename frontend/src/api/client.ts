@@ -39,7 +39,7 @@ declare module 'axios' {
 // ── CAMBIA ESTA IP POR LA DE TU PC ──────────────────────────
 // Para verla en Windows: abre cmd → escribe `ipconfig`
 //                        busca "Dirección IPv4" (ej: 192.168.1.X)
-const DEV_IP = '192.168.2.16'; // <-- REEMPLAZA CON TU IP REAL
+const DEV_IP = '192.168.2.9'; // <-- REEMPLAZA CON TU IP REAL
 const DEV_PORT = '8000';
 
 export const API_URL = `http://${DEV_IP}:${DEV_PORT}`;

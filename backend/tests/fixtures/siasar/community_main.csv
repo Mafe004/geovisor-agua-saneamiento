@@ -1,0 +1,8 @@
+ID,nombre,departamento,municipio,localidad,latitud,longitud,poblacion,viviendas,cobertura_agua,cobertura_san,n_escuelas,sistemas,PSE,ias_abcd,fecha_encuesta
+80001,Vereda  Prueba,CUNDINAMARCA,ZIPAQUIRÁ,Centro,5.0231,-74.0041,150,40,0.9,0.8,,Acueducto Vereda Prueba,Junta de Acción Comunal,B,2021-03-10
+80002,Vereda La Únion,CUNDINAMARCA,ZIPAQUIRÁ,Norte,5.03,-74.01,80,20,0.7,0.6,2,Sistema  Unión,Junta de Acción Comunal,D,2020-06-15
+80003,Vereda Dos Sistemas,CUNDINAMARCA,ZIPAQUIRÁ,Sur,5.02,-74.02,200,50,0.5,0.4,1,"Acueducto Vereda Prueba, Acueducto Dos",Junta de Acción Comunal,A,2019-11-02
+80004,Vereda Sin Enlace,CUNDINAMARCA,ZIPAQUIRÁ,Oriente,5.025,-74.015,90,30,0.6,0.5,0,Sistema Inexistente XYZ,Junta de Acción Comunal,C,2022-01-20
+80005,Vereda Atipica,CUNDINAMARCA,ZIPAQUIRÁ,Occidente,5.028,-74.005,5000,100,0.8,0.7,,,Junta de Acción Comunal,B,2018-09-05
+80006,Vereda Fuera De Rango,CUNDINAMARCA,ZIPAQUIRÁ,Lejos,10.0,-74.0,60,15,0.5,0.5,0,,Junta de Acción Comunal,B,2021-07-07
+80007,Vereda Otro Departamento,ANTIOQUIA,MEDELLIN,Centro,6.25,-75.56,300,70,0.9,0.9,3,,Junta de Acción Comunal,A,2020-02-02

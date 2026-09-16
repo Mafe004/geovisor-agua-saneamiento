@@ -7,9 +7,10 @@ interface GradientHeaderProps {
   subtitle?: string;
   onBack?: () => void;
   rightAction?: ReactNode;
+  children?: ReactNode;
 }
 
-export default function GradientHeader({ title, subtitle, onBack, rightAction }: GradientHeaderProps) {
+export default function GradientHeader({ title, subtitle, onBack, rightAction, children }: GradientHeaderProps) {
   return (
     <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -29,6 +30,7 @@ export default function GradientHeader({ title, subtitle, onBack, rightAction }:
           {rightAction && rightAction}
         </View>
       </View>
+      {children && <View style={styles.childrenSlot}>{children}</View>}
     </LinearGradient>
   );
 }
@@ -43,4 +45,5 @@ const styles = StyleSheet.create({
   subtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 },
   backBtn: { padding: 4 },
   backIcon: { color: '#fff', fontSize: 22, fontWeight: '600' },
+  childrenSlot: { paddingHorizontal: 16, marginTop: 12 },
 });

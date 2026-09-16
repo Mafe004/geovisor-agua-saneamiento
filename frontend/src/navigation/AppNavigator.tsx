@@ -3,10 +3,12 @@ import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, type BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
+import { Feather } from '@expo/vector-icons';
 
 import { AuthContext } from '../context/AuthContext';
 import LoadingScreen from '../components/LoadingScreen';
 import type { RootStackParamList } from './types';
+import { andiColors, andiRadius, andiElevation } from '../theme/andi';
 
 // Auth
 import LoginScreen    from '../screens/auth/LoginScreen';
@@ -24,10 +26,14 @@ import NotificacionesScreen from '../screens/ciudadano/NotificacionesScreen';
 // Entidad
 import ReportesAsignadosScreen from '../screens/entidad/ReportesAsignadosScreen';
 import DetalleReporteScreen    from '../screens/entidad/DetalleReporteScreen';
+import CifrasEntidadScreen     from '../screens/entidad/CifrasEntidadScreen';
+import MapaEntidadScreen       from '../screens/entidad/MapaEntidadScreen';
 
 // Moderador
-import TodosReportesScreen from '../screens/moderador/TodosReportesScreen';
-import HistorialScreen     from '../screens/moderador/HistorialScreen';
+import TodosReportesScreen     from '../screens/moderador/TodosReportesScreen';
+import HistorialScreen         from '../screens/moderador/HistorialScreen';
+import TriageScreen            from '../screens/moderador/TriageScreen';
+import InfraestructuraScreen   from '../screens/moderador/InfraestructuraScreen';
 
 // Admin
 import DashboardScreen  from '../screens/admin/DashboardScreen';
@@ -51,6 +57,9 @@ const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
   Auditoría:     { icon: '🔍',  label: 'Auditoría'  },
   Asignados:     { icon: '📌',  label: 'Asignados'  },
   Historial:     { icon: '📜',  label: 'Historial'  },
+  Triage:        { icon: '🩺',  label: 'Triage'     },
+  Infra:         { icon: '🏗️',  label: 'Infra'      },
+  Cifras:        { icon: '📊',  label: 'Cifras'     },
 };
 
 // ── Tab bar icon personalizado ────────────────────────────────
@@ -62,6 +71,50 @@ function TabIcon({ name, focused }: { name: string; focused: boolean; color: str
     </View>
   );
 }
+
+// ── Tabs de Moderador/Entidad (sistema visual Andi) ────────────
+// Ícono Feather + si es el tab de "Crear" (solo Entidad), un FAB elevado
+// en vez de un ícono normal -- así lo dibuja el canvas.
+const ANDI_TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
+  Triage: 'inbox',
+  Historial: 'clock',
+  Infra: 'map',
+  Perfil: 'user',
+  Asignados: 'inbox',
+  Cifras: 'pie-chart',
+  Mapa: 'map',
+};
+
+function AndiTabIcon({ name, focused }: { name: string; focused: boolean }) {
+  if (name === 'Crear') {
+    return (
+      <View style={[andiTabStyles.fab, andiElevation[3]]}>
+        <Feather name="plus" size={30} color={andiColors.n0} />
+      </View>
+    );
+  }
+  const icon = ANDI_TAB_ICON[name] ?? 'circle';
+  return <Feather name={icon} size={20} color={focused ? andiColors.primary : andiColors.onSurfaceVariant} />;
+}
+
+function makeAndiTabOptions(barHeight: number) {
+  return ({ route }: { route: RouteProp<ParamListBase> }): BottomTabNavigationOptions => {
+    const isFab = route.name === 'Crear';
+    return {
+      headerShown: false,
+      tabBarActiveTintColor: andiColors.primary,
+      tabBarInactiveTintColor: andiColors.onSurfaceVariant,
+      tabBarStyle: [andiTabStyles.bar, { height: barHeight }],
+      tabBarLabelStyle: andiTabStyles.label,
+      tabBarLabel: isFab ? () => null : (TAB_CONFIG[route.name]?.label || route.name),
+      tabBarIcon: ({ focused }) => <AndiTabIcon name={route.name} focused={focused} />,
+    };
+  };
+}
+// Moderador: 4 tabs, sin FAB (88px en el canvas). Entidad: 5 tabs con FAB
+// central elevado, que necesita más espacio libre arriba (96px).
+const andiTabOptionsModerador = makeAndiTabOptions(88);
+const andiTabOptionsEntidad = makeAndiTabOptions(96);
 
 // ── Opciones compartidas del tab navigator ────────────────────
 const sharedTabOptions = ({
@@ -96,8 +149,12 @@ function CiudadanoTabs() {
 
 function EntidadTabs() {
   return (
-    <Tab.Navigator screenOptions={sharedTabOptions}>
+    <Tab.Navigator screenOptions={andiTabOptionsEntidad}>
       <Tab.Screen name="Asignados" component={ReportesAsignadosScreen} />
+      <Tab.Screen name="Cifras"    component={CifrasEntidadScreen} />
+      <Tab.Screen name="Crear"     component={CrearReporteScreen} />
+      <Tab.Screen name="Historial" component={HistorialScreen} />
+      <Tab.Screen name="Mapa"      component={MapaEntidadScreen} />
       <Tab.Screen name="Perfil"    component={PerfilScreen} />
     </Tab.Navigator>
   );
@@ -105,9 +162,10 @@ function EntidadTabs() {
 
 function ModeradorTabs() {
   return (
-    <Tab.Navigator screenOptions={sharedTabOptions}>
-      <Tab.Screen name="Reportes"  component={TodosReportesScreen} />
+    <Tab.Navigator screenOptions={andiTabOptionsModerador}>
+      <Tab.Screen name="Triage"    component={TriageScreen} />
       <Tab.Screen name="Historial" component={HistorialScreen} />
+      <Tab.Screen name="Infra"     component={InfraestructuraScreen} />
       <Tab.Screen name="Perfil"    component={PerfilScreen} />
     </Tab.Navigator>
   );
@@ -194,4 +252,25 @@ const tabStyles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
   },
   iconText: { fontSize: 19 },
+});
+
+// ── Estilos del tab bar Andi (Moderador/Entidad) ───────────────
+const andiTabStyles = StyleSheet.create({
+  bar: {
+    paddingTop: 10,
+    backgroundColor: andiColors.surface,
+    borderTopWidth: 1,
+    borderTopColor: andiColors.outlineVariant,
+  },
+  label: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '600',
+  },
+  fab: {
+    width: 60, height: 60, borderRadius: andiRadius.xl,
+    backgroundColor: andiColors.accent500,
+    marginTop: -28,
+    alignItems: 'center', justifyContent: 'center',
+  },
 });

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import require_active_user, require_roles
 from app.core.errors import handle_db_error
-from app.core.policies import puede_ver_reporte
+from app.core.policies import puede_ver_reporte, scope_reportes
 from app.core.roles import Rol
 from app.db.database import get_connection
 from app.schemas.historial import HistorialEntry
@@ -29,6 +29,7 @@ def _select_historial_sql() -> str:
         FROM historial_reportes h
         JOIN usuarios u ON u.id_usuario = h.id_usuario_accion
         JOIN roles    r ON r.id_rol     = u.id_rol
+        JOIN reportes rp ON rp.id_reporte = h.id_reporte
     """
 
 
@@ -82,7 +83,7 @@ def historial_reporte(
 
 @router.get(
     "/historial/",
-    summary="Historial global de cambios (MODERADOR / ADMIN)",
+    summary="Historial global de cambios (MODERADOR / ADMIN ven todo, ENTIDAD solo lo suyo)",
     response_model=list[HistorialEntry],
     responses={403: {"description": "Rol sin permiso"}},
 )
@@ -90,20 +91,26 @@ def listar_historial_global(
     id_reporte: int | None = Query(None, description="Filtrar por un reporte"),
     limite: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    user: dict[str, Any] = Depends(require_roles(Rol.MODERADOR, Rol.ADMIN)),
+    user: dict[str, Any] = Depends(require_roles(Rol.ENTIDAD, Rol.MODERADOR, Rol.ADMIN)),
 ) -> list[dict[str, Any]]:
     """
     Feed global de cambios de estado, más reciente primero.
-    Restringido a MODERADOR y ADMIN.
+    MODERADOR/ADMIN ven todo; ENTIDAD solo el historial de reportes de su
+    propia entidad (mismo scope_reportes que listar_reportes/reportes_mapa/
+    estadisticas_reportes -- nunca se había aplicado acá porque este
+    endpoint nunca dejaba pasar a ENTIDAD en absoluto).
     """
     conn = get_connection()
     try:
         sql = _select_historial_sql()
-        params: list[Any] = []
+        conditions, params = scope_reportes(user, alias="rp")
 
         if id_reporte is not None:
-            sql += " WHERE h.id_reporte = %s"
+            conditions.append("h.id_reporte = %s")
             params.append(id_reporte)
+
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
 
         sql += " ORDER BY h.fecha_cambio DESC LIMIT %s OFFSET %s;"
         params.extend([limite, offset])

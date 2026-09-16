@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import StatusBadge from './StatusBadge';
 import { COLORS } from '../theme/colors';
 import type { Reporte } from '../types/domain';
@@ -13,12 +13,15 @@ function formatDate(dateStr: string | undefined) {
 interface ReportCardProps {
   reporte: Reporte;
   onPress?: (reporte: Reporte) => void;
+  /** Resalta la tarjeta (ej. el reporte en proceso del usuario actual). */
+  highlighted?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
-export default function ReportCard({ reporte, onPress }: ReportCardProps) {
+export default function ReportCard({ reporte, onPress, highlighted, style }: ReportCardProps) {
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, highlighted && styles.cardHighlighted, style]}
       onPress={() => onPress && onPress(reporte)}
       activeOpacity={0.85}
     >
@@ -89,6 +92,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     overflow: 'hidden',
+  },
+  cardHighlighted: {
+    borderWidth: 1.5,
+    borderColor: '#8B5CF6',
   },
   severityBar: {
     width: 5,

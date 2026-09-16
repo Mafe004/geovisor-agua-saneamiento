@@ -14,6 +14,7 @@ export type ReporteCreateRequest = components['schemas']['ReporteCreateRequest']
 export type CrearReporteResponse = components['schemas']['CrearReporteResponse'];
 export type CambiarEstadoRequest = components['schemas']['CambiarEstadoRequest'];
 export type CambiarEstadoResponse = components['schemas']['CambiarEstadoResponse'];
+export type AsignarEntidadRequest = components['schemas']['AsignarEntidadRequest'];
 export type HistorialEntry = components['schemas']['HistorialEntry'];
 export type EstadisticasResponse = components['schemas']['EstadisticasResponse'];
 export type EstadisticaEstadoItem = components['schemas']['EstadisticaEstadoItem'];
@@ -75,3 +76,18 @@ export type ResumenModuloItem = components['schemas']['ResumenModuloItem'];
 
 // ── Auth ──────────────────────────────────────────────────────────────
 export type LoginResponse = components['schemas']['LoginResponse'];
+
+// ── SIASAR (capa oficial de solo lectura) ──────────────────────────────
+export type Calificacion = components['schemas']['Calificacion'];
+export type Cloracion = components['schemas']['Cloracion'];
+export type PruebaLaboratorio = components['schemas']['PruebaLaboratorio'];
+export type MunicipioSiasar = components['schemas']['MunicipioSiasar'];
+export type ComunidadMapa = components['schemas']['ComunidadMapa'];
+export type SistemaMapa = components['schemas']['SistemaMapa'];
+export type ComunidadDetalle = components['schemas']['ComunidadDetalle'];
+export type SistemaDetalle = components['schemas']['SistemaDetalle'];
+export type SistemaResumen = components['schemas']['SistemaResumen'];
+export type ComunidadResumen = components['schemas']['ComunidadResumen'];
+export type CercanaResponse = components['schemas']['CercanaResponse'];
+export type ResumenMunicipio = components['schemas']['ResumenMunicipio'];
+export type VeredaSiasarResumen = components['schemas']['VeredaSiasarResumen'];

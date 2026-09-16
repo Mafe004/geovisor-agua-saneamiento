@@ -9,7 +9,7 @@ import type { MapaWebViewProps } from './MapaWebView.types';
 // para no filtrar dependencia de lib DOM hacia el build nativo.
 interface MapMessage {
   type: 'markerPress' | 'centerChange';
-  id?: number;
+  id?: number | string;
   latitude?: number;
   longitude?: number;
 }

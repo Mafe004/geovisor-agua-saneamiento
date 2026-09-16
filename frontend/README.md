@@ -15,18 +15,21 @@ La app está organizada por **rol de usuario**, lo que refleja exactamente cómo
 src/
 ├── api/              ← Capa de comunicación con el backend
 │   ├── client.js     ← Axios configurado: baseURL, JWT interceptor, manejo de errores
-│   └── services.js   ← Funciones por módulo: authAPI, reportesAPI, usuariosAPI...
+│   └── services.js   ← Funciones por módulo: authAPI, reportesAPI, usuariosAPI, siasarAPI...
 ├── context/
 │   └── AuthContext.js← Estado global de autenticación (usuario, token, login/logout)
 ├── navigation/
 │   └── AppNavigator.js← Router principal: decide qué navegador mostrar según el rol
 ├── components/       ← Componentes reutilizables entre pantallas
-│   ├── GradientHeader.js   ← Cabecera azul/teal con gradiente corporativo
-│   ├── LoadingScreen.js    ← Pantalla de carga mientras valida sesión
-│   ├── MapaWebView.js      ← Mapa OpenStreetMap + Leaflet embebido en WebView
-│   ├── ReportCard.js       ← Tarjeta de reporte con badge de estado y severidad
-│   ├── StatCard.js         ← Tarjeta de estadística para el dashboard del admin
-│   └── StatusBadge.js      ← Badge de color por estado de reporte
+│   ├── GradientHeader.tsx   ← Cabecera azul/teal con gradiente corporativo
+│   ├── LoadingScreen.tsx    ← Pantalla de carga mientras valida sesión
+│   ├── MapaWebView.tsx      ← Mapa Google Maps (JS API) embebido en WebView — ver nota abajo
+│   ├── ReportCard.tsx       ← Tarjeta de reporte con badge de estado y severidad
+│   ├── StatCard.tsx         ← Tarjeta de estadística para el dashboard del admin
+│   ├── StatusBadge.tsx      ← Badge de color por estado de reporte
+│   └── SiasarComunidadInfo.tsx ← Diagnóstico de una comunidad SIASAR (población, cobertura,
+│                                  sistemas, calificación) — lo usan tanto el mapa como el
+│                                  detalle de reporte de Entidad/Moderador, mismo componente
 ├── screens/          ← Pantallas agrupadas por rol
 │   ├── auth/         ← Login, Registro (públicas)
 │   ├── ciudadano/    ← Mapa, Mis Reportes, Crear Reporte, Notificaciones, Perfil
@@ -35,8 +38,18 @@ src/
 │   ├── admin/        ← Dashboard, Usuarios, Entidades, Auditoría
 │   └── shared/       ← PerfilScreen (compartida por todos los roles)
 └── theme/
-    └── colors.js     ← Paleta de colores y gradientes del sistema de diseño
+    ├── colors.ts     ← Paleta de colores y gradientes del sistema de diseño
+    └── siasar.ts     ← Colores/etiquetas/atribución de la capa SIASAR (único lugar donde viven)
 ```
+
+> ⚠️ **El mapa usa Google Maps, no Leaflet/OpenStreetMap.**
+> `src/components/mapHtml.ts` genera el documento HTML que carga
+> `https://maps.googleapis.com/maps/api/js` y usa
+> `google.maps.Map`/`google.maps.Marker` — `MapaWebView.tsx` (nativo) y
+> `MapaWebView.web.tsx` (navegador, vía `<iframe>`) comparten ese mismo
+> HTML. Sin una API key de Google Maps válida (`app.json` /
+> `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`), el mapa muestra un aviso de error
+> — no hay una implementación alternativa con Leaflet/OpenStreetMap.
 
 ---
 
@@ -49,7 +62,7 @@ src/
 | **React Navigation** | 6.x | Navegación: stack + bottom tabs por rol |
 | **Axios** | 1.7 | Cliente HTTP con interceptores JWT |
 | **AsyncStorage** | 2.x | Persistencia local del token y usuario |
-| **react-native-webview** | 13.x | Renderiza el mapa Leaflet/OpenStreetMap |
+| **react-native-webview** | 13.x | Renderiza el mapa Google Maps (JS API) — ver nota arriba |
 | **react-native-paper** | 5.x | Componentes UI Material Design |
 | **expo-linear-gradient** | 15.x | Gradientes azul→teal del diseño |
 | **expo-location** | 16.x | GPS para geolocalizar reportes |
@@ -81,7 +94,7 @@ src/
 ### 👤 Ciudadano (rol 1)
 | Pantalla | Descripción |
 |---|---|
-| `MapaScreen` | Mapa con pines de sus reportes (OpenStreetMap + Leaflet vía WebView) |
+| `MapaScreen` | Mapa con pines de sus reportes (Google Maps vía WebView) + capas opcionales "Veredas SIASAR" / "Acueductos SIASAR" (círculos, datos oficiales de solo lectura) con selector de municipio y panel de diagnóstico al tocar un círculo |
 | `MisReportesScreen` | Lista de sus reportes con estado y severidad |
 | `CrearReporteScreen` | Formulario: tipo, severidad, descripción, ubicación GPS, foto |
 | `NotificacionesScreen` | Alertas de cambios de estado de sus reportes |
@@ -91,7 +104,7 @@ src/
 | Pantalla | Descripción |
 |---|---|
 | `ReportesAsignadosScreen` | Reportes asignados a su entidad |
-| `DetalleReporteScreen` | Ver reporte completo y cambiar su estado |
+| `DetalleReporteScreen` | Ver reporte completo y cambiar su estado — si el reporte cayó cerca de una comunidad SIASAR (a menos de 2km), muestra la tarjeta "Diagnóstico oficial de la zona (SIASAR)" (compartida con Moderador) |
 
 ### 🛡️ Moderador (rol 3)
 | Pantalla | Descripción |
@@ -102,7 +115,7 @@ src/
 ### ⚙️ Administrador (rol 4)
 | Pantalla | Descripción |
 |---|---|
-| `DashboardScreen` | Estadísticas globales: totales, por estado, por severidad |
+| `DashboardScreen` | Estadísticas globales: totales, por estado, por severidad — más la sección "SIASAR vs. reportes ciudadanos" (comparación oficial por municipio) |
 | `UsuariosScreen` | Lista de usuarios + cambio de estado de cuenta |
 | `EntidadesScreen` | CRUD de entidades prestadoras del servicio |
 | `AuditoriaScreen` | Logs de auditoría del sistema |
@@ -186,10 +199,13 @@ const DEV_IP = '192.168.1.XXX'; // ← tu IP real
 >
 > ⚠️ No uses `localhost` — desde el teléfono apunta al propio teléfono, no a tu PC.
 
-### 5. Configurar Google Maps (opcional)
+### 5. Configurar Google Maps (requerido para que el mapa cargue)
 
-Edita `app.json` y reemplaza `YOUR_GOOGLE_MAPS_API_KEY` con tu API Key de Google Maps.  
-Si no tienes una, el mapa usará la implementación WebView con OpenStreetMap (ya incluida).
+Edita `app.json` y reemplaza `YOUR_GOOGLE_MAPS_API_KEY` con tu API Key de Google Maps
+(o define `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` en el entorno). El mapa (`MapaWebView`,
+`mapHtml.ts`) usa la API JS de Google Maps directamente — sin una key válida
+muestra un aviso de error en vez del mapa; no hay una implementación alternativa
+con Leaflet/OpenStreetMap.
 
 ### 6. Iniciar la app
 

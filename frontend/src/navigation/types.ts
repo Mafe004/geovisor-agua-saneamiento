@@ -10,15 +10,24 @@ export type RootStackParamList = {
   DetalleReporte: { reporte: Reporte };
 };
 
-// Tabs de CiudadanoTabs (AppNavigator.tsx) -- solo ciudadano/ navega entre
-// tabs hermanos por nombre (navigation.navigate('Crear'), ('Reportes')),
-// así que es el único grupo de tabs que necesita su propio ParamList; el
-// resto de los roles solo navegan hacia arriba, a DetalleReporte en el
-// stack raíz.
+// Tabs de CiudadanoTabs (AppNavigator.tsx) -- ciudadano y entidad navegan
+// entre tabs hermanos por nombre (navigation.navigate('Crear'), ('Reportes')
+// / ('Asignados')), así que son los únicos grupos de tabs que necesitan su
+// propio ParamList; el resto de los roles solo navegan hacia arriba, a
+// DetalleReporte en el stack raíz.
 export type CiudadanoTabParamList = {
   Mapa: undefined;
   Reportes: undefined;
   Crear: undefined;
   Notificaciones: undefined;
+  Perfil: undefined;
+};
+
+export type EntidadTabParamList = {
+  Asignados: undefined;
+  Cifras: undefined;
+  Crear: undefined;
+  Historial: undefined;
+  Mapa: undefined;
   Perfil: undefined;
 };

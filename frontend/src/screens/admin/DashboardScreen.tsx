@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator,
+  View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { reportesAPI } from '../../api/services';
-import StatCard from '../../components/StatCard';
-import type { EstadisticasResponse } from '../../types/domain';
+import { reportesAPI, siasarAPI } from '../../api/services';
+import EstadisticasView from '../../components/EstadisticasView';
+import type { EstadisticasResponse, ResumenMunicipio } from '../../types/domain';
 
 export default function DashboardScreen() {
   const [stats, setStats] = useState<EstadisticasResponse | null>(null);
+  const [resumenSiasar, setResumenSiasar] = useState<ResumenMunicipio[]>([]);
+  const [busquedaMunicipio, setBusquedaMunicipio] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -17,10 +19,15 @@ export default function DashboardScreen() {
   const loadStats = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await reportesAPI.estadisticas();
-      setStats(res.data);
+      const [statsRes, siasarRes] = await Promise.all([
+        reportesAPI.estadisticas(),
+        siasarAPI.resumenMunicipios(),
+      ]);
+      setStats(statsRes.data);
+      setResumenSiasar(siasarRes.data || []);
     } catch (_) {
       setStats(null);
+      setResumenSiasar([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -36,22 +43,18 @@ export default function DashboardScreen() {
     );
   }
 
-  // El backend agrupa con GROUP BY: cada arreglo solo trae las filas con
-  // conteo > 0. Una clave ausente significa cero, no dato faltante.
-  const byEstado = Object.fromEntries(
-    (stats?.por_estado ?? []).map(r => [r.estado, r.total])
-  );
-  const bySeveridad = Object.fromEntries(
-    (stats?.por_severidad ?? []).map(r => [r.severidad, r.total])
-  );
-
   const totalReportes = stats?.total_reportes ?? 0;
-  const pendientes    = byEstado.PENDIENTE ?? 0;
-  const enProceso     = byEstado.EN_PROCESO ?? 0;
-  const resueltos     = byEstado.RESUELTO ?? 0;
-  const tasaResolucion = totalReportes
-    ? Math.round((resueltos / totalReportes) * 100)
-    : 0;
+
+  const filasSiasar = busquedaMunicipio.trim()
+    ? resumenSiasar.filter(f => f.municipio.toLowerCase().includes(busquedaMunicipio.trim().toLowerCase()))
+    : resumenSiasar;
+
+  const fechaMin = resumenSiasar.length
+    ? resumenSiasar.reduce<string>((min, f) => f.fecha_encuesta_min < min ? f.fecha_encuesta_min : min, resumenSiasar[0]!.fecha_encuesta_min)
+    : null;
+  const fechaMax = resumenSiasar.length
+    ? resumenSiasar.reduce<string>((max, f) => f.fecha_encuesta_max > max ? f.fecha_encuesta_max : max, resumenSiasar[0]!.fecha_encuesta_max)
+    : null;
 
   return (
     <View style={styles.container}>
@@ -71,79 +74,57 @@ export default function DashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(true); }} colors={['#1565C0']} />
         }
       >
-        {/* Fila 1 */}
-        <Text style={styles.sectionTitle}>Estado de reportes</Text>
-        <View style={styles.cardRow}>
-          <StatCard
-            title="Pendientes"
-            value={pendientes}
-            icon="⏳"
-            gradient={['#F59E0B', '#FBBF24']}
-            style={styles.cardFlex}
-          />
-          <StatCard
-            title="En Proceso"
-            value={enProceso}
-            icon="⚙️"
-            gradient={['#8B5CF6', '#A78BFA']}
-            style={styles.cardFlex}
-          />
-        </View>
+        {stats && <EstadisticasView stats={stats} title="Estado de reportes" />}
 
-        <View style={styles.cardRow}>
-          <StatCard
-            title="Resueltos"
-            value={resueltos}
-            icon="✅"
-            gradient={['#10B981', '#34D399']}
-            style={styles.cardFlex}
-          />
-          <StatCard
-            title="Tasa resolución"
-            value={`${tasaResolucion}%`}
-            icon="📈"
-            gradient={['#1565C0', '#00ACC1']}
-            style={styles.cardFlex}
-          />
-        </View>
-
-        {/* Severidades */}
-        {stats?.por_severidad && (
-          <>
-            <Text style={styles.sectionTitle}>Por severidad</Text>
-            <View style={styles.cardRow}>
-              <StatCard title="Alta" value={bySeveridad.ALTA ?? 0} icon="🔴" gradient={['#EF4444', '#F87171']} style={styles.cardFlex} />
-              <StatCard title="Media" value={bySeveridad.MEDIA ?? 0} icon="🟡" gradient={['#F59E0B', '#FBBF24']} style={styles.cardFlex} />
-              <StatCard title="Baja" value={bySeveridad.BAJA ?? 0} icon="🟢" gradient={['#10B981', '#34D399']} style={styles.cardFlex} />
-            </View>
-          </>
+        <Text style={styles.sectionTitle}>SIASAR vs. reportes ciudadanos</Text>
+        {fechaMin && fechaMax && (
+          <Text style={styles.siasarIntro}>
+            Compara el diagnóstico oficial de SIASAR (encuestas {formatFecha(fechaMin)}–{formatFecha(fechaMax)})
+            {' '}con los reportes recibidos en la app.
+          </Text>
         )}
 
-        {/* Por tipo */}
-        {stats?.por_tipo_incidente && stats.por_tipo_incidente.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Por tipo de incidente</Text>
-            <View style={styles.tipoList}>
-              {stats.por_tipo_incidente.slice(0, 6).map((t, i) => (
-                <View key={i} style={styles.tipoRow}>
-                  <Text style={styles.tipoName}>{t.tipo_incidente || 'Sin tipo'}</Text>
-                  <View style={styles.tipoBarWrap}>
-                    <View
-                      style={[
-                        styles.tipoBar,
-                        { width: `${totalReportes ? Math.round((t.total / totalReportes) * 100) : 0}%` },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.tipoCount}>{t.total}</Text>
-                </View>
-              ))}
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar municipio…"
+          placeholderTextColor="#9CA3AF"
+          value={busquedaMunicipio}
+          onChangeText={setBusquedaMunicipio}
+        />
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View>
+            <View style={styles.siasarTableHeader}>
+              <Text style={[styles.siasarTh, styles.colMunicipio]}>Municipio</Text>
+              <Text style={[styles.siasarTh, styles.colNum]}>Veredas</Text>
+              <Text style={[styles.siasarTh, styles.colNum]}>En D</Text>
+              <Text style={[styles.siasarTh, styles.colNum]}>Sin cloración</Text>
+              <Text style={[styles.siasarTh, styles.colNum]}>No pasa coliformes</Text>
+              <Text style={[styles.siasarTh, styles.colNum]}>Reportes</Text>
             </View>
-          </>
+            {filasSiasar.map(f => (
+              <View key={f.municipio} style={styles.siasarRow}>
+                <Text style={[styles.siasarCell, styles.colMunicipio]} numberOfLines={1}>{f.municipio}</Text>
+                <Text style={[styles.siasarCell, styles.colNum]}>{f.comunidades}</Text>
+                <Text style={[styles.siasarCell, styles.colNum, f.comunidades_d > 0 && styles.siasarCellWarn]}>{f.comunidades_d}</Text>
+                <Text style={[styles.siasarCell, styles.colNum]}>{f.sistemas_sin_cloracion}</Text>
+                <Text style={[styles.siasarCell, styles.colNum]}>{f.sistemas_no_pasa_coliformes}</Text>
+                <Text style={[styles.siasarCell, styles.colNum]}>{f.reportes_total} ({f.reportes_abiertos} abiertos)</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+        {resumenSiasar.length > 0 && filasSiasar.length === 0 && (
+          <Text style={styles.siasarEmpty}>Sin municipios que coincidan con la búsqueda.</Text>
         )}
       </ScrollView>
     </View>
   );
+}
+
+function formatFecha(iso: string) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 const styles = StyleSheet.create({
@@ -157,21 +138,30 @@ const styles = StyleSheet.create({
   kpiNum: { fontSize: 56, fontWeight: '900', color: '#fff', lineHeight: 64 },
   kpiLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
   scroll: { padding: 16, paddingBottom: 32 },
+
   sectionTitle: {
     fontSize: 13, fontWeight: '700', color: '#6B7280',
     textTransform: 'uppercase', letterSpacing: 0.8,
-    marginBottom: 10, marginTop: 16,
+    marginBottom: 6, marginTop: 24,
   },
-  cardRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  cardFlex: { flex: 1 },
-  tipoList: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+  siasarIntro: { fontSize: 12, color: '#6B7280', marginBottom: 10, lineHeight: 17 },
+  searchInput: {
+    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
+    backgroundColor: '#fff', paddingHorizontal: 12, height: 40,
+    fontSize: 13, color: '#1F2937', marginBottom: 10,
   },
-  tipoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
-  tipoName: { fontSize: 12, color: '#374151', width: 120 },
-  tipoBarWrap: { flex: 1, height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' },
-  tipoBar: { height: 8, backgroundColor: '#1565C0', borderRadius: 4, minWidth: 4 },
-  tipoCount: { fontSize: 12, fontWeight: '700', color: '#1565C0', width: 28, textAlign: 'right' },
+  siasarTableHeader: {
+    flexDirection: 'row', backgroundColor: '#EEF2F4',
+    borderTopLeftRadius: 10, borderTopRightRadius: 10, paddingVertical: 8,
+  },
+  siasarTh: { fontSize: 10, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', paddingHorizontal: 8, textAlign: 'right' },
+  siasarRow: {
+    flexDirection: 'row', backgroundColor: '#fff', paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  siasarCell: { fontSize: 12, color: '#374151', paddingHorizontal: 8, textAlign: 'right' },
+  siasarCellWarn: { color: '#B91C1C', fontWeight: '700' },
+  colMunicipio: { width: 140, textAlign: 'left' },
+  colNum: { width: 90 },
+  siasarEmpty: { fontSize: 12, color: '#9CA3AF', textAlign: 'center', marginTop: 12, fontStyle: 'italic' },
 });

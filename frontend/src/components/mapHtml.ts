@@ -50,6 +50,9 @@ export function buildMapHtml({
       || STATUS_COLOR[m.estado ?? ''] || '#1565C0',
     title: m.title || m.descripcion || `#${m.id || m.id_reporte}`,
     description: m.description || m.estado || '',
+    shape: m.shape || 'circle',
+    label: m.label || '',
+    scale: m.scale || 10,
   }))).replace(/</g, '\\u003c');
 
   return `<!DOCTYPE html>
@@ -112,17 +115,27 @@ export function buildMapHtml({
     var infoWindow = new google.maps.InfoWindow();
 
     MARKERS.forEach(function (m) {
+      var isSquare = m.shape === 'square';
       var marker = new google.maps.Marker({
         position: { lat: m.lat, lng: m.lng },
         map: map,
-        icon: {
+        icon: isSquare ? {
+          // Infraestructura: cuadrado -- capa distinta de la gota de
+          // reportes, para que nunca se confundan en el mismo mapa.
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28">' +
+            '<rect x="1" y="1" width="26" height="26" rx="6" fill="' + m.color + '" stroke="#fff" stroke-width="2"/></svg>'
+          ),
+          anchor: new google.maps.Point(14, 14),
+        } : {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
+          scale: m.scale,
           fillColor: m.color,
           fillOpacity: 0.9,
           strokeColor: m.color,
           strokeWeight: 2,
         },
+        label: isSquare && m.label ? { text: m.label, color: '#fff', fontSize: '11px', fontWeight: '600' } : undefined,
       });
       marker.addListener('click', function () {
         infoWindow.setContent('<b>' + m.title + '</b><br>' + m.description);

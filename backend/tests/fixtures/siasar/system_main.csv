@@ -1,0 +1,5 @@
+ID,nombre,departamento,municipio,localidad,latitud,longitud,comunidades,PSE,pob_servida,viv_servidas,dist_horas,cloro,pasa_coliformes,pasa_fisicoquimico,fecha_encuesta
+90001,Acueducto Vereda Prueba,CUNDINAMARCA,ZIPAQUIRÁ,Centro,5.0231,-74.0041,Vereda Prueba,Junta de Acción Comunal,100,20,12,"Sí, y funciona",Sí pasa,No pasa,2021-03-10
+90002,Acueducto Dos,CUNDINAMARCA,ZIPAQUIRÁ,Sur,5.02,-74.02,Vereda Dos Sistemas,Junta de Acción Comunal,3000,100,,"Sí, pero no funciona",No pasa,No aplica,2019-11-02
+90003,Sistema  Unión,CUNDINAMARCA,ZIPAQUIRÁ,Norte,5.03,-74.01,Vereda La Únion,Junta de Acción Comunal,80,20,8,No se realiza,No aplica,Sí pasa,2020-06-15
+90004,Acueducto Otro Municipio,CUNDINAMARCA,COTA,Centro,4.81,-74.1,Vereda Cota,Junta de Acción Comunal,150,40,24,Valor Raro,Sí pasa,No pasa,2021-05-05

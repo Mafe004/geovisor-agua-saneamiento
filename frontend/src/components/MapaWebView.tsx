@@ -9,7 +9,7 @@ import type { MapaWebViewProps } from './MapaWebView.types';
 // archivo de tipos compartido.
 interface MapMessage {
   type: 'markerPress' | 'centerChange';
-  id?: number;
+  id?: number | string;
   latitude?: number;
   longitude?: number;
 }

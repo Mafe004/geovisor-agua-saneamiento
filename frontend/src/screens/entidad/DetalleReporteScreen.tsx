@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
+import { reportesAPI, catalogosAPI, siasarAPI, historialAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import StatusBadge from '../../components/StatusBadge';
 import GradientHeader from '../../components/GradientHeader';
@@ -15,9 +15,9 @@ import EstadoChips from '../../components/EstadoChips';
 import MapaWebView from '../../components/MapaWebView';
 import AndiHeader from '../../components/andi/AndiHeader';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
-import { andiColors, andiRadius, andiSpace, andiType, andiElevation } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType, andiElevation, andiStatusPill } from '../../theme/andi';
 import type { MapMarker } from '../../components/MapaWebView.types';
-import type { Reporte, EstadoReporteItem, ComunidadDetalle } from '../../types/domain';
+import type { Reporte, EstadoReporteItem, ComunidadDetalle, HistorialEntry } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DetalleReporte'>;
@@ -47,6 +47,39 @@ function formatDate(d: string | undefined) {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
+}
+
+function useHistorialReporte(idReporte: number): { historial: HistorialEntry[]; cargando: boolean } {
+  const [historial, setHistorial] = useState<HistorialEntry[]>([]);
+  const [cargando, setCargando] = useState(true);
+  useEffect(() => {
+    let mounted = true;
+    setCargando(true);
+    historialAPI.porReporte(idReporte)
+      .then(res => { if (mounted) setHistorial(res.data || []); })
+      .catch(() => { if (mounted) setHistorial([]); })
+      .finally(() => { if (mounted) setCargando(false); });
+    return () => { mounted = false; };
+  }, [idReporte]);
+  return { historial, cargando };
+}
+
+function estadoLabel(nombre: string) {
+  return andiStatusPill[nombre]?.label ?? nombre.replace(/_/g, ' ');
+}
+
+/** Duración legible entre dos fechas ISO -- usado para el "tiempo de
+ * atención" del recibo, calculado en el cliente a partir de fechas reales
+ * de historial_reportes (el backend no expone una duración ya calculada). */
+function duracionDesde(desde: string): string {
+  const ms = Date.now() - new Date(desde).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const restoMin = min % 60;
+  if (h < 24) return restoMin > 0 ? `${h} h ${restoMin} min` : `${h} h`;
+  const d = Math.floor(h / 24);
+  return `${d} día${d === 1 ? '' : 's'}`;
 }
 
 export default function DetalleReporteScreen({ route, navigation }: Props) {
@@ -277,7 +310,10 @@ function EntidadCierreView({
   const [resolviendo, setResolviendo] = useState(true);
   const [comentario, setComentario] = useState('');
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [recibo, setRecibo] = useState<{ estadoAnterior: string; comentario: string; duracion: string | null } | null>(null);
   const siasarDetalle = useSiasarDiagnostico(reporte.vereda_siasar?.id_siasar);
+  const { historial, cargando: cargandoHistorial } = useHistorialReporte(reporte.id_reporte);
 
   const hasCoords =
     reporte.latitud != null && reporte.longitud != null &&
@@ -301,6 +337,7 @@ function EntidadCierreView({
     const resuelto = estadosDisponibles.find(e => e.nombre === 'RESUELTO');
     if (!resuelto) return;
 
+    setErrorMsg(null);
     try {
       setSaving(true);
       const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
@@ -308,21 +345,65 @@ function EntidadCierreView({
         comentario: comentario.trim(),
       });
       onUpdated(res.data.reporte);
-      onBack();
+      // Tiempo de atención: se calcula en el cliente desde el último
+      // "EN_PROCESO" real en el historial (dato existente), no un campo
+      // inventado -- si no hay ese tramo (p.ej. se resolvió sin pasar por
+      // EN_PROCESO), el recibo simplemente omite la duración.
+      const ultimoEnProceso = [...historial].reverse().find(h => h.estado_nuevo === 'EN_PROCESO');
+      setRecibo({
+        estadoAnterior: reporte.estado,
+        comentario: comentario.trim(),
+        duracion: ultimoEnProceso ? duracionDesde(ultimoEnProceso.fecha_cambio) : null,
+      });
     } catch (e) {
+      // El texto escrito NO se limpia en este catch a propósito: si el
+      // guardado falla (p.ej. 500), el ciudadano-moderador no debería
+      // tener que volver a escribir el mismo comentario dos veces.
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo actualizar el estado.');
+      setErrorMsg(msg || 'No se pudo guardar el cambio. Tu comentario sigue aquí, puedes intentar de nuevo.');
     } finally {
       setSaving(false);
     }
   };
+
+  if (recibo) {
+    return (
+      <View style={andiStyles.container}>
+        <AndiHeader kicker={`#${reporte.id_reporte}`} title="Reporte resuelto" />
+        <ScrollView contentContainerStyle={andiStyles.scroll}>
+          <View style={andiStyles.reciboIconWrap}>
+            <Feather name="check-circle" size={56} color={andiColors.success} />
+          </View>
+          <View style={andiStyles.reciboRow}>
+            <View style={andiStyles.reciboEstadoPill}>
+              <Text style={andiStyles.reciboEstadoPillText}>{estadoLabel(recibo.estadoAnterior)}</Text>
+            </View>
+            <Feather name="arrow-right" size={16} color={andiColors.onSurfaceVariant} />
+            <View style={[andiStyles.reciboEstadoPill, { backgroundColor: andiColors.stResBg }]}>
+              <Text style={[andiStyles.reciboEstadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
+            </View>
+          </View>
+          {recibo.duracion && (
+            <Text style={[andiType.body, andiStyles.reciboDuracion]}>Tiempo de atención: {recibo.duracion}</Text>
+          )}
+          <View style={andiStyles.section}>
+            <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
+            <Text style={[andiType.body, andiStyles.reciboComentario]}>&quot;{recibo.comentario}&quot;</Text>
+          </View>
+          <TouchableOpacity style={[andiStyles.saveBtn, andiElevation[2]]} onPress={onBack}>
+            <Text style={andiStyles.saveBtnText}>Listo</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={andiStyles.container}>
       <AndiHeader onBack={onBack} kicker={`#${reporte.id_reporte}`} title={reporte.descripcion || 'Reporte'} />
 
       <ScrollView contentContainerStyle={andiStyles.scroll} nestedScrollEnabled>
-        {hasCoords && (
+        {hasCoords ? (
           <MapaWebView
             style={andiStyles.map}
             latitude={parseFloat(String(reporte.latitud))}
@@ -332,6 +413,14 @@ function EntidadCierreView({
             showCenterPin={false}
             interactive={false}
           />
+        ) : (
+          <View style={andiStyles.noCoordsCard}>
+            <Feather name="map-pin" size={18} color={andiColors.onSurfaceVariant} />
+            <Text style={[andiType.body, andiStyles.noCoordsText]}>
+              Este reporte no tiene coordenadas registradas.
+              {reporte.direccion ? ` Dirección informada: ${reporte.direccion}.` : ''}
+            </Text>
+          </View>
         )}
         <Text style={[andiType.body, andiStyles.description]}>{reporte.descripcion}</Text>
 
@@ -341,6 +430,25 @@ function EntidadCierreView({
             <SiasarComunidadInfo data={siasarDetalle} />
           </View>
         )}
+
+        <View style={andiStyles.section}>
+          <Text style={[andiType.overline, andiStyles.sectionLabel]}>Historial de este reporte</Text>
+          {cargandoHistorial ? (
+            <ActivityIndicator size="small" color={andiColors.primary} style={andiStyles.historialLoading} />
+          ) : historial.length === 0 ? (
+            <Text style={[andiType.caption, andiStyles.caption]}>Sin cambios registrados todavía.</Text>
+          ) : (
+            historial.map(h => (
+              <View key={h.id_historial} style={andiStyles.historialRow}>
+                <Text style={[andiType.caption, andiStyles.historialTransition]}>
+                  {estadoLabel(h.estado_anterior)} → <Text style={andiStyles.historialTransitionStrong}>{estadoLabel(h.estado_nuevo)}</Text>
+                  {'  ·  '}{h.usuario_accion} · {formatDate(h.fecha_cambio)}
+                </Text>
+                {h.comentario && <Text style={[andiType.caption, andiStyles.historialComment]}>&quot;{h.comentario}&quot;</Text>}
+              </View>
+            ))
+          )}
+        </View>
 
         <View style={andiStyles.titleBlock}>
           <Text style={andiType.section}>Cerrar el reporte</Text>
@@ -396,6 +504,13 @@ function EntidadCierreView({
           <Text style={[andiType.caption, andiStyles.photoText]}>Foto del arreglo · opcional</Text>
         </View>
 
+        {errorMsg && (
+          <View style={andiStyles.errorBanner}>
+            <Feather name="alert-circle" size={16} color={andiColors.onErrorContainer} />
+            <Text style={[andiType.caption, andiStyles.errorBannerText]}>{errorMsg}</Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[andiStyles.saveBtn, andiElevation[2], saving && andiStyles.saveBtnDisabled]}
           onPress={handleGuardar}
@@ -403,7 +518,7 @@ function EntidadCierreView({
         >
           {saving
             ? <ActivityIndicator color={andiColors.n0} />
-            : <Text style={andiStyles.saveBtnText}>{resolviendo ? 'Marcar como resuelto' : 'Guardar cambio'}</Text>}
+            : <Text style={andiStyles.saveBtnText}>{errorMsg ? 'Reintentar' : (resolviendo ? 'Marcar como resuelto' : 'Guardar cambio')}</Text>}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -500,6 +615,36 @@ const andiStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   estadoPillText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+
+  noCoordsCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2],
+    backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg,
+    padding: andiSpace[3], marginBottom: andiSpace[3],
+  },
+  noCoordsText: { color: andiColors.onSurfaceVariant, flex: 1 },
+
+  historialLoading: { marginTop: andiSpace[2] },
+  historialRow: { marginBottom: andiSpace[2] },
+  historialTransition: { color: andiColors.onSurfaceVariant },
+  historialTransitionStrong: { color: andiColors.onSurface, fontWeight: '700' },
+  historialComment: { color: andiColors.onSurface, marginTop: 2 },
+
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2],
+    backgroundColor: andiColors.errorContainer, borderRadius: andiRadius.lg,
+    padding: andiSpace[3], marginBottom: andiSpace[3],
+  },
+  errorBannerText: { color: andiColors.onErrorContainer, flex: 1 },
+
+  reciboIconWrap: { alignItems: 'center', marginBottom: andiSpace[4], marginTop: andiSpace[4] },
+  reciboRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: andiSpace[2], marginBottom: andiSpace[3] },
+  reciboEstadoPill: {
+    paddingHorizontal: andiSpace[3], paddingVertical: andiSpace[2], borderRadius: andiRadius.full,
+    backgroundColor: andiColors.surfaceMid,
+  },
+  reciboEstadoPillText: { fontSize: 13, fontWeight: '600', color: andiColors.onSurfaceVariant },
+  reciboDuracion: { textAlign: 'center', color: andiColors.onSurfaceVariant, marginBottom: andiSpace[5] },
+  reciboComentario: { color: andiColors.onSurface },
 
   textarea: {
     backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outlineVariant,

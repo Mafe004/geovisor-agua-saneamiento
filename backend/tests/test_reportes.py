@@ -91,6 +91,57 @@ def test_paginacion_limite_y_offset(client_moderador):
     assert ids_pagina1.isdisjoint(ids_pagina2), "offset no debe repetir filas de la página anterior"
 
 
+def test_asignar_entidad_moderador_puede_reasignar(client_ciudadano, client_moderador):
+    # Reporte de un ciudadano nace con id_entidad NULL (nadie lo ve todavía).
+    res_crear = client_ciudadano.post("/reportes/", json=REPORTE_PAYLOAD)
+    id_reporte = res_crear.json()["reporte"]["id_reporte"]
+    assert res_crear.json()["reporte"]["id_entidad"] is None
+
+    res = client_moderador.put(f"/reportes/{id_reporte}/entidad", json={"id_entidad": 1})
+    assert res.status_code == 200
+    reporte = res.json()["reporte"]
+    assert reporte["id_entidad"] == 1
+    # La sugerencia por tipo_incidente sigue viniendo aparte -- reasignar no
+    # la borra, es información de apoyo, no el resultado de la asignación.
+    assert "entidad_sugerida" in reporte
+
+
+def test_asignar_entidad_reporte_trae_sugerencia_por_tipo_incidente(client_ciudadano):
+    # REPORTE_PAYLOAD usa id_tipo_incidente=1, sembrado en
+    # tipo_incidente_entidad -> id_entidad=1 (ver geovisor_backup_limpio.sql).
+    res = client_ciudadano.post("/reportes/", json=REPORTE_PAYLOAD)
+    reporte = res.json()["reporte"]
+    assert reporte["id_entidad_sugerida"] == 1
+    assert reporte["entidad_sugerida"] == "Empresa de Acueducto Municipal"
+
+
+def test_asignar_entidad_con_entidad_inexistente_da_404(client_moderador, client_ciudadano):
+    id_reporte = client_ciudadano.post("/reportes/", json=REPORTE_PAYLOAD).json()["reporte"][
+        "id_reporte"
+    ]
+    res = client_moderador.put(f"/reportes/{id_reporte}/entidad", json={"id_entidad": 999999})
+    assert res.status_code == 404
+
+
+def test_asignar_entidad_con_reporte_inexistente_da_404(client_moderador):
+    res = client_moderador.put("/reportes/999999/entidad", json={"id_entidad": 1})
+    assert res.status_code == 404
+
+
+def test_asignar_entidad_ciudadano_y_entidad_no_pueden(
+    client_ciudadano, client_entidad
+):
+    id_reporte = client_ciudadano.post("/reportes/", json=REPORTE_PAYLOAD).json()["reporte"][
+        "id_reporte"
+    ]
+
+    res_ciudadano = client_ciudadano.put(f"/reportes/{id_reporte}/entidad", json={"id_entidad": 1})
+    assert res_ciudadano.status_code == 403
+
+    res_entidad = client_entidad.put(f"/reportes/{id_reporte}/entidad", json={"id_entidad": 1})
+    assert res_entidad.status_code == 403
+
+
 def test_orden_de_rutas_mapa_y_estadisticas_no_caen_en_id_reporte(client_moderador):
     """
     Guardia de regresión para el comentario de orden de rutas en

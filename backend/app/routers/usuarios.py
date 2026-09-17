@@ -109,8 +109,10 @@ def registro_ciudadano(
 ) -> dict[str, Any]:
     """
     Endpoint público (no requiere token).
-    Crea un usuario con rol CIUDADANO (id_rol=1)
-    y estado PENDIENTE (id_estado_cuenta=4) hasta que un ADMIN lo active.
+    Crea un usuario con rol CIUDADANO (id_rol=1) y estado ACTIVO
+    (id_estado_cuenta=1) de inmediato -- PENDIENTE se reserva para
+    solicitudes de cuenta ADMINISTRADOR, que sí requieren aprobación
+    manual (ver spec de diseño).
     El hash de la contraseña se genera automáticamente.
     """
     try:
@@ -145,7 +147,7 @@ def registro_ciudadano(
             """,
                 (
                     Rol.CIUDADANO,
-                    EstadoCuenta.PENDIENTE,  # admin debe activar
+                    EstadoCuenta.ACTIVO,
                     data.nombre_completo,
                     data.correo,
                     password_hash,  # ← siempre generado correctamente
@@ -169,10 +171,10 @@ def registro_ciudadano(
             )
 
         return {
-            "message": "Usuario registrado exitosamente. Su cuenta está pendiente de activación.",
+            "message": "Usuario registrado exitosamente. Ya puedes iniciar sesión.",
             "id_usuario": nuevo_id,
-            "estado": "PENDIENTE",
-            "instruccion": "Un administrador debe activar tu cuenta antes de que puedas iniciar sesión.",
+            "estado": "ACTIVO",
+            "instruccion": "Tu cuenta ya está activa.",
         }
     except HTTPException:
         raise

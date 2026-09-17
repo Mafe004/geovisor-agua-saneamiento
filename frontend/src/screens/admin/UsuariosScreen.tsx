@@ -52,6 +52,9 @@ export default function UsuariosScreen({ route }: Props) {
   const [motivo, setMotivo] = useState('');
   const [applying, setApplying] = useState(false);
 
+  const [pendingActionUser, setPendingActionUser] = useState<UsuarioListItem | null>(null);
+  const [activatingPendiente, setActivatingPendiente] = useState(false);
+
   const [undoVisible, setUndoVisible] = useState(false);
   const undoData = useRef<{ prev: { id: number; estado: number }[]; label: string } | null>(null);
   const undoShowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,6 +138,17 @@ export default function UsuariosScreen({ route }: Props) {
     setMotivo('');
   };
 
+  // Hoja inferior de una sola fila PENDIENTE -- reusa applyEstado tal cual
+  // (misma llamada real a PUT /usuarios/{id}/estado, mismo undo de 3s+10s)
+  // en vez de duplicar la lógica de la acción por lotes.
+  const handleActivarPendiente = async () => {
+    if (!pendingActionUser) return;
+    setActivatingPendiente(true);
+    await applyEstado([pendingActionUser.id_usuario], ESTADO_ID.ACTIVO, 'Cuenta activada');
+    setActivatingPendiente(false);
+    setPendingActionUser(null);
+  };
+
   const handleDeshacer = async () => {
     const data = undoData.current;
     if (!data) return;
@@ -199,7 +213,10 @@ export default function UsuariosScreen({ route }: Props) {
                 style={styles.row}
                 activeOpacity={0.7}
                 onLongPress={() => toggleSelect(item.id_usuario)}
-                onPress={() => { if (selectionMode) toggleSelect(item.id_usuario); }}
+                onPress={() => {
+                  if (selectionMode) { toggleSelect(item.id_usuario); return; }
+                  if (item.estado_cuenta === 'PENDIENTE') setPendingActionUser(item);
+                }}
               >
                 {selectionMode && (
                   <Feather
@@ -275,6 +292,46 @@ export default function UsuariosScreen({ route }: Props) {
             </View>
           </View>
         </View>
+      </Modal>
+
+      <Modal
+        visible={pendingActionUser !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPendingActionUser(null)}
+      >
+        <TouchableOpacity
+          style={styles.sheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setPendingActionUser(null)}
+        >
+          <TouchableOpacity style={styles.sheetCard} activeOpacity={1} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            {pendingActionUser && (
+              <>
+                <View style={styles.sheetHeader}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{initials(pendingActionUser.nombre_completo)}</Text>
+                  </View>
+                  <View style={styles.rowInfo}>
+                    <Text style={styles.rowName} numberOfLines={1}>{pendingActionUser.nombre_completo}</Text>
+                    <Text style={styles.rowEmail} numberOfLines={1}>{pendingActionUser.correo}</Text>
+                  </View>
+                </View>
+                <Text style={styles.sheetMessage}>
+                  Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
+                  onPress={handleActivarPendiente}
+                  disabled={activatingPendiente}
+                >
+                  <Text style={styles.batchBtnPrimaryText}>{activatingPendiente ? 'Activando…' : 'Activar'}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {undoVisible && (
@@ -355,6 +412,16 @@ const styles = StyleSheet.create({
   modalSuspendBtn: { flex: 1, height: 44, borderRadius: andiRadius.full, backgroundColor: andiColors.error600, justifyContent: 'center', alignItems: 'center' },
   btnDisabled: { opacity: 0.5 },
   modalSuspendBtnText: { ...andiType.label, color: andiColors.surface },
+
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end' },
+  sheetCard: {
+    backgroundColor: andiColors.surface, borderTopLeftRadius: andiRadius.xl, borderTopRightRadius: andiRadius.xl,
+    padding: andiSpace[5], paddingBottom: andiSpace[8],
+  },
+  sheetHandle: { width: 36, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outlineVariant, alignSelf: 'center', marginBottom: andiSpace[4] },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[3] },
+  sheetMessage: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[4] },
+  sheetActivarBtn: { marginTop: andiSpace[5], alignItems: 'center' },
 
   undoToast: {
     position: 'absolute', bottom: andiSpace[6], alignSelf: 'center',

@@ -1,86 +1,150 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View, Text, FlatList, StyleSheet,
-  RefreshControl, ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import { auditoriaAPI } from '../../api/services';
 import type { LogAuditoriaItem } from '../../types/domain';
+import { andiColors, andiType, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 
-function formatDate(d: string | undefined) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('es-CO', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
+type ModuloFilter = 'TODOS' | 'REPORTES' | 'AUTH' | 'USUARIOS';
+const FILTERS: { key: ModuloFilter; label: string }[] = [
+  { key: 'TODOS', label: 'Todos' },
+  { key: 'REPORTES', label: 'Reportes' },
+  { key: 'AUTH', label: 'Auth' },
+  { key: 'USUARIOS', label: 'Usuarios' },
+];
 
-const ACCION_COLOR: Record<string, string> = {
-  CREATE: '#10B981', UPDATE: '#3B82F6', DELETE: '#EF4444',
-  LOGIN: '#8B5CF6', LOGOUT: '#6B7280',
+// El backend audita módulos concretos afectados por una acción (ver
+// app/core/audit.py Modulo), no la clase de operación CRUD que asume el
+// spec (CREATE/UPDATE/DELETE/LOGIN/LOGOUT) -- no existe DELETE ni LOGOUT
+// en ningún log real. El color de cada badge se elige por la intención
+// semántica más cercana de cada Accion real, no por esos nombres literales.
+const ACCION_BADGE_DEFAULT = { bg: andiColors.neutral100, fg: andiColors.neutral600 };
+const ACCION_BADGE: Record<string, { bg: string; fg: string }> = {
+  LOGIN: { bg: andiColors.secondary100, fg: andiColors.secondary700 },
+  CREAR: { bg: andiColors.success100, fg: andiColors.success700 },
+  CREAR_REPORTE: { bg: andiColors.success100, fg: andiColors.success700 },
+  REGISTRO: { bg: andiColors.success100, fg: andiColors.success700 },
+  ACTUALIZAR: { bg: andiColors.primary100, fg: andiColors.primary700 },
+  CAMBIAR_ESTADO: { bg: andiColors.primary100, fg: andiColors.primary700 },
+  CAMBIAR_ESTADO_CUENTA: { bg: andiColors.primary100, fg: andiColors.primary700 },
+  ASIGNAR_USUARIO: { bg: andiColors.primary100, fg: andiColors.primary700 },
+  ASIGNAR_ENTIDAD: { bg: andiColors.primary100, fg: andiColors.primary700 },
 };
+
+// Descripción legible de la acción -- reemplaza el "target/entity" del
+// spec: LogAuditoriaItem no trae un campo de entidad/objeto afectado
+// aparte, solo actor + accion + modulo, así que esta línea describe qué
+// pasó en vez de mostrar un objetivo que la API no expone.
+const ACCION_LABEL: Record<string, string> = {
+  LOGIN: 'Inició sesión',
+  CREAR: 'Creó un registro',
+  CREAR_REPORTE: 'Creó un reporte',
+  REGISTRO: 'Se registró',
+  ACTUALIZAR: 'Actualizó un registro',
+  CAMBIAR_ESTADO: 'Cambió el estado',
+  CAMBIAR_ESTADO_CUENTA: 'Cambió el estado de una cuenta',
+  ASIGNAR_USUARIO: 'Asignó un usuario',
+  ASIGNAR_ENTIDAD: 'Asignó una entidad',
+  IMPORTACION: 'Importó datos',
+  LISTAR_USUARIOS: 'Listó usuarios',
+};
+
+function formatFecha(iso: string) {
+  const d = new Date(iso);
+  const fecha = d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const hora = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${fecha} ${hora}`;
+}
 
 export default function AuditoriaScreen() {
   const [logs, setLogs] = useState<LogAuditoriaItem[]>([]);
+  const [filter, setFilter] = useState<ModuloFilter>('TODOS');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadLogs(); }, []);
+  // Un solo efecto por [filter] cubre tanto el mount inicial (primera
+  // ejecución) como cada cambio de filtro después -- evita el doble
+  // fetch que resultaría de un efecto de mount aparte más uno por filtro.
+  useEffect(() => { loadLogs(); }, [filter]);
 
   const loadLogs = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await auditoriaAPI.listar();
-      setLogs(res.data?.logs || []);
-    } catch (_) { setLogs([]); }
-    finally { setLoading(false); setRefreshing(false); }
+      const res = await auditoriaAPI.listar({
+        modulo: filter === 'TODOS' ? undefined : filter,
+        limite: 100,
+      });
+      setLogs(res.data.logs || []);
+    } catch (_) {
+      setLogs([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
-        <Text style={styles.headerTitle}>🔍 Auditoría del Sistema</Text>
-        <Text style={styles.headerSub}>Registro de todas las acciones</Text>
+      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+        <Text style={styles.headerTitle}>Auditoría</Text>
       </LinearGradient>
+
+      <View style={styles.filterRow}>
+        {FILTERS.map(f => {
+          const active = filter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setFilter(f.key)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#1565C0" />
+          <ActivityIndicator size="large" color={andiColors.primary600} />
         </View>
       ) : (
         <FlatList
           data={logs}
-          keyExtractor={(l, i) => String(l.id_log ?? i)}
+          keyExtractor={l => String(l.id_log)}
+          contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadLogs(true); }} colors={['#1565C0']} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadLogs(true); }} colors={[andiColors.primary600]} />
           }
-          contentContainerStyle={logs.length === 0 && styles.emptyContainer}
           renderItem={({ item }) => {
-            const accion = (item.accion || 'OTHER').toUpperCase();
-            const color = ACCION_COLOR[accion] || '#6B7280';
+            const badge = ACCION_BADGE[item.accion] ?? ACCION_BADGE_DEFAULT;
+            const sobrePersonas = item.modulo === 'USUARIOS' || item.modulo === 'AUTH';
             return (
-              <View style={styles.logCard}>
-                <View style={[styles.accionDot, { backgroundColor: color }]} />
-                <View style={styles.logContent}>
-                  <View style={styles.logHeader}>
-                    <View style={[styles.accionBadge, { backgroundColor: color + '20' }]}>
-                      <Text style={[styles.accionText, { color }]}>{accion}</Text>
+              <View style={styles.row}>
+                <View style={[styles.bar, { backgroundColor: sobrePersonas ? andiColors.error400 : andiColors.primary600 }]} />
+                <View style={styles.rowBody}>
+                  <View style={styles.rowTopLine}>
+                    <Text style={styles.actorName} numberOfLines={1}>{item.usuario ?? 'Usuario eliminado'}</Text>
+                    <View style={[styles.actionBadge, { backgroundColor: badge.bg }]}>
+                      <Text style={[styles.actionBadgeText, { color: badge.fg }]}>{item.accion}</Text>
                     </View>
-                    <Text style={styles.logTime}>{formatDate(item.fecha_accion)}</Text>
                   </View>
-                  <Text style={styles.logDesc}>{item.modulo || '—'}</Text>
-                  {item.usuario && (
-                    <Text style={styles.logUser}>👤 {item.usuario}</Text>
-                  )}
+                  <Text style={styles.targetLine} numberOfLines={1}>{ACCION_LABEL[item.accion] ?? item.accion}</Text>
+                  <Text style={styles.moduleLabel}>{item.modulo}</Text>
+                </View>
+                <View style={styles.rowRight}>
+                  <Text style={styles.timestamp}>{formatFecha(item.fecha_accion)}</Text>
+                  <Text style={styles.ip}>{item.ip_origen ?? '—'}</Text>
                 </View>
               </View>
             );
           }}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyTitle}>Sin registros de auditoría</Text>
-              <Text style={styles.emptyText}>Las acciones del sistema aparecerán aquí.</Text>
+            <View style={styles.emptyState}>
+              <Feather name="shield" size={48} color={andiColors.onSurfaceVariant} />
+              <Text style={styles.emptyStateText}>Sin registros de auditoría</Text>
             </View>
           }
         />
@@ -90,29 +154,38 @@ export default function AuditoriaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 16 },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  logCard: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: '#fff', marginHorizontal: 12, marginVertical: 5,
-    borderRadius: 12, padding: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+  container: { flex: 1, backgroundColor: andiColors.surfaceMid },
+  header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
+  headerTitle: { ...andiType.headingLg, color: andiColors.surface },
+
+  filterRow: {
+    flexDirection: 'row', gap: andiSpace[2], backgroundColor: andiColors.surface,
+    paddingHorizontal: andiSpace[4], paddingVertical: andiSpace[3],
   },
-  accionDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10, marginTop: 5 },
-  logContent: { flex: 1 },
-  logHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  accionBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  accionText: { fontSize: 11, fontWeight: '700' },
-  logTime: { fontSize: 10, color: '#9CA3AF' },
-  logDesc: { fontSize: 13, color: '#374151', marginBottom: 4 },
-  logUser: { fontSize: 11, color: '#6B7280' },
-  emptyContainer: { flex: 1 },
-  empty: { alignItems: 'center', padding: 40, marginTop: 60 },
-  emptyIcon: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#6B7280', textAlign: 'center' },
+  chip: { borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.full, paddingHorizontal: andiSpace[3], paddingVertical: andiSpace[1] },
+  chipActive: { backgroundColor: andiColors.primary600, borderColor: andiColors.primary600 },
+  chipText: { ...andiType.labelSm, color: andiColors.onSurface },
+  chipTextActive: { color: andiColors.surface },
+
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listContent: { padding: andiSpace[4] },
+
+  row: {
+    flexDirection: 'row', backgroundColor: andiColors.surface, borderRadius: andiRadius.md,
+    ...andiElevation[1], marginBottom: andiSpace[2], overflow: 'hidden',
+  },
+  bar: { width: 4 },
+  rowBody: { flex: 1, minWidth: 0, padding: andiSpace[3], gap: 2 },
+  rowTopLine: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2] },
+  actorName: { ...andiType.labelMd, fontWeight: '700', color: andiColors.onSurface, flexShrink: 1 },
+  actionBadge: { borderRadius: andiRadius.xs, paddingHorizontal: andiSpace[2], paddingVertical: 2 },
+  actionBadgeText: { ...andiType.labelSm, textTransform: 'uppercase', fontWeight: '700' },
+  targetLine: { ...andiType.bodySm, color: andiColors.onSurfaceVariant },
+  moduleLabel: { ...andiType.caption, textTransform: 'uppercase', letterSpacing: 0.6, color: andiColors.onSurfaceVariant },
+  rowRight: { alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: andiSpace[3], gap: 2 },
+  timestamp: { ...andiType.caption, color: andiColors.onSurface },
+  ip: { ...andiType.caption, color: andiColors.onSurfaceVariant },
+
+  emptyState: { alignItems: 'center', paddingVertical: andiSpace[10] },
+  emptyStateText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3] },
 });

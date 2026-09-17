@@ -9,6 +9,12 @@
  * theme only — the canvas also defines a dark variant, but the app has no
  * theme toggle today, so it's not wired here). Never hand-tune a value here
  * without checking it still matches the canvas.
+ *
+ * Scope update: Andi now also covers Auth (all roles) and Admin, per the
+ * Andi-Administrador / Andi-Auth / Andi-AltaCuentasPorRol canvases — the
+ * note below about Moderador/Entidad-only is historical, from before those
+ * canvases existed. theme/colors.ts remains legacy/unused for those roles
+ * going forward.
  */
 import type { TextStyle } from 'react-native';
 
@@ -46,6 +52,38 @@ export const andiColors = {
   onSurfaceVariant: '#5C6B72', // --on-surface-variant: var(--n-500)
   mapGround: '#EEF2F4',     // --map-ground: var(--n-100)
   mapLine: '#FFFFFF',       // --map-line: var(--n-0)
+
+  // ── Extended 50-900 scales for Admin/Auth (Andi-Administrador, Andi-Auth,
+  // Andi-AltaCuentasPorRol canvases) ──────────────────────────────────────
+  // error/warning/success above only ever had a single flat value + a light
+  // "Container" tint + a dark "onContainer" text color — not a full scale.
+  // Those three known values anchor 600/100/900 below exactly (matching how
+  // `primary` is already structured: the flat brand color sits at 600); the
+  // 50/200/300/400/500/700/800 steps are linearly interpolated and have NOT
+  // been checked against the actual canvas exports — verify and correct
+  // here if you have the real values.
+  error50: '#FEF0EE', error100: '#FCDCD7', error200: '#F5B8AE', error300: '#E9927F',
+  error400: '#D06B54', error500: '#BC5039', error600: '#B23A2C', error700: '#8F2E23',
+  error800: '#701F17', error900: '#5C1A12',
+
+  warning50: '#FDF8EA', warning100: '#FBEFC9', warning200: '#F3DD98', warning300: '#E5C669',
+  warning400: '#D0AC3D', warning500: '#B8861B', warning600: '#9C6F16', warning700: '#7D5811',
+  warning800: '#63450E', warning900: '#5C4408',
+
+  success50: '#EDF8F1', success100: '#D7F0E0', success200: '#AEE0BF', success300: '#7ECBA0',
+  success400: '#4CAE7B', success500: '#2E9663', success600: '#1E7F4E', success700: '#176440',
+  success800: '#124E33', success900: '#0E4A2B',
+
+  // Pure aliases — no new hues invented. `neutral` mirrors n0-n900 exactly;
+  // `secondary` (terracotta) mirrors the existing `accent` scale, with its
+  // gaps (200/400/800/900) interpolated the same unverified way as above.
+  neutral50: '#F7F9FA', neutral100: '#EEF2F4', neutral200: '#DEE5E8', neutral300: '#C2CCD1',
+  neutral400: '#8E9CA3', neutral500: '#5C6B72', neutral600: '#3D4A50', neutral700: '#2A3438',
+  neutral800: '#1A2125', neutral900: '#0E1416',
+
+  secondary50: '#FDF2EC', secondary100: '#F8DDCC', secondary200: '#F0C0A5', secondary300: '#E8A075',
+  secondary400: '#DE844F', secondary500: '#D2693A', secondary600: '#B0562C', secondary700: '#8C4322',
+  secondary800: '#6E3419', secondary900: '#522712',
 } as const;
 
 export const andiSpace = {
@@ -80,18 +118,28 @@ type Type = Pick<TextStyle, 'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeig
  * is added per call-site via inline style (see andiOverlineDecor variants
  * below) — it's not baked into the --t-overline token itself. */
 export const andiType: Record<
-  'displayLg' | 'display' | 'screen' | 'section' | 'card' | 'bodyLg' | 'body' | 'caption' | 'label' | 'overline',
+  | 'displayLg' | 'displayMd' | 'display' | 'headingLg' | 'headingMd' | 'screen' | 'section' | 'card'
+  | 'bodyLg' | 'body' | 'bodySm' | 'caption' | 'label' | 'labelMd' | 'labelSm' | 'overline',
   Type
 > = {
   displayLg: { fontFamily: andiFont, fontWeight: '700', fontSize: 36, lineHeight: 44 },
+  // displayMd/headingLg/headingMd are new for Admin/Auth (see andiColors'
+  // extended-scales comment above) — interpolated between the existing
+  // display/screen/section steps, not verified against the real canvas.
+  displayMd: { fontFamily: andiFont, fontWeight: '700', fontSize: 32, lineHeight: 40 },
   display:   { fontFamily: andiFont, fontWeight: '700', fontSize: 28, lineHeight: 36 },
+  headingLg: { fontFamily: andiFont, fontWeight: '700', fontSize: 24, lineHeight: 32 },
+  headingMd: { fontFamily: andiFont, fontWeight: '700', fontSize: 20, lineHeight: 26 },
   screen:    { fontFamily: andiFont, fontWeight: '700', fontSize: 22, lineHeight: 28 },
   section:   { fontFamily: andiFont, fontWeight: '600', fontSize: 18, lineHeight: 24 },
   card:      { fontFamily: andiFont, fontWeight: '600', fontSize: 16, lineHeight: 22 },
   bodyLg:    { fontFamily: andiFont, fontWeight: '400', fontSize: 16, lineHeight: 24 },
   body:      { fontFamily: andiFont, fontWeight: '400', fontSize: 14, lineHeight: 20 },
+  bodySm:    { fontFamily: andiFont, fontWeight: '400', fontSize: 12, lineHeight: 16 }, // = caption, alias kept for spec-name parity
   caption:   { fontFamily: andiFont, fontWeight: '400', fontSize: 12, lineHeight: 16 },
   label:     { fontFamily: andiFont, fontWeight: '600', fontSize: 14, lineHeight: 20 },
+  labelMd:   { fontFamily: andiFont, fontWeight: '600', fontSize: 14, lineHeight: 20 }, // = label, alias kept for spec-name parity
+  labelSm:   { fontFamily: andiFont, fontWeight: '600', fontSize: 12, lineHeight: 16 },
   overline:  { fontFamily: andiFont, fontWeight: '600', fontSize: 10, lineHeight: 14 },
 };
 

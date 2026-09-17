@@ -1,12 +1,18 @@
 import type { Reporte } from '../types/domain';
 
 export type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
+  Login: { successMessage?: string } | undefined;
+  Register: { id_rol: number; codigoData?: { codigo: string; rol?: string; entidad?: string } };
+  // New Auth-flow routes (Phase 1 scaffold; screens land in Phases 3/4/6).
+  Invitacion: undefined;
+  CuentaSuspendida: { message?: string };
+  TelefonoOpcional: { userId: number };
   CiudadanoHome: undefined;
   EntidadHome: undefined;
   ModeradorHome: undefined;
   AdminHome: undefined;
+  // Admin profile, reached from the Dashboard header avatar (not a tab).
+  AdminPerfil: undefined;
   DetalleReporte: { reporte: Reporte };
 };
 
@@ -30,4 +36,15 @@ export type EntidadTabParamList = {
   Historial: undefined;
   Mapa: undefined;
   Perfil: undefined;
+};
+
+// AdminTabs (AppNavigator.tsx) -- DashboardScreen's "Revisarlas" button jumps
+// to the sibling Usuarios tab with a filter param, same sibling-navigation
+// need as the ParamLists above.
+export type AdminTabParamList = {
+  Panel: undefined;
+  Reportes: undefined;
+  Usuarios: { filter?: string } | undefined;
+  Entidades: undefined;
+  Auditoría: undefined;
 };

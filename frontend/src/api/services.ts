@@ -37,6 +37,7 @@ import type {
   MarcarTodasLeidasResponse,
   MunicipioSiasar,
   NotificacionItem,
+  PendientesResponse,
   PerfilResponse,
   RegistroResponse,
   RegistroUsuario,
@@ -85,6 +86,7 @@ export const usuariosAPI = {
   // Gestión (admin)
   listar: (params?: Record<string, unknown>) =>
     client.get<UsuarioListItem[]>('/usuarios/', { params }),
+  pendientes: () => client.get<PendientesResponse>('/usuarios/pendientes'),
   detalle: (id: number) => client.get<UsuarioDetalleResponse>(`/usuarios/${id}`),
   cambiarEstado: (id: number, data: CambiarEstadoCuenta) =>
     client.put<CambiarEstadoUsuarioResponse>(`/usuarios/${id}/estado`, data),

@@ -8,11 +8,14 @@ import { Feather } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import LoadingScreen from '../components/LoadingScreen';
 import type { RootStackParamList } from './types';
-import { andiColors, andiRadius, andiElevation } from '../theme/andi';
+import { andiColors, andiRadius, andiElevation, andiType } from '../theme/andi';
 
 // Auth
 import LoginScreen    from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import InvitacionScreen       from '../screens/auth/InvitacionScreen';
+import CuentaSuspendidaScreen from '../screens/auth/CuentaSuspendidaScreen';
+import TelefonoOpcionalScreen from '../screens/auth/TelefonoOpcionalScreen';
 
 // Perfil compartido (todos los roles)
 import PerfilScreen from '../screens/shared/PerfilScreen';
@@ -30,7 +33,7 @@ import CifrasEntidadScreen     from '../screens/entidad/CifrasEntidadScreen';
 import MapaEntidadScreen       from '../screens/entidad/MapaEntidadScreen';
 
 // Moderador
-import TodosReportesScreen     from '../screens/moderador/TodosReportesScreen';
+import TodosReportesScreen     from '../screens/moderador/TodosReportesScreen'; // reused by AdminTabs' "Reportes" tab
 import HistorialScreen         from '../screens/moderador/HistorialScreen';
 import TriageScreen            from '../screens/moderador/TriageScreen';
 import InfraestructuraScreen   from '../screens/moderador/InfraestructuraScreen';
@@ -40,6 +43,7 @@ import DashboardScreen  from '../screens/admin/DashboardScreen';
 import UsuariosScreen   from '../screens/admin/UsuariosScreen';
 import EntidadesScreen  from '../screens/admin/EntidadesScreen';
 import AuditoriaScreen  from '../screens/admin/AuditoriaScreen';
+import AdminPerfilScreen from '../screens/admin/AdminPerfilScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab   = createBottomTabNavigator();
@@ -116,6 +120,36 @@ function makeAndiTabOptions(barHeight: number) {
 const andiTabOptionsModerador = makeAndiTabOptions(88);
 const andiTabOptionsEntidad = makeAndiTabOptions(96);
 
+// ── Tabs de Admin (sistema visual Andi) ────────────────────────
+// 5 tabs planos, sin FAB -- a diferencia de Moderador/Entidad, Admin no
+// tiene una acción "Crear" central.
+const ADMIN_TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
+  Panel: 'pie-chart',
+  Reportes: 'file-text',
+  Usuarios: 'users',
+  Entidades: 'briefcase',
+  Auditoría: 'shield',
+};
+
+function AdminTabIcon({ name, focused }: { name: string; focused: boolean }) {
+  const icon = ADMIN_TAB_ICON[name] ?? 'circle';
+  return <Feather name={icon} size={22} color={focused ? andiColors.primary600 : andiColors.onSurfaceVariant} />;
+}
+
+const adminTabOptions = ({ route }: { route: RouteProp<ParamListBase> }): BottomTabNavigationOptions => ({
+  headerShown: false,
+  tabBarActiveTintColor: andiColors.primary600,
+  tabBarInactiveTintColor: andiColors.onSurfaceVariant,
+  tabBarStyle: {
+    height: 72,
+    backgroundColor: andiColors.surface,
+    borderTopWidth: 1,
+    borderTopColor: andiColors.outlineVariant,
+  },
+  tabBarLabelStyle: andiType.labelSm,
+  tabBarIcon: ({ focused }) => <AdminTabIcon name={route.name} focused={focused} />,
+});
+
 // ── Opciones compartidas del tab navigator ────────────────────
 const sharedTabOptions = ({
   route,
@@ -173,13 +207,12 @@ function ModeradorTabs() {
 
 function AdminTabs() {
   return (
-    <Tab.Navigator screenOptions={sharedTabOptions}>
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
+    <Tab.Navigator screenOptions={adminTabOptions}>
+      <Tab.Screen name="Panel"     component={DashboardScreen} />
       <Tab.Screen name="Reportes"  component={TodosReportesScreen} />
       <Tab.Screen name="Usuarios"  component={UsuariosScreen} />
       <Tab.Screen name="Entidades" component={EntidadesScreen} />
       <Tab.Screen name="Auditoría" component={AuditoriaScreen} />
-      <Tab.Screen name="Perfil"    component={PerfilScreen} />
     </Tab.Navigator>
   );
 }
@@ -195,12 +228,16 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
           <>
-            <Stack.Screen name="Login"    component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Login"            component={LoginScreen} />
+            <Stack.Screen name="Register"         component={RegisterScreen} />
+            <Stack.Screen name="Invitacion"       component={InvitacionScreen} />
+            <Stack.Screen name="CuentaSuspendida" component={CuentaSuspendidaScreen} />
+            <Stack.Screen name="TelefonoOpcional" component={TelefonoOpcionalScreen} />
           </>
         ) : user.id_rol === 4 ? (
           <>
             <Stack.Screen name="AdminHome"      component={AdminTabs} />
+            <Stack.Screen name="AdminPerfil"    component={AdminPerfilScreen} options={{ headerShown: false }} />
             <Stack.Screen name="DetalleReporte" component={DetalleReporteScreen} />
           </>
         ) : user.id_rol === 3 ? (

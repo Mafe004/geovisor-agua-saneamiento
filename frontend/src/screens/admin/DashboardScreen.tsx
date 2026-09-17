@@ -18,20 +18,17 @@ export default function DashboardScreen() {
 
   const loadStats = async (silent = false) => {
     if (!silent) setLoading(true);
-    try {
-      const [statsRes, siasarRes] = await Promise.all([
-        reportesAPI.estadisticas(),
-        siasarAPI.resumenMunicipios(),
-      ]);
-      setStats(statsRes.data);
-      setResumenSiasar(siasarRes.data || []);
-    } catch (_) {
-      setStats(null);
-      setResumenSiasar([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    // Cada estadística viene de un endpoint independiente -- allSettled en
+    // vez de Promise.all para que una falla en una no vacíe la otra (p.ej.
+    // SIASAR caído no debe ocultar el conteo de reportes, que sí respondió).
+    const [statsResult, siasarResult] = await Promise.allSettled([
+      reportesAPI.estadisticas(),
+      siasarAPI.resumenMunicipios(),
+    ]);
+    setStats(statsResult.status === 'fulfilled' ? statsResult.value.data : null);
+    setResumenSiasar(siasarResult.status === 'fulfilled' ? (siasarResult.value.data || []) : []);
+    setLoading(false);
+    setRefreshing(false);
   };
 
   if (loading) {

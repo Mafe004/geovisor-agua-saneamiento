@@ -119,6 +119,15 @@ export default function PerfilScreen() {
   };
 
   const handleLogout = () => {
+    // Alert.alert con varios botones no tiene equivalente en react-native-web
+    // (window.alert no distingue botones), así que ahí ningún onPress se
+    // dispara nunca -- se usa window.confirm en su lugar.
+    if (Platform.OS === 'web') {
+      if (window.confirm('¿Seguro que quieres salir de tu cuenta?')) {
+        logout();
+      }
+      return;
+    }
     Alert.alert(
       'Cerrar sesión',
       '¿Seguro que quieres salir de tu cuenta?',

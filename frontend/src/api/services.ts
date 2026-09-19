@@ -44,11 +44,15 @@ import type {
   Reporte,
   ReporteCreateRequest,
   ReporteMapaPunto,
+  RestablecerContrasena,
+  RestablecerContrasenaResponse,
   ResumenModuloItem,
   ResumenMunicipio,
   SeveridadItem,
   SistemaDetalle,
   SistemaMapa,
+  SolicitarRecuperacion,
+  SolicitarRecuperacionResponse,
   TipoIncidenteItem,
   UserPublic,
   UsuarioDetalleResponse,
@@ -90,6 +94,11 @@ export const usuariosAPI = {
   detalle: (id: number) => client.get<UsuarioDetalleResponse>(`/usuarios/${id}`),
   cambiarEstado: (id: number, data: CambiarEstadoCuenta) =>
     client.put<CambiarEstadoUsuarioResponse>(`/usuarios/${id}/estado`, data),
+  // Recuperación de contraseña (pública, sin token)
+  solicitarRecuperacion: (data: SolicitarRecuperacion) =>
+    client.post<SolicitarRecuperacionResponse>('/usuarios/solicitar-recuperacion', data),
+  restablecerContrasena: (data: RestablecerContrasena) =>
+    client.post<RestablecerContrasenaResponse>('/usuarios/restablecer-contrasena', data),
 };
 
 // ========================

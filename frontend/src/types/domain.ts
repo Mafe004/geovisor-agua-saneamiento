@@ -43,6 +43,10 @@ export type RegistroResponse = components['schemas']['RegistroResponse'];
 export type ActualizarPerfilResponse = components['schemas']['ActualizarPerfilResponse'];
 export type CambiarPasswordResponse = components['schemas']['CambiarPasswordResponse'];
 export type CambiarEstadoUsuarioResponse = components['schemas']['CambiarEstadoUsuarioResponse'];
+export type SolicitarRecuperacion = components['schemas']['SolicitarRecuperacion'];
+export type SolicitarRecuperacionResponse = components['schemas']['SolicitarRecuperacionResponse'];
+export type RestablecerContrasena = components['schemas']['RestablecerContrasena'];
+export type RestablecerContrasenaResponse = components['schemas']['RestablecerContrasenaResponse'];
 
 // ── Entidades ─────────────────────────────────────────────────────────
 export type EntidadDetalle = components['schemas']['EntidadDetalle'];

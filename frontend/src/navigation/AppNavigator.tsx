@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer, type ParamListBase, type RouteProp } from '@react-navigation/native';
+import { NavigationContainer, type LinkingOptions, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, type BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
@@ -16,6 +16,8 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import InvitacionScreen       from '../screens/auth/InvitacionScreen';
 import CuentaSuspendidaScreen from '../screens/auth/CuentaSuspendidaScreen';
 import TelefonoOpcionalScreen from '../screens/auth/TelefonoOpcionalScreen';
+import ForgotPasswordScreen   from '../screens/auth/ForgotPasswordScreen';
+import NuevaContrasenaScreen  from '../screens/auth/NuevaContrasenaScreen';
 
 // Perfil compartido (todos los roles)
 import PerfilScreen from '../screens/shared/PerfilScreen';
@@ -47,6 +49,22 @@ import AdminPerfilScreen from '../screens/admin/AdminPerfilScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab   = createBottomTabNavigator();
+
+// Sin este prop, NavigationContainer arranca SIEMPRE en la primera pantalla
+// de la rama que corresponda (Login si no hay sesión) e ignora por completo
+// el path/query de la URL al cargar en web -- por eso el enlace de
+// restablecer contraseña (?token=...) nunca llegaba a NuevaContrasenaScreen
+// sin esto. Solo se declara la ruta que de verdad necesita cargarse desde
+// una URL externa; todo lo demás sigue navegándose en memoria como hasta
+// ahora (no había ningún otro deep link que este cambio pudiera romper).
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [],
+  config: {
+    screens: {
+      'nueva-contrasena': 'nueva-contrasena',
+    },
+  },
+};
 
 // ── Configuración de tabs por rol ─────────────────────────────
 const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
@@ -224,7 +242,7 @@ export default function AppNavigator() {
   if (loading) return <LoadingScreen message="Iniciando GeoVisor…" />;
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking} fallback={<LoadingScreen message="Cargando…" />}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
           <>
@@ -233,6 +251,12 @@ export default function AppNavigator() {
             <Stack.Screen name="Invitacion"       component={InvitacionScreen} />
             <Stack.Screen name="CuentaSuspendida" component={CuentaSuspendidaScreen} />
             <Stack.Screen name="TelefonoOpcional" component={TelefonoOpcionalScreen} />
+            <Stack.Screen name="ForgotPassword"   component={ForgotPasswordScreen} />
+            {/* Nombre de ruta en minúsculas/guiones a propósito -- ver el
+                comentario en navigation/types.ts junto a esta misma clave:
+                determina el path público /nueva-contrasena que usa el
+                correo de restablecimiento. */}
+            <Stack.Screen name="nueva-contrasena" component={NuevaContrasenaScreen} />
           </>
         ) : user.id_rol === 4 ? (
           <>

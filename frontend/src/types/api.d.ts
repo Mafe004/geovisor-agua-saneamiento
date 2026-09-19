@@ -392,8 +392,10 @@ export interface paths {
         /**
          * Registro público de ciudadanos (sin token)
          * @description Endpoint público (no requiere token).
-         *     Crea un usuario con rol CIUDADANO (id_rol=1)
-         *     y estado PENDIENTE (id_estado_cuenta=4) hasta que un ADMIN lo active.
+         *     Crea un usuario con rol CIUDADANO (id_rol=1) y estado ACTIVO
+         *     (id_estado_cuenta=1) de inmediato -- PENDIENTE se reserva para
+         *     solicitudes de cuenta ADMINISTRADOR, que sí requieren aprobación
+         *     manual (ver spec de diseño).
          *     El hash de la contraseña se genera automáticamente.
          */
         post: operations["registro_ciudadano_usuarios_registro_post"];
@@ -414,9 +416,11 @@ export interface paths {
         put?: never;
         /**
          * Solicitar token para restablecer contraseña (sin token)
-         * @description Genera un token de recuperación válido por 2 horas.
-         *     En producción este token se enviaría por correo electrónico.
-         *     Para el proyecto académico se devuelve en la respuesta.
+         * @description Genera un token de recuperación válido por 2 horas y lo envía por
+         *     correo (app/services/email_service.py) -- nunca viaja en la respuesta
+         *     HTTP. La respuesta es siempre el mismo mensaje ambiguo, exista o no el
+         *     correo, y también si el envío falla, para no revelar por ningún canal
+         *     si una cuenta está registrada.
          */
         post: operations["solicitar_recuperacion_usuarios_solicitar_recuperacion_post"];
         delete?: never;
@@ -1840,17 +1844,14 @@ export interface components {
         };
         /**
          * SolicitarRecuperacionResponse
-         * @description El handler devuelve un mensaje genérico cuando el correo no existe
-         *     (por seguridad, no revela si está registrado) y un token cuando sí —
-         *     token/expira_en son opcionales para cubrir ambas ramas reales.
+         * @description Mismo mensaje exista o no el correo -- por seguridad, la respuesta
+         *     nunca revela si la cuenta existe ni contiene el token (ver
+         *     solicitar_recuperacion en routers/usuarios.py; el token va solo por
+         *     correo vía app/services/email_service.py).
          */
         SolicitarRecuperacionResponse: {
             /** Message */
             message: string;
-            /** Token */
-            token?: string | null;
-            /** Expira En */
-            expira_en?: string | null;
         };
         /** TipoIncidenteItem */
         TipoIncidenteItem: {

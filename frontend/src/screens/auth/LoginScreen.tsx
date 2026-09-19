@@ -126,6 +126,15 @@ export default function LoginScreen({ navigation, route }: Props) {
               </TouchableOpacity>
             </View>
 
+            {/* Olvidé mi contraseña */}
+            <TouchableOpacity
+              style={styles.forgotRow}
+              onPress={() => navigation.navigate('ForgotPassword')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+            </TouchableOpacity>
+
             {/* Éxito inline (viene de RegisterScreen) */}
             {successMsg && (
               <View style={styles.successBanner}>
@@ -227,6 +236,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, minHeight: 48, fontSize: 15, color: andiColors.onSurface },
   inputPassword: { paddingRight: andiSpace[2] },
   eyeBtn: { padding: andiSpace[1] },
+  forgotRow: { alignSelf: 'flex-end', marginTop: andiSpace[2] },
+  forgotText: { ...andiType.bodySm, color: andiColors.primary600 },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',

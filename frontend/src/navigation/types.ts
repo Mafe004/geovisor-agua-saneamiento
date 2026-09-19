@@ -7,6 +7,14 @@ export type RootStackParamList = {
   Invitacion: undefined;
   CuentaSuspendida: { message?: string };
   TelefonoOpcional: { userId: number };
+  ForgotPassword: undefined;
+  // Nombre en minúsculas/guiones a propósito, a diferencia de toda otra ruta
+  // de este ParamList: sin un `linking` prop explícito en AppNavigator,
+  // React Navigation deriva el path web del nombre de ruta tal cual, y el
+  // correo de restablecimiento (app/services/email_service.py, backend)
+  // apunta literal a "{FRONTEND_URL}/nueva-contrasena?token=..." -- el
+  // nombre de ruta ES el path público, así que tiene que coincidir exacto.
+  'nueva-contrasena': { token?: string } | undefined;
   CiudadanoHome: undefined;
   EntidadHome: undefined;
   ModeradorHome: undefined;

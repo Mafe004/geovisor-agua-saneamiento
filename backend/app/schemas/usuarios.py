@@ -11,13 +11,12 @@ class RegistroResponse(BaseModel):
 
 
 class SolicitarRecuperacionResponse(BaseModel):
-    """El handler devuelve un mensaje genérico cuando el correo no existe
-    (por seguridad, no revela si está registrado) y un token cuando sí —
-    token/expira_en son opcionales para cubrir ambas ramas reales."""
+    """Mismo mensaje exista o no el correo -- por seguridad, la respuesta
+    nunca revela si la cuenta existe ni contiene el token (ver
+    solicitar_recuperacion en routers/usuarios.py; el token va solo por
+    correo vía app/services/email_service.py)."""
 
     message: str
-    token: str | None = None
-    expira_en: str | None = None
 
 
 class RestablecerContrasenaResponse(BaseModel):

@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timedelta
 from typing import Any
@@ -24,8 +25,14 @@ from app.schemas.usuarios import (
     UsuarioDetalleResponse,
     UsuarioListItem,
 )
+from app.services.email_service import send_password_reset_email
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+logger = logging.getLogger(__name__)
+
+# Misma respuesta exista o no el correo, y también si el envío del correo
+# falla -- lo contrario dejaría enumerar cuentas por canal de error.
+MENSAJE_RECUPERACION = "Si el correo existe, recibirás un enlace en breve"
 
 
 # =========================
@@ -194,9 +201,11 @@ def registro_ciudadano(
 )
 def solicitar_recuperacion(data: SolicitarRecuperacion) -> dict[str, Any]:
     """
-    Genera un token de recuperación válido por 2 horas.
-    En producción este token se enviaría por correo electrónico.
-    Para el proyecto académico se devuelve en la respuesta.
+    Genera un token de recuperación válido por 2 horas y lo envía por
+    correo (app/services/email_service.py) -- nunca viaja en la respuesta
+    HTTP. La respuesta es siempre el mismo mensaje ambiguo, exista o no el
+    correo, y también si el envío falla, para no revelar por ningún canal
+    si una cuenta está registrada.
     """
     conn = get_connection()
     try:
@@ -204,11 +213,8 @@ def solicitar_recuperacion(data: SolicitarRecuperacion) -> dict[str, Any]:
             cursor.execute("SELECT id_usuario FROM usuarios WHERE correo = %s;", (data.correo,))
             usuario = cursor.fetchone()
 
-            # Por seguridad se responde igual aunque el correo no exista
             if not usuario:
-                return {
-                    "message": "Si el correo existe, recibirás las instrucciones de recuperación."
-                }
+                return {"message": MENSAJE_RECUPERACION}
 
             token = secrets.token_urlsafe(32)
             expiracion = datetime.now() + timedelta(hours=2)
@@ -222,7 +228,16 @@ def solicitar_recuperacion(data: SolicitarRecuperacion) -> dict[str, Any]:
                 (usuario["id_usuario"], token, expiracion),
             )
 
-        return {"message": "Token generado exitosamente", "token": token, "expira_en": "2 horas"}
+        try:
+            send_password_reset_email(data.correo, token)
+        except Exception:
+            # El token ya quedó guardado -- un fallo de entrega no debe
+            # convertirse en un 500 ni en una respuesta distinta a la rama
+            # de "correo no existe" (seguiría revelando la cuenta). Queda
+            # solo en el log del servidor para que alguien lo note.
+            logger.exception("Fallo enviando correo de restablecimiento a %s", data.correo)
+
+        return {"message": MENSAJE_RECUPERACION}
     except pymysql.MySQLError as e:
         handle_db_error(e)
     finally:

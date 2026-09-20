@@ -18,7 +18,9 @@ export type RootStackParamList = {
 export type CiudadanoTabParamList = {
   Mapa: undefined;
   Reportes: undefined;
-  Crear: undefined;
+  // draftId opcional: permite reanudar un borrador local guardado con
+  // utils/offlineDrafts.ts (ver MisReportesScreen -> "Seguir").
+  Crear: { draftId?: string } | undefined;
   Notificaciones: undefined;
   Perfil: undefined;
 };

@@ -10,7 +10,7 @@
  * theme toggle today, so it's not wired here). Never hand-tune a value here
  * without checking it still matches the canvas.
  */
-import type { TextStyle } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
 export const andiColors = {
   primary50: '#E6F7F8', primary100: '#C2EAEC', primary200: '#8FD6DA', primary300: '#56BFC5',
@@ -123,3 +123,155 @@ export const andiSeverityColor: Record<string, string> = {
   ALTA: andiColors.sevAlta,
   CRITICA: andiColors.sevAlta,
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Bloque "Andi" del rol Ciudadano (ported from Ciudadano_V2_TS's
+// theme/andi.ts). Convención SCREAMING_SNAKE_CASE deliberada: es la que ya
+// usan components/ciudadano/* y las pantallas de Ciudadano, y se mantiene
+// separada del bloque camelCase de arriba (Moderador/Entidad) en vez de
+// unificarse, para no arriesgar un cambio de valor que los afecte. Los
+// colores son los mismos que andiColors — solo cambia el nombre del export.
+// ─────────────────────────────────────────────────────────────────────────
+
+export const ANDI_COLORS = {
+  primary50: '#E6F7F8',
+  primary100: '#C2EAEC',
+  primary200: '#8FD6DA',
+  primary300: '#56BFC5',
+  primary400: '#1FA5AD',
+  primary500: '#0E8B95',
+  primary600: '#0A6F78',
+  primary700: '#085862',
+  primary800: '#06434A',
+  primary900: '#042F34',
+
+  accent50: '#FDF2EC',
+  accent100: '#F8DDCC',
+  accent300: '#E8A075',
+  accent500: '#D2693A',
+  accent600: '#B0562C',
+  accent700: '#8C4322',
+
+  n0: '#FFFFFF',
+  n50: '#F7F9FA',
+  n100: '#EEF2F4',
+  n200: '#DEE5E8',
+  n300: '#C2CCD1',
+  n400: '#8E9CA3',
+  n500: '#5C6B72',
+  n600: '#3D4A50',
+  n700: '#2A3438',
+  n800: '#1A2125',
+  n900: '#0E1416',
+
+  success: '#1E7F4E',
+  successContainer: '#D7F0E0',
+  onSuccessContainer: '#0E4A2B',
+  warning: '#B8861B',
+  warningContainer: '#FBEFC9',
+  onWarningContainer: '#5C4408',
+  error: '#B23A2C',
+  errorContainer: '#FCDCD7',
+  onErrorContainer: '#5C1A12',
+  info: '#1F6FB2',
+  infoContainer: '#D6E8F7',
+  onInfoContainer: '#0E3A5C',
+
+  sevBaja: '#3FA34D',
+  sevMedia: '#E8B022',
+  sevAlta: '#E2691E',
+
+  stPendBg: '#FBEFC9', stPendFg: '#5C4408', stPendBd: '#B8861B',
+  stRevBg: '#D6E8F7', stRevFg: '#0E3A5C', stRevBd: '#1F6FB2',
+  stProBg: '#C2EAEC', stProFg: '#042F34', stProBd: '#0A6F78',
+  stResBg: '#D7F0E0', stResFg: '#0E4A2B', stResBd: '#1E7F4E',
+
+  // Alias semánticos usados en las pantallas
+  primary: '#0A6F78',
+  surface: '#FFFFFF',
+  surfaceDim: '#F7F9FA',
+  surfaceMid: '#EEF2F4',
+  background: '#EEF2F4',
+  outline: '#C2CCD1',
+  outlineVariant: '#DEE5E8',
+  onSurface: '#1A2125',
+  onSurfaceVariant: '#5C6B72',
+  mapGround: '#EEF2F4',
+  mapLine: '#FFFFFF',
+  skeleton: '#DEE5E8',
+} as const;
+
+export const ANDI_GRADIENTS = {
+  // primary-800 -> primary-900 (LiftHeader)
+  header: ['#06434A', '#042F34'],
+} as const;
+
+export const ANDI_SPACING = {
+  s1: 4, s2: 8, s3: 12, s4: 16, s5: 20, s6: 24, s8: 32, s10: 40, s12: 48, s16: 64,
+} as const;
+
+export const ANDI_RADIUS = {
+  xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, full: 999,
+} as const;
+
+// Sombras RN (iOS: shadow*, Android: elevation). No se carga una fuente
+// custom para no agregar dependencias de assets nuevas; se usa la pila del
+// sistema, que ya se ve muy cercana a Inter en ambas plataformas.
+export const ANDI_SHADOWS = {
+  el1: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.13, shadowRadius: 3, elevation: 2 },
+  el2: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.16, shadowRadius: 6, elevation: 4 },
+  el3: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 8 },
+  el4: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.21, shadowRadius: 20, elevation: 12 },
+} as const;
+
+export const ANDI_TYPE = {
+  displayLg: { fontWeight: '700', fontSize: 34, lineHeight: 40 },
+  display: { fontWeight: '700', fontSize: 26, lineHeight: 32 },
+  screen: { fontWeight: '700', fontSize: 21, lineHeight: 27 },
+  section: { fontWeight: '600', fontSize: 17, lineHeight: 23 },
+  card: { fontWeight: '600', fontSize: 15, lineHeight: 21 },
+  bodyLg: { fontWeight: '400', fontSize: 15, lineHeight: 22 },
+  body: { fontWeight: '400', fontSize: 13, lineHeight: 19 },
+  caption: { fontWeight: '400', fontSize: 11.5, lineHeight: 15 },
+  label: { fontWeight: '600', fontSize: 13, lineHeight: 18 },
+  overline: { fontWeight: '600', fontSize: 10, lineHeight: 14, textTransform: 'uppercase', letterSpacing: 1 },
+} satisfies Record<string, TextStyle>;
+
+export const ANDI_MONO = Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' });
+
+export interface StatusMeta {
+  bg: string;
+  fg: string;
+  bd: string;
+  icon: string;
+  label: string;
+}
+
+export const STATUS_META: Record<string, StatusMeta> = {
+  PENDIENTE: { bg: ANDI_COLORS.stPendBg, fg: ANDI_COLORS.stPendFg, bd: ANDI_COLORS.stPendBd, icon: '●', label: 'Pendiente' },
+  EN_REVISION: { bg: ANDI_COLORS.stRevBg, fg: ANDI_COLORS.stRevFg, bd: ANDI_COLORS.stRevBd, icon: '⌕', label: 'En revisión' },
+  EN_PROCESO: { bg: ANDI_COLORS.stProBg, fg: ANDI_COLORS.stProFg, bd: ANDI_COLORS.stProBd, icon: '↻', label: 'En proceso' },
+  RESUELTO: { bg: ANDI_COLORS.stResBg, fg: ANDI_COLORS.stResFg, bd: ANDI_COLORS.stResBd, icon: '✓', label: 'Resuelto' },
+  RECHAZADO: { bg: ANDI_COLORS.errorContainer, fg: ANDI_COLORS.onErrorContainer, bd: ANDI_COLORS.error, icon: '!', label: 'Rechazado' },
+  CERRADO: { bg: ANDI_COLORS.n100, fg: ANDI_COLORS.n600, bd: ANDI_COLORS.n300, icon: '✓', label: 'Cerrado' },
+};
+
+export interface SeverityMeta {
+  color: string;
+  label: string;
+}
+
+export const SEVERITY_META: Record<string, SeverityMeta> = {
+  BAJA: { color: ANDI_COLORS.sevBaja, label: 'Baja' },
+  MEDIA: { color: ANDI_COLORS.sevMedia, label: 'Media' },
+  ALTA: { color: ANDI_COLORS.sevAlta, label: 'Alta' },
+  CRITICA: { color: ANDI_COLORS.sevAlta, label: 'Crítica' },
+};
+
+export function statusMeta(estado?: string | null): StatusMeta {
+  return STATUS_META[(estado || '').toUpperCase()] || STATUS_META.PENDIENTE!;
+}
+
+export function severityMeta(severidad?: string | null): SeverityMeta {
+  return SEVERITY_META[(severidad || '').toUpperCase()] || SEVERITY_META.BAJA!;
+}

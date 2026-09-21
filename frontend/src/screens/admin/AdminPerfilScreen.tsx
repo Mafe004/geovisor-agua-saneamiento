@@ -99,12 +99,22 @@ export default function AdminPerfilScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.sectionList}>
-            <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: InvitacionesScreen */ }}>
-              <Feather name="mail" size={18} color={andiColors.onSurface} />
-              <Text style={styles.sectionRowLabel}>Mis invitaciones</Text>
+            <TouchableOpacity
+              style={styles.sectionRow}
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('SolicitudesAcceso')}
+            >
+              <Feather name="inbox" size={18} color={andiColors.onSurface} />
+              <Text style={styles.sectionRowLabel}>Solicitudes de acceso</Text>
               <View style={styles.newBadge}>
                 <Text style={styles.newBadgeText}>Nuevo</Text>
               </View>
+              <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: InvitacionesScreen */ }}>
+              <Feather name="mail" size={18} color={andiColors.onSurface} />
+              <Text style={styles.sectionRowLabel}>Mis invitaciones</Text>
               <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
             </TouchableOpacity>
 

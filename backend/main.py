@@ -49,7 +49,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    # PATCH agregado para /solicitudes-acceso/{id}/aprobar|rechazar (ver
+    # app/routers/solicitudes_acceso.py) -- sin él, el preflight OPTIONS del
+    # navegador lo rechaza antes de que la request real llegue a FastAPI;
+    # curl/pytest no lo notan porque CORS es una política que solo aplica
+    # el navegador, nunca un cliente HTTP directo.
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 

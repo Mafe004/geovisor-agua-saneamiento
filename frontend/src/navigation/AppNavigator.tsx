@@ -47,6 +47,7 @@ import UsuariosScreen   from '../screens/admin/UsuariosScreen';
 import EntidadesScreen  from '../screens/admin/EntidadesScreen';
 import AuditoriaScreen  from '../screens/admin/AuditoriaScreen';
 import AdminPerfilScreen from '../screens/admin/AdminPerfilScreen';
+import SolicitudesAccesoScreen from '../screens/admin/SolicitudesAccesoScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab   = createBottomTabNavigator();
@@ -264,6 +265,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="AdminHome"      component={AdminTabs} />
             <Stack.Screen name="AdminPerfil"    component={AdminPerfilScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="SolicitudesAcceso" component={SolicitudesAccesoScreen} options={{ headerShown: false }} />
             <Stack.Screen name="DetalleReporte" component={DetalleReporteScreen} />
           </>
         ) : user.id_rol === 3 ? (

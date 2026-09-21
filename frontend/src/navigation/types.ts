@@ -22,6 +22,8 @@ export type RootStackParamList = {
   AdminHome: undefined;
   // Admin profile, reached from the Dashboard header avatar (not a tab).
   AdminPerfil: undefined;
+  // Admin-only, reached from AdminPerfil's section list.
+  SolicitudesAcceso: undefined;
   DetalleReporte: { reporte: Reporte };
 };
 

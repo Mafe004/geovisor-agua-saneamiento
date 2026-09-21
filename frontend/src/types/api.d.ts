@@ -1052,6 +1052,23 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * AprobarSolicitudResponse
+         * @description Forma de aprobar_solicitud() -- a diferencia de MensajeResponse,
+         *     incluye el token de 6 caracteres recién generado. El envío automático
+         *     por correo depende de un dominio verificado en Resend (ver
+         *     send_invitation_email, email_service.py); mientras eso no esté
+         *     configurado, `nota` le recuerda al ADMIN que puede necesitar compartir
+         *     `token_invitacion` a mano.
+         */
+        AprobarSolicitudResponse: {
+            /** Mensaje */
+            mensaje: string;
+            /** Token Invitacion */
+            token_invitacion: string;
+            /** Nota */
+            nota: string;
+        };
         /** AsignarEntidadRequest */
         AsignarEntidadRequest: {
             /** Id Entidad */
@@ -1618,7 +1635,7 @@ export interface components {
         };
         /**
          * MensajeResponse
-         * @description Forma común de las tres respuestas de este router -- la clave es
+         * @description Forma de crear_solicitud() y rechazar_solicitud() -- la clave es
          *     `mensaje` (no `message` como en el resto de la API) a propósito: así se
          *     pidió explícitamente el contrato de este endpoint.
          */
@@ -3949,7 +3966,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MensajeResponse"];
+                    "application/json": components["schemas"]["AprobarSolicitudResponse"];
                 };
             };
             /** @description La solicitud ya fue revisada */

@@ -2,6 +2,7 @@ import client from './client';
 import type { operations } from '../types/api';
 import type {
   ActualizarEntidadResponse,
+  AprobarSolicitudResponse,
   ActualizarInfraestructuraResponse,
   ActualizarPerfil,
   ActualizarPerfilResponse,
@@ -202,7 +203,7 @@ export const solicitudesAccesoAPI = {
   // Solo ADMIN a partir de acá.
   listar: () => client.get<SolicitudAccesoItem[]>('/solicitudes-acceso/'),
   aprobar: (id: number) =>
-    client.patch<MensajeResponse>(`/solicitudes-acceso/${id}/aprobar`),
+    client.patch<AprobarSolicitudResponse>(`/solicitudes-acceso/${id}/aprobar`),
   rechazar: (id: number) =>
     client.patch<MensajeResponse>(`/solicitudes-acceso/${id}/rechazar`),
 };

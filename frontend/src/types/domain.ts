@@ -59,6 +59,7 @@ export type ValidarInvitacionResponse = components['schemas']['ValidarInvitacion
 export type CrearSolicitudAcceso = components['schemas']['CrearSolicitudAcceso'];
 export type MensajeResponse = components['schemas']['MensajeResponse'];
 export type SolicitudAccesoItem = components['schemas']['SolicitudAccesoItem'];
+export type AprobarSolicitudResponse = components['schemas']['AprobarSolicitudResponse'];
 
 // ── Entidades ─────────────────────────────────────────────────────────
 export type EntidadDetalle = components['schemas']['EntidadDetalle'];

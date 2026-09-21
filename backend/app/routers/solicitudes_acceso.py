@@ -19,11 +19,21 @@ from app.core.roles import Rol
 from app.db.database import get_connection, transaccion
 from app.routers.invitaciones import crear_token_invitacion
 from app.schemas.solicitudes_acceso import (
+    AprobarSolicitudResponse,
     CrearSolicitudAcceso,
     MensajeResponse,
     SolicitudAccesoItem,
 )
 from app.services.email_service import send_invitation_email
+
+# El envío automático (send_invitation_email) requiere un dominio
+# verificado en Resend para llegar a un destinatario arbitrario -- hasta
+# que eso esté configurado, el token viaja también en la respuesta HTTP
+# para que el ADMIN lo comparta a mano (ver AprobarSolicitudResponse).
+_NOTA_ENVIO_MANUAL = (
+    "El email automático solo funciona con dominio verificado. "
+    "Por ahora comparte el código manualmente."
+)
 
 router = APIRouter(prefix="/solicitudes-acceso", tags=["Solicitudes de Acceso"])
 logger = logging.getLogger(__name__)
@@ -115,7 +125,7 @@ def _obtener_pendiente(cursor, id_solicitud: int) -> dict[str, Any]:
 @router.patch(
     "/{id_solicitud}/aprobar",
     summary="Aprobar una solicitud de acceso -- genera y envía la invitación (solo ADMINISTRADOR)",
-    response_model=MensajeResponse,
+    response_model=AprobarSolicitudResponse,
     responses={
         404: {"description": "Solicitud no encontrada"},
         400: {"description": "La solicitud ya fue revisada"},
@@ -157,7 +167,15 @@ def aprobar_solicitud(
                 id_solicitud,
             )
 
-        return {"mensaje": "Solicitud aprobada. Se envió el código de invitación."}
+        # token_invitacion viaja en la respuesta pase lo que pase con el
+        # correo -- el ADMIN lo ve y puede compartirlo a mano de una vez,
+        # en vez de tener que ir a buscarlo al log si el envío falló (no
+        # hay hoy un GET /invitaciones que liste tokens ya emitidos).
+        return {
+            "mensaje": "Solicitud aprobada. Comparte este código de invitación con el solicitante.",
+            "token_invitacion": token,
+            "nota": _NOTA_ENVIO_MANUAL,
+        }
     except HTTPException:
         raise
     except Exception as e:

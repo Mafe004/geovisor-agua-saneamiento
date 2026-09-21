@@ -10,11 +10,24 @@ class CrearSolicitudAcceso(BaseModel):
 
 
 class MensajeResponse(BaseModel):
-    """Forma común de las tres respuestas de este router -- la clave es
+    """Forma de crear_solicitud() y rechazar_solicitud() -- la clave es
     `mensaje` (no `message` como en el resto de la API) a propósito: así se
     pidió explícitamente el contrato de este endpoint."""
 
     mensaje: str
+
+
+class AprobarSolicitudResponse(BaseModel):
+    """Forma de aprobar_solicitud() -- a diferencia de MensajeResponse,
+    incluye el token de 6 caracteres recién generado. El envío automático
+    por correo depende de un dominio verificado en Resend (ver
+    send_invitation_email, email_service.py); mientras eso no esté
+    configurado, `nota` le recuerda al ADMIN que puede necesitar compartir
+    `token_invitacion` a mano."""
+
+    mensaje: str
+    token_invitacion: str
+    nota: str
 
 
 class SolicitudAccesoItem(BaseModel):

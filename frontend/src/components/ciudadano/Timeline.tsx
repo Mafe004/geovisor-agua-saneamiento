@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_SPACING, statusMeta } from '../../theme/andi';
-import type { HistorialEntry } from '../../types/domain';
+import type { HistorialEntry, HistorialEntryComunidad } from '../../types/domain';
 
 function formatDateTime(d?: string | null) {
   if (!d) return '';
@@ -11,8 +11,13 @@ function formatDateTime(d?: string | null) {
 }
 
 interface TimelineProps {
-  /** Filas de reportesAPI.historial(id). El caller decide el orden a mostrar. */
-  items: HistorialEntry[];
+  /**
+   * Filas de reportesAPI.historial(id). El caller decide el orden a mostrar.
+   * En la vista comunitaria (historial de un reporte de otro usuario) las
+   * filas son HistorialEntryComunidad -- sin usuario_accion, ver el `in`
+   * guard más abajo.
+   */
+  items: (HistorialEntry | HistorialEntryComunidad)[];
 }
 
 export default function Timeline({ items }: TimelineProps) {
@@ -21,6 +26,9 @@ export default function Timeline({ items }: TimelineProps) {
       {items.map((item, index) => {
         const meta = statusMeta(item.estado_nuevo);
         const isLast = index === items.length - 1;
+        // HistorialEntryComunidad (vista comunitaria) no trae usuario_accion
+        // -- 'Sistema' cubre tanto ese caso como el dato vacío de siempre.
+        const actor = 'usuario_accion' in item ? item.usuario_accion : undefined;
         return (
           <View key={item.id_historial ?? index} style={styles.row}>
             <View style={styles.rail}>
@@ -30,7 +38,7 @@ export default function Timeline({ items }: TimelineProps) {
             <View style={[styles.content, !isLast && styles.contentSpacing]}>
               <Text style={styles.title}>{meta.label}</Text>
               <Text style={styles.subtitle}>
-                {item.usuario_accion || 'Sistema'} · {formatDateTime(item.fecha_cambio)}
+                {actor || 'Sistema'} · {formatDateTime(item.fecha_cambio)}
               </Text>
               {!!item.comentario && <Text style={styles.comment}>{item.comentario}</Text>}
             </View>

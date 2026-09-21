@@ -90,7 +90,13 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
   // MIGRATION_FINDINGS.md): es la inconsistencia que Step 4 pidió anotar,
   // no arreglar.
   const { reporte: inicial } = route.params || {};
-  const [reporte, setReporte] = useState<Reporte>(inicial);
+  // RootStackParamList['DetalleReporte'] acepta Reporte | ReporteComunidad
+  // porque el Mapa de Ciudadano puede navegar aquí con la vista comunitaria
+  // reducida (ver navigation/types.ts) -- pero esta pantalla (Entidad/
+  // Moderador/Administrador) nunca recibe esa vista: puede_ver_detalle_
+  // comunitario() en el backend solo aplica a CIUDADANO, así que aquí
+  // siempre llega un Reporte completo.
+  const [reporte, setReporte] = useState<Reporte>(inicial as Reporte);
   const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
   const { isModerador, isAdmin, isEntidad } = useContext(AuthContext);
 

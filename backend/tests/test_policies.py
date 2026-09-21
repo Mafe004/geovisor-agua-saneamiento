@@ -7,7 +7,13 @@ así que se llaman directamente con fixtures.
 import pytest
 from fastapi import HTTPException
 
-from app.core.policies import puede_cambiar_estado, puede_ver_reporte, scope_reportes
+from app.core.policies import (
+    puede_cambiar_estado,
+    puede_ver_detalle_comunitario,
+    puede_ver_reporte,
+    scope_reportes,
+    scope_reportes_mapa,
+)
 from app.core.roles import Rol
 
 CIUDADANO = {"id_rol": Rol.CIUDADANO, "id_usuario": 10}
@@ -64,6 +70,49 @@ def test_scope_reportes_honra_el_alias():
     assert conditions == ["rep.id_entidad = %s"]
 
 
+# ── scope_reportes_mapa ──────────────────────────────────────────────────
+# Vista comunitaria del mapa: idéntica a scope_reportes() salvo CIUDADANO,
+# que aquí no se restringe a sus propios reportes.
+
+
+def test_scope_reportes_mapa_ciudadano_ve_todo_sin_restriccion():
+    conditions, params = scope_reportes_mapa(CIUDADANO)
+    assert conditions == []
+    assert params == []
+
+
+def test_scope_reportes_mapa_entidad_escoge_a_su_propia_entidad():
+    conditions, params = scope_reportes_mapa(ENTIDAD)
+    assert conditions == ["r.id_entidad = %s"]
+    assert params == [5]
+
+
+def test_scope_reportes_mapa_entidad_sin_id_entidad_lanza_403():
+    with pytest.raises(HTTPException) as exc:
+        scope_reportes_mapa(ENTIDAD_SIN_ASIGNAR)
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Usuario ENTIDAD sin id_entidad asignado"
+
+
+@pytest.mark.parametrize("user", [MODERADOR, ADMIN])
+def test_scope_reportes_mapa_moderador_y_admin_ven_todo(user):
+    conditions, params = scope_reportes_mapa(user)
+    assert conditions == []
+    assert params == []
+
+
+def test_scope_reportes_mapa_rol_desconocido_falla_cerrado():
+    with pytest.raises(HTTPException) as exc:
+        scope_reportes_mapa(ROL_DESCONOCIDO)
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Rol desconocido"
+
+
+def test_scope_reportes_mapa_honra_el_alias():
+    conditions, _ = scope_reportes_mapa(ENTIDAD, alias="rep")
+    assert conditions == ["rep.id_entidad = %s"]
+
+
 # ── puede_ver_reporte ───────────────────────────────────────────────────
 
 
@@ -102,6 +151,23 @@ def test_puede_ver_reporte_moderador_y_admin_ven_cualquier_reporte(user):
 def test_puede_ver_reporte_rol_desconocido_falla_cerrado():
     reporte = {"id_usuario": 1, "id_entidad": 5}
     assert puede_ver_reporte(ROL_DESCONOCIDO, reporte) is False
+
+
+# ── puede_ver_detalle_comunitario ───────────────────────────────────────
+# Vista comunitaria del detalle/historial de un reporte: solo CIUDADANO la
+# tiene. Complementa a puede_ver_reporte() cuando esta da False.
+
+
+def test_puede_ver_detalle_comunitario_ciudadano_true():
+    assert puede_ver_detalle_comunitario(CIUDADANO) is True
+    assert puede_ver_detalle_comunitario(OTRO_CIUDADANO) is True
+
+
+@pytest.mark.parametrize(
+    "user", [ENTIDAD, ENTIDAD_SIN_ASIGNAR, OTRA_ENTIDAD, MODERADOR, ADMIN, ROL_DESCONOCIDO]
+)
+def test_puede_ver_detalle_comunitario_otros_roles_false(user):
+    assert puede_ver_detalle_comunitario(user) is False
 
 
 # ── puede_cambiar_estado ────────────────────────────────────────────────

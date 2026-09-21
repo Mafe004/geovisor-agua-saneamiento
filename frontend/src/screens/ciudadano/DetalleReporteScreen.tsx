@@ -10,7 +10,7 @@ import Skeleton from '../../components/ciudadano/Skeleton';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO, statusMeta } from '../../theme/andi';
-import type { Reporte, HistorialEntry } from '../../types/domain';
+import type { Reporte, ReporteComunidad, HistorialEntry, HistorialEntryComunidad } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DetalleReporte'>;
@@ -22,8 +22,11 @@ function formatDate(d?: string | null) {
 
 export default function DetalleReporteScreen({ route, navigation }: Props) {
   const { reporte: inicial } = route.params;
-  const [reporte, setReporte] = useState<Reporte>(inicial);
-  const [historial, setHistorial] = useState<HistorialEntry[]>([]);
+  // Puede llegar la vista comunitaria (reporte de otro usuario, sin
+  // id_usuario/usuario) si se navegó aquí desde el Mapa -- esta pantalla no
+  // lee esos dos campos en ningún lado, así que no necesita distinguirlas.
+  const [reporte, setReporte] = useState<Reporte | ReporteComunidad>(inicial);
+  const [historial, setHistorial] = useState<(HistorialEntry | HistorialEntryComunidad)[]>([]);
   const [loadingHistorial, setLoadingHistorial] = useState(true);
 
   const idReporte = inicial.id_reporte;

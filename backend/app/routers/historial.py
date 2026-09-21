@@ -5,10 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.deps import require_active_user, require_roles
 from app.core.errors import handle_db_error
-from app.core.policies import puede_ver_reporte, scope_reportes
+from app.core.policies import puede_ver_detalle_comunitario, puede_ver_reporte, scope_reportes
 from app.core.roles import Rol
 from app.db.database import get_connection
-from app.schemas.historial import HistorialEntry
+from app.schemas.historial import HistorialEntry, HistorialEntryComunidad
 
 # ✅ Sin prefix propio para no chocar con reportes.py
 router = APIRouter(tags=["Historial"])
@@ -33,10 +33,19 @@ def _select_historial_sql() -> str:
     """
 
 
+def _historial_a_comunidad(row: dict[str, Any]) -> dict[str, Any]:
+    """
+    Reduce una fila de _select_historial_sql() a la vista comunitaria: sin
+    id_usuario_accion ni usuario_accion (quién hizo el cambio es un dato
+    personal) -- ver puede_ver_detalle_comunitario() en app.core.policies.
+    """
+    return {k: v for k, v in row.items() if k not in ("id_usuario_accion", "usuario_accion")}
+
+
 @router.get(
     "/reportes/{id_reporte}/historial",
     summary="Ver historial de cambios de estado de un reporte",
-    response_model=list[HistorialEntry],
+    response_model=list[HistorialEntry] | list[HistorialEntryComunidad],
     responses={404: {"description": "Reporte no encontrado"}, 403: {"description": "Sin permiso"}},
 )
 def historial_reporte(
@@ -44,7 +53,10 @@ def historial_reporte(
 ) -> list[dict[str, Any]]:
     """
     Devuelve todos los cambios de estado de un reporte ordenados cronológicamente.
-    - CIUDADANO: solo puede ver el historial de sus propios reportes.
+    - CIUDADANO dueño: ve el historial completo de sus propios reportes.
+    - CIUDADANO que no es dueño: vista comunitaria del historial (sin datos
+      personales de quién hizo cada cambio) -- igual que el detalle del
+      reporte, ver puede_ver_detalle_comunitario().
     - ENTIDAD:   solo puede ver el historial de reportes de su entidad.
     - MODERADOR / ADMIN: pueden ver cualquier historial.
     """
@@ -60,18 +72,22 @@ def historial_reporte(
             if not reporte:
                 raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
-            # Control de acceso por rol
-            if not puede_ver_reporte(user, reporte):
-                raise HTTPException(
-                    status_code=403,
-                    detail="No tienes permiso para ver el historial de este reporte",
-                )
-
             cursor.execute(
                 _select_historial_sql() + " WHERE h.id_reporte = %s ORDER BY h.fecha_cambio ASC;",
                 (id_reporte,),
             )
-            return cursor.fetchall()
+            filas = cursor.fetchall()
+
+            if puede_ver_reporte(user, reporte):
+                return filas
+
+            if puede_ver_detalle_comunitario(user):
+                return [_historial_a_comunidad(fila) for fila in filas]
+
+            raise HTTPException(
+                status_code=403,
+                detail="No tienes permiso para ver el historial de este reporte",
+            )
 
     except HTTPException:
         raise

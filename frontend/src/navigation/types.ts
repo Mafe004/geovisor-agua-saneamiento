@@ -1,4 +1,4 @@
-import type { Reporte } from '../types/domain';
+import type { Reporte, ReporteComunidad } from '../types/domain';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -7,7 +7,12 @@ export type RootStackParamList = {
   EntidadHome: undefined;
   ModeradorHome: undefined;
   AdminHome: undefined;
-  DetalleReporte: { reporte: Reporte };
+  // ReporteComunidad: solo llega aquí desde el Mapa/Detalle de Ciudadano,
+  // cuando el reporte abierto es de otro usuario (vista comunitaria, sin
+  // id_usuario/usuario -- ver reportesAPI.obtener en api/services.ts).
+  // Entidad/Moderador/Administrador solo navegan aquí con un Reporte
+  // completo, nunca con la vista reducida.
+  DetalleReporte: { reporte: Reporte | ReporteComunidad };
 };
 
 // Tabs de CiudadanoTabs (AppNavigator.tsx) -- ciudadano y entidad navegan

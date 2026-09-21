@@ -28,6 +28,7 @@ import type {
   EstadisticasResponse,
   EstadoReporteItem,
   HistorialEntry,
+  HistorialEntryComunidad,
   InfraestructuraCreate,
   InfraestructuraItem,
   InfraestructuraUpdate,
@@ -41,6 +42,7 @@ import type {
   RegistroResponse,
   RegistroUsuario,
   Reporte,
+  ReporteComunidad,
   ReporteCreateRequest,
   ReporteMapaPunto,
   ResumenModuloItem,
@@ -95,7 +97,10 @@ export const usuariosAPI = {
 // ========================
 export const reportesAPI = {
   listar: (params?: ReportesQuery) => client.get<Reporte[]>('/reportes/', { params }),
-  obtener: (id: number) => client.get<Reporte>(`/reportes/${id}`),
+  // GET /reportes/{id} devuelve la vista comunitaria reducida (sin
+  // id_usuario/usuario) cuando un CIUDADANO consulta el reporte de otro --
+  // ver backend/app/routers/reportes.py: obtener_reporte().
+  obtener: (id: number) => client.get<Reporte | ReporteComunidad>(`/reportes/${id}`),
   crear: (data: ReporteCreateRequest) => client.post<CrearReporteResponse>('/reportes/', data),
   cambiarEstado: (id: number, data: CambiarEstadoRequest) =>
     client.put<CambiarEstadoResponse>(`/reportes/${id}/estado`, data),
@@ -103,7 +108,10 @@ export const reportesAPI = {
     client.put<CambiarEstadoResponse>(`/reportes/${id}/entidad`, data),
   mapa: () => client.get<ReporteMapaPunto[]>('/reportes/mapa'),
   estadisticas: () => client.get<EstadisticasResponse>('/reportes/estadisticas'),
-  historial: (id: number) => client.get<HistorialEntry[]>(`/reportes/${id}/historial`),
+  // Mismo criterio que obtener(): reducido para un CIUDADANO viendo el
+  // historial de un reporte comunitario -- ver historial.py: historial_reporte().
+  historial: (id: number) =>
+    client.get<HistorialEntry[] | HistorialEntryComunidad[]>(`/reportes/${id}/historial`),
 };
 
 // ========================

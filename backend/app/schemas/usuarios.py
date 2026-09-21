@@ -10,6 +10,18 @@ class RegistroResponse(BaseModel):
     instruccion: str
 
 
+class RegistroInvitacionResponse(BaseModel):
+    """Forma de registro_con_invitacion() -- a diferencia de RegistroResponse
+    (registro público de ciudadano), incluye id_rol porque acá el rol lo
+    decide la invitación, no un valor fijo, y es útil para que el frontend
+    confirme con qué rol quedó creada la cuenta."""
+
+    message: str
+    id_usuario: int
+    id_rol: int
+    estado: str
+
+
 class SolicitarRecuperacionResponse(BaseModel):
     """Mismo mensaje exista o no el correo -- por seguridad, la respuesta
     nunca revela si la cuenta existe ni contiene el token (ver
@@ -30,6 +42,7 @@ class PerfilResponse(BaseModel):
 
     id_usuario: int
     nombre_completo: str
+    cargo: str | None
     correo: str
     telefono: str | None
     pais: str | None
@@ -100,6 +113,7 @@ class UsuarioDetalleResponse(BaseModel):
 
     id_usuario: int
     nombre_completo: str
+    cargo: str | None
     correo: str
     telefono: str | None
     pais: str | None

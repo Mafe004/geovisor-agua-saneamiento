@@ -405,6 +405,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usuarios/registro-invitacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Registro de ENTIDAD/MODERADOR/ADMINISTRADOR con código de invitación (sin token JWT)
+         * @description Público (no requiere token JWT), pero exige un código de invitación
+         *     vigente generado por un ADMIN (POST /invitaciones -- ver
+         *     app/routers/invitaciones.py). id_rol e id_entidad NO vienen del cliente:
+         *     se toman de la invitación, para que nadie pueda auto-asignarse
+         *     ADMINISTRADOR mandando el id_rol en el body.
+         *
+         *     La fila de invitaciones se bloquea con SELECT ... FOR UPDATE dentro de
+         *     la misma transacción que crea el usuario -- sin esto, dos requests
+         *     concurrentes con el mismo token podrían leerlo ambos como "no usado"
+         *     antes de que cualquiera de las dos actualizaciones aterrice, y el código
+         *     terminaría canjeado dos veces.
+         */
+        post: operations["registro_con_invitacion_usuarios_registro_invitacion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usuarios/solicitar-recuperacion": {
         parameters: {
             query?: never;
@@ -698,6 +728,92 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/invitaciones/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generar un código de invitación (solo ADMINISTRADOR) */
+        post: operations["crear_invitacion_invitaciones__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitaciones/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Validar un código de invitación (público, sin autenticación) */
+        get: operations["validar_invitacion_invitaciones__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/solicitudes-acceso/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar solicitudes de acceso (solo ADMINISTRADOR) */
+        get: operations["listar_solicitudes_solicitudes_acceso__get"];
+        put?: never;
+        /** Solicitar acceso como Administrador (público, sin autenticación) */
+        post: operations["crear_solicitud_solicitudes_acceso__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/solicitudes-acceso/{id_solicitud}/aprobar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Aprobar una solicitud de acceso -- genera y envía la invitación (solo ADMINISTRADOR) */
+        patch: operations["aprobar_solicitud_solicitudes_acceso__id_solicitud__aprobar_patch"];
+        trace?: never;
+    };
+    "/solicitudes-acceso/{id_solicitud}/rechazar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rechazar una solicitud de acceso (solo ADMINISTRADOR) */
+        patch: operations["rechazar_solicitud_solicitudes_acceso__id_solicitud__rechazar_patch"];
         trace?: never;
     };
     "/siasar/municipios": {
@@ -1123,11 +1239,58 @@ export interface components {
             /** Id Infraestructura */
             id_infraestructura: number;
         };
+        /** CrearInvitacionRequest */
+        CrearInvitacionRequest: {
+            /**
+             * Id Rol
+             * @description Rol a invitar: 2=ENTIDAD, 3=MODERADOR, 4=ADMINISTRADOR
+             */
+            id_rol: number;
+            /**
+             * Id Entidad
+             * @description Obligatorio (y solo válido) cuando id_rol=2 (ENTIDAD)
+             */
+            id_entidad?: number | null;
+        };
+        /**
+         * CrearInvitacionResponse
+         * @description Único lugar donde el token de 6 caracteres viaja en una respuesta
+         *     HTTP -- lo genera crear_invitacion() y lo entrega solo al ADMIN que lo
+         *     solicitó, para que se lo comparta manualmente con la persona invitada.
+         */
+        CrearInvitacionResponse: {
+            /** Token */
+            token: string;
+            /** Id Rol */
+            id_rol: number;
+            /** Id Entidad */
+            id_entidad: number | null;
+            /**
+             * Expira En
+             * Format: date-time
+             */
+            expira_en: string;
+        };
         /** CrearReporteResponse */
         CrearReporteResponse: {
             /** Message */
             message: string;
             reporte: components["schemas"]["ReporteDetalle"];
+        };
+        /** CrearSolicitudAcceso */
+        CrearSolicitudAcceso: {
+            /** Nombre Completo */
+            nombre_completo: string;
+            /**
+             * Correo
+             * Format: email
+             */
+            correo: string;
+            /**
+             * Motivo
+             * @description Mínimo 20 caracteres
+             */
+            motivo: string;
         };
         /** DbTestResponse */
         DbTestResponse: {
@@ -1453,6 +1616,16 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * MensajeResponse
+         * @description Forma común de las tres respuestas de este router -- la clave es
+         *     `mensaje` (no `message` como en el resto de la API) a propósito: así se
+         *     pidió explícitamente el contrato de este endpoint.
+         */
+        MensajeResponse: {
+            /** Mensaje */
+            mensaje: string;
+        };
         /** MunicipioSiasar */
         MunicipioSiasar: {
             /** Municipio */
@@ -1508,6 +1681,8 @@ export interface components {
             id_usuario: number;
             /** Nombre Completo */
             nombre_completo: string;
+            /** Cargo */
+            cargo: string | null;
             /** Correo */
             correo: string;
             /** Telefono */
@@ -1544,6 +1719,65 @@ export interface components {
          * @enum {string}
          */
         PruebaLaboratorio: "PASA" | "NO_PASA" | "SIN_PRUEBA";
+        /**
+         * RegistroConInvitacion
+         * @description Mismos campos personales que RegistroUsuario, más el token de 6
+         *     caracteres que decide id_rol/id_entidad (nunca se aceptan esos dos
+         *     campos directamente en el body -- ver registro_con_invitacion).
+         */
+        RegistroConInvitacion: {
+            /** Token */
+            token: string;
+            /** Nombre Completo */
+            nombre_completo: string;
+            /**
+             * Correo
+             * Format: email
+             */
+            correo: string;
+            /**
+             * Password
+             * @description Mínimo 6 caracteres
+             */
+            password: string;
+            /**
+             * Cargo
+             * @description Cargo/puesto en la entidad (ej: Ingeniero de Saneamiento)
+             */
+            cargo?: string | null;
+            /**
+             * Tipo Documento
+             * @description Ej: CC, CE, TI
+             */
+            tipo_documento?: string | null;
+            /** Numero Documento */
+            numero_documento?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /** Pais */
+            pais?: string | null;
+            /** Ciudad */
+            ciudad?: string | null;
+            /** Direccion */
+            direccion?: string | null;
+        };
+        /**
+         * RegistroInvitacionResponse
+         * @description Forma de registro_con_invitacion() -- a diferencia de RegistroResponse
+         *     (registro público de ciudadano), incluye id_rol porque acá el rol lo
+         *     decide la invitación, no un valor fijo, y es útil para que el frontend
+         *     confirme con qué rol quedó creada la cuenta.
+         */
+        RegistroInvitacionResponse: {
+            /** Message */
+            message: string;
+            /** Id Usuario */
+            id_usuario: number;
+            /** Id Rol */
+            id_rol: number;
+            /** Estado */
+            estado: string;
+        };
         /** RegistroResponse */
         RegistroResponse: {
             /** Message */
@@ -1853,6 +2087,33 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * SolicitudAccesoItem
+         * @description Forma de listar_solicitudes() -- revisado_por_nombre es el nombre de
+         *     quien revisó (JOIN a usuarios), no el id crudo; None mientras la
+         *     solicitud siga PENDIENTE.
+         */
+        SolicitudAccesoItem: {
+            /** Id */
+            id: number;
+            /** Nombre Completo */
+            nombre_completo: string;
+            /** Correo */
+            correo: string;
+            /** Motivo */
+            motivo: string;
+            /** Estado */
+            estado: string;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
+            /** Revisado En */
+            revisado_en: string | null;
+            /** Revisado Por Nombre */
+            revisado_por_nombre: string | null;
+        };
         /** TipoIncidenteItem */
         TipoIncidenteItem: {
             /** Id Tipo Incidente */
@@ -1905,6 +2166,8 @@ export interface components {
             id_usuario: number;
             /** Nombre Completo */
             nombre_completo: string;
+            /** Cargo */
+            cargo: string | null;
             /** Correo */
             correo: string;
             /** Telefono */
@@ -1993,6 +2256,26 @@ export interface components {
             total_usuarios: number;
             /** Usuarios */
             usuarios: components["schemas"]["UsuarioDeEntidadItem"][];
+        };
+        /**
+         * ValidarInvitacionResponse
+         * @description Forma de validar_invitacion() -- pública, sin autenticación. Nunca
+         *     incluye el token (el cliente ya lo tiene, es el que mandó) ni datos de
+         *     contacto de quien invitó, solo su nombre.
+         */
+        ValidarInvitacionResponse: {
+            /** Id Rol */
+            id_rol: number;
+            /** Rol */
+            rol: string;
+            /** Id Entidad */
+            id_entidad: number | null;
+            /** Entidad */
+            entidad: string | null;
+            /** Invitado Por */
+            invitado_por: string;
+            /** Dias Restantes */
+            dias_restantes: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -2831,6 +3114,46 @@ export interface operations {
             };
         };
     };
+    registro_con_invitacion_usuarios_registro_invitacion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistroConInvitacion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistroInvitacionResponse"];
+                };
+            };
+            /** @description Código inválido, usado o expirado; o correo/documento ya registrado */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     solicitar_recuperacion_usuarios_solicitar_recuperacion_post: {
         parameters: {
             query?: never;
@@ -3447,6 +3770,241 @@ export interface operations {
                 };
             };
             /** @description Entidad no encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_invitacion_invitaciones__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrearInvitacionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrearInvitacionResponse"];
+                };
+            };
+            /** @description id_rol inválido, o id_entidad faltante/no permitido para ese rol */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validar_invitacion_invitaciones__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidarInvitacionResponse"];
+                };
+            };
+            /** @description Token ya utilizado o expirado */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Token no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_solicitudes_solicitudes_acceso__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SolicitudAccesoItem"][];
+                };
+            };
+        };
+    };
+    crear_solicitud_solicitudes_acceso__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrearSolicitudAcceso"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MensajeResponse"];
+                };
+            };
+            /** @description El correo ya tiene una cuenta registrada */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    aprobar_solicitud_solicitudes_acceso__id_solicitud__aprobar_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_solicitud: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MensajeResponse"];
+                };
+            };
+            /** @description La solicitud ya fue revisada */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Solicitud no encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rechazar_solicitud_solicitudes_acceso__id_solicitud__rechazar_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_solicitud: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MensajeResponse"];
+                };
+            };
+            /** @description La solicitud ya fue revisada */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Solicitud no encontrada */
             404: {
                 headers: {
                     [name: string]: unknown;

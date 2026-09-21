@@ -15,9 +15,11 @@ from app.routers.catalogos import router as catalogos_router
 from app.routers.entidades import router as entidades_router
 from app.routers.historial import router as historial_router
 from app.routers.infraestructura import router as infraestructura_router
+from app.routers.invitaciones import router as invitaciones_router
 from app.routers.notificaciones import router as notificaciones_router
 from app.routers.reportes import router as reportes_router
 from app.routers.siasar import router as siasar_router
+from app.routers.solicitudes_acceso import router as solicitudes_acceso_router
 from app.routers.usuarios import router as usuarios_router
 from app.schemas.health import DbTestResponse, HealthResponse, RootResponse
 
@@ -60,6 +62,8 @@ app.include_router(notificaciones_router)
 app.include_router(infraestructura_router)
 app.include_router(usuarios_router)
 app.include_router(entidades_router)
+app.include_router(invitaciones_router)
+app.include_router(solicitudes_acceso_router)
 app.include_router(siasar_router)
 app.include_router(auditoria.router)
 

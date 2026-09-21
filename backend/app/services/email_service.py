@@ -68,3 +68,36 @@ def send_password_reset_email(to_email: str, token: str) -> None:
             """,
         }
     )
+
+
+def send_invitation_email(to_email: str, token: str, rol_nombre: str = "Administrador") -> None:
+    """
+    Envía el código de invitación de 6 caracteres a alguien cuya solicitud
+    de acceso fue aprobada (aprobar_solicitud, app/routers/solicitudes_acceso.py).
+
+    Mismo contrato que send_password_reset_email: no atrapa errores de
+    Resend a propósito, se los deja subir para que el llamador decida (acá,
+    seguir con la aprobación de todas formas y solo loguear el fallo de
+    envío -- el token ya quedó guardado en `invitaciones` y un ADMIN puede
+    reenviarlo o compartirlo manualmente aunque el correo no llegue).
+    """
+    if not resend.api_key:
+        raise RuntimeError(
+            "RESEND_API_KEY no está configurada -- no se puede enviar el "
+            "correo de invitación."
+        )
+
+    resend.Emails.send(
+        {
+            "from": EMAIL_FROM,
+            "to": [to_email],
+            "subject": "Tu código de invitación — GeoVisor Agua y Saneamiento",
+            "html": f"""
+                <p>Tu solicitud de acceso como <strong>{rol_nombre}</strong> fue aprobada.</p>
+                <p>Tu código de invitación es:</p>
+                <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">{token}</p>
+                <p>Ingresa este código en la app dentro de los próximos 7 días
+                para crear tu cuenta ({FRONTEND_URL}).</p>
+            """,
+        }
+    )

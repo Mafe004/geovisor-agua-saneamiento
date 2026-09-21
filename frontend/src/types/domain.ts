@@ -47,6 +47,18 @@ export type SolicitarRecuperacion = components['schemas']['SolicitarRecuperacion
 export type SolicitarRecuperacionResponse = components['schemas']['SolicitarRecuperacionResponse'];
 export type RestablecerContrasena = components['schemas']['RestablecerContrasena'];
 export type RestablecerContrasenaResponse = components['schemas']['RestablecerContrasenaResponse'];
+export type RegistroConInvitacion = components['schemas']['RegistroConInvitacion'];
+export type RegistroInvitacionResponse = components['schemas']['RegistroInvitacionResponse'];
+
+// ── Invitaciones ──────────────────────────────────────────────────────
+export type CrearInvitacionRequest = components['schemas']['CrearInvitacionRequest'];
+export type CrearInvitacionResponse = components['schemas']['CrearInvitacionResponse'];
+export type ValidarInvitacionResponse = components['schemas']['ValidarInvitacionResponse'];
+
+// ── Solicitudes de acceso (Admin sin invitación) ────────────────────────
+export type CrearSolicitudAcceso = components['schemas']['CrearSolicitudAcceso'];
+export type MensajeResponse = components['schemas']['MensajeResponse'];
+export type SolicitudAccesoItem = components['schemas']['SolicitudAccesoItem'];
 
 // ── Entidades ─────────────────────────────────────────────────────────
 export type EntidadDetalle = components['schemas']['EntidadDetalle'];

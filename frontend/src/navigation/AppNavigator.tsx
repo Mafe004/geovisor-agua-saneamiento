@@ -14,6 +14,7 @@ import { andiColors, andiRadius, andiElevation, andiType } from '../theme/andi';
 import LoginScreen    from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import InvitacionScreen       from '../screens/auth/InvitacionScreen';
+import SolicitarAccesoScreen  from '../screens/auth/SolicitarAccesoScreen';
 import CuentaSuspendidaScreen from '../screens/auth/CuentaSuspendidaScreen';
 import TelefonoOpcionalScreen from '../screens/auth/TelefonoOpcionalScreen';
 import ForgotPasswordScreen   from '../screens/auth/ForgotPasswordScreen';
@@ -249,6 +250,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Login"            component={LoginScreen} />
             <Stack.Screen name="Register"         component={RegisterScreen} />
             <Stack.Screen name="Invitacion"       component={InvitacionScreen} />
+            <Stack.Screen name="SolicitarAcceso"  component={SolicitarAccesoScreen} />
             <Stack.Screen name="CuentaSuspendida" component={CuentaSuspendidaScreen} />
             <Stack.Screen name="TelefonoOpcional" component={TelefonoOpcionalScreen} />
             <Stack.Screen name="ForgotPassword"   component={ForgotPasswordScreen} />

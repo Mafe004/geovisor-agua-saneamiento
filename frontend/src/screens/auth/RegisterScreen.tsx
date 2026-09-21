@@ -342,14 +342,32 @@ function EntidadFlow({ navigation, route }: Props) {
       setErrorMsg('Ingresa un correo válido.');
       return;
     }
+    if (!codigoData?.codigo) {
+      setErrorMsg('Falta el código de invitación. Vuelve a la pantalla anterior e ingrésalo de nuevo.');
+      return;
+    }
     setLoading(true);
-    // TODO: connect endpoint — no backend route exists yet for Entidad
-    // registration (only POST /usuarios/registro exists, and it hardcodes
-    // id_rol=1 CIUDADANO server-side; see registro_ciudadano in
-    // backend/app/routers/usuarios.py). Simulated locally for now.
-    await new Promise(resolve => setTimeout(resolve, 600));
-    setLoading(false);
-    navigation.navigate('Login', { successMessage: 'Cuenta de Entidad creada. Ya puedes iniciar sesión.' });
+    try {
+      // id_rol/id_entidad los decide el backend a partir del token -- no
+      // van en este payload (ver registro_con_invitacion, backend).
+      await usuariosAPI.registrarConInvitacion({
+        token: codigoData.codigo,
+        nombre_completo: nombre.trim(),
+        cargo: cargo.trim() || undefined,
+        correo: correo.trim().toLowerCase(),
+        password,
+        telefono: telefono.trim() || undefined,
+      });
+      navigation.navigate('Login', { successMessage: 'Cuenta de Entidad creada. Ya puedes iniciar sesión.' });
+    } catch (e) {
+      if (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail) {
+        setErrorMsg(e.response.data.detail);
+      } else {
+        setErrorMsg('No se pudo crear la cuenta. Intenta más tarde.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -394,7 +412,8 @@ function EntidadFlow({ navigation, route }: Props) {
 // FLOW 3 — Moderador
 // ════════════════════════════════════════════════════════════
 
-function ModeradorFlow({ navigation }: Props) {
+function ModeradorFlow({ navigation, route }: Props) {
+  const codigoData = route.params.codigoData;
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -413,12 +432,30 @@ function ModeradorFlow({ navigation }: Props) {
       setErrorMsg('Ingresa un correo válido.');
       return;
     }
+    if (!codigoData?.codigo) {
+      setErrorMsg('Falta el código de invitación. Vuelve a la pantalla anterior e ingrésalo de nuevo.');
+      return;
+    }
     setLoading(true);
-    // TODO: connect endpoint — no backend route exists yet for Moderador
-    // registration; see the same note in EntidadFlow.handleSubmit above.
-    await new Promise(resolve => setTimeout(resolve, 600));
-    setLoading(false);
-    navigation.navigate('Login', { successMessage: 'Cuenta de Moderador creada. Ya puedes iniciar sesión.' });
+    try {
+      await usuariosAPI.registrarConInvitacion({
+        token: codigoData.codigo,
+        nombre_completo: nombre.trim(),
+        correo: correo.trim().toLowerCase(),
+        password,
+        telefono: telefono.trim() || undefined,
+        numero_documento: documento.trim() || undefined,
+      });
+      navigation.navigate('Login', { successMessage: 'Cuenta de Moderador creada. Ya puedes iniciar sesión.' });
+    } catch (e) {
+      if (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail) {
+        setErrorMsg(e.response.data.detail);
+      } else {
+        setErrorMsg('No se pudo crear la cuenta. Intenta más tarde.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -453,7 +490,8 @@ const TIPO_DOC_OPTIONS: { value: TipoDocumento; label: string }[] = [
   { value: 'PASAPORTE', label: 'Pasaporte' },
 ];
 
-function AdministradorFlow({ navigation }: Props) {
+function AdministradorFlow({ navigation, route }: Props) {
+  const codigoData = route.params.codigoData;
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -474,9 +512,40 @@ function AdministradorFlow({ navigation }: Props) {
       setErrorMsg('Ingresa un correo válido.');
       return;
     }
+
+    // Con código de invitación (venimos de InvitacionScreen): cuenta ACTIVA
+    // de inmediato, vía POST /usuarios/registro-invitacion.
+    if (codigoData?.codigo) {
+      setLoading(true);
+      try {
+        await usuariosAPI.registrarConInvitacion({
+          token: codigoData.codigo,
+          nombre_completo: nombre.trim(),
+          correo: correo.trim().toLowerCase(),
+          password,
+          telefono: telefono.trim() || undefined,
+          tipo_documento: tipoDocumento,
+          numero_documento: documento.trim() || undefined,
+        });
+        navigation.navigate('Login', { successMessage: 'Cuenta de Administrador creada. Ya puedes iniciar sesión.' });
+      } catch (e) {
+        if (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail) {
+          setErrorMsg(e.response.data.detail);
+        } else {
+          setErrorMsg('No se pudo crear la cuenta. Intenta más tarde.');
+        }
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Sin código (solicitud directa, sin invitación): no hay endpoint de
+    // backend para esto todavía -- el estado PENDIENTE que esta rama
+    // simula sí existe en el modelo (ver CLAUDE.md, backend), pero
+    // registrar la solicitud en sí no está implementado. Fuera del alcance
+    // del sistema de invitaciones; se deja simulado como ya estaba.
     setLoading(true);
-    // TODO: connect endpoint — no backend route exists yet for
-    // Administrador registration; see the same note in EntidadFlow above.
     await new Promise(resolve => setTimeout(resolve, 600));
     setLoading(false);
     setSubmitted(true);
@@ -498,13 +567,15 @@ function AdministradorFlow({ navigation }: Props) {
 
   return (
     <>
-      <View style={styles.warningBanner}>
-        <Feather name="alert-triangle" size={18} color={andiColors.error600} />
-        <Text style={styles.warningBannerText}>
-          Las cuentas de administrador requieren aprobación manual. Recibirás una notificación
-          cuando tu cuenta esté activa.
-        </Text>
-      </View>
+      {!codigoData?.codigo && (
+        <View style={styles.warningBanner}>
+          <Feather name="alert-triangle" size={18} color={andiColors.error600} />
+          <Text style={styles.warningBannerText}>
+            Las cuentas de administrador requieren aprobación manual. Recibirás una notificación
+            cuando tu cuenta esté activa.
+          </Text>
+        </View>
+      )}
 
       <Field label="Nombre completo" icon="user" value={nombre} onChangeText={setNombre} placeholder="María García" />
       <Field label="Correo electrónico" icon="mail" value={correo} onChangeText={setCorreo} placeholder="tu@correo.com" keyboard="email-address" />
@@ -524,7 +595,12 @@ function AdministradorFlow({ navigation }: Props) {
 
       <ConductAgreement checked={agree} onToggle={() => setAgree(a => !a)} />
 
-      <PrimaryButton label="Solicitar acceso" onPress={handleSubmit} loading={loading} disabled={!valid} />
+      <PrimaryButton
+        label={codigoData?.codigo ? 'Crear cuenta' : 'Solicitar acceso'}
+        onPress={handleSubmit}
+        loading={loading}
+        disabled={!valid}
+      />
     </>
   );
 }

@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
 import { Rol } from '../../types/models';
+import { invitacionesAPI } from '../../api/services';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Invitacion'>;
 
@@ -31,26 +33,50 @@ const ROL_LABEL: Record<RolCodigo, string> = {
 };
 
 type ValidarCodigoResult =
-  | { status: 'ok'; rol: RolCodigo; entidad: string }
+  | {
+      status: 'ok';
+      rol: RolCodigo;
+      entidad: string | null;
+      invitadoPor: string;
+      diasRestantes: number;
+    }
   | { status: 'expired' }
-  | { status: 'used' };
+  | { status: 'used' }
+  | { status: 'invalid' };
 
-// TODO: connect endpoint — replace with authAPI.validarCodigo(codigo) once
-// POST /auth/validar-codigo exists on the backend. Two reserved codes drive
-// the error states below for local testing: 'EXPIRE' and 'USED01'; any
-// other 6-char code resolves as a successful ENTIDAD invitation.
-async function mockValidarCodigo(codigo: string): Promise<ValidarCodigoResult> {
-  await new Promise(resolve => setTimeout(resolve, 400));
-  if (codigo === 'EXPIRE') return { status: 'expired' };
-  if (codigo === 'USED01') return { status: 'used' };
-  return { status: 'ok', rol: 'ENTIDAD', entidad: 'Empresa Ejemplo' };
+// GET /invitaciones/{token} (backend/app/routers/invitaciones.py) -- público,
+// sin JWT. 404 = código inexistente; 400 = existe pero ya usado o vencido
+// (distinguidos por el texto de `detail`, ver validar_invitacion).
+async function validarCodigo(codigo: string): Promise<ValidarCodigoResult> {
+  try {
+    const res = await invitacionesAPI.validar(codigo);
+    const data = res.data;
+    return {
+      status: 'ok',
+      rol: data.rol as RolCodigo,
+      entidad: data.entidad ?? null,
+      invitadoPor: data.invitado_por,
+      diasRestantes: data.dias_restantes,
+    };
+  } catch (err) {
+    if (axios.isAxiosError<{ detail?: string }>(err)) {
+      const detail = err.response?.data?.detail ?? '';
+      if (detail.includes('ya fue utilizado')) return { status: 'used' };
+      if (detail.includes('ha expirado')) return { status: 'expired' };
+    }
+    // 404 (no existe) y cualquier otro error (red, 500) caen acá -- mismo
+    // mensaje genérico "código inválido" que pide el flujo de UI.
+    return { status: 'invalid' };
+  }
 }
+
+type ConfirmResult = { rol: RolCodigo; entidad: string | null; invitadoPor: string; diasRestantes: number };
 
 export default function InvitacionScreen({ navigation }: Props) {
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<'expired' | 'used' | null>(null);
-  const [result, setResult] = useState<{ rol: RolCodigo; entidad: string } | null>(null);
+  const [status, setStatus] = useState<'expired' | 'used' | 'invalid' | null>(null);
+  const [result, setResult] = useState<ConfirmResult | null>(null);
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -64,9 +90,14 @@ export default function InvitacionScreen({ navigation }: Props) {
     setStatus(null);
     setResult(null);
     try {
-      const res = await mockValidarCodigo(fullCodigo);
+      const res = await validarCodigo(fullCodigo);
       if (res.status === 'ok') {
-        setResult({ rol: res.rol, entidad: res.entidad });
+        setResult({
+          rol: res.rol,
+          entidad: res.entidad,
+          invitadoPor: res.invitadoPor,
+          diasRestantes: res.diasRestantes,
+        });
       } else {
         setStatus(res.status);
       }
@@ -137,6 +168,14 @@ export default function InvitacionScreen({ navigation }: Props) {
         ))}
       </View>
 
+      <TouchableOpacity
+        style={styles.solicitarAccesoLink}
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('SolicitarAcceso')}
+      >
+        <Text style={styles.solicitarAccesoText}>¿No tienes un código? Solicitar acceso como Administrador</Text>
+      </TouchableOpacity>
+
       {status === 'expired' && (
         <View style={[styles.banner, styles.bannerWarning]}>
           <Feather name="clock" size={16} color={andiColors.warning700} />
@@ -156,17 +195,38 @@ export default function InvitacionScreen({ navigation }: Props) {
         </View>
       )}
 
+      {status === 'invalid' && (
+        <View style={[styles.banner, styles.bannerError]}>
+          <Feather name="alert-triangle" size={16} color={andiColors.error700} />
+          <Text style={styles.bannerTextError}>Este código no es válido. Revísalo e inténtalo de nuevo.</Text>
+        </View>
+      )}
+
       {result && (
         <View style={styles.confirmCard}>
           <Feather name={ROL_ICON[result.rol]} size={32} color={andiColors.primary600} />
           <Text style={styles.confirmRoleLabel}>{ROL_LABEL[result.rol]}</Text>
-          <Text style={styles.confirmEntidad}>{result.entidad}</Text>
+          {result.entidad && <Text style={styles.confirmEntidad}>{result.entidad}</Text>}
+
+          <View style={styles.confirmMetaRow}>
+            <Feather name="user-check" size={14} color={andiColors.onSurfaceVariant} />
+            <Text style={styles.confirmMetaText}>Invitado por {result.invitadoPor}</Text>
+          </View>
+          <View style={styles.confirmMetaRow}>
+            <Feather name="clock" size={14} color={andiColors.onSurfaceVariant} />
+            <Text style={styles.confirmMetaText}>
+              {result.diasRestantes === 1
+                ? 'Vence en 1 día'
+                : `Vence en ${result.diasRestantes} días`}
+            </Text>
+          </View>
+
           <TouchableOpacity
             style={styles.confirmBtn}
             activeOpacity={0.85}
             onPress={() => navigation.navigate('Register', {
               id_rol: Rol[result.rol],
-              codigoData: { codigo, rol: result.rol, entidad: result.entidad },
+              codigoData: { codigo, rol: result.rol, entidad: result.entidad ?? undefined },
             })}
           >
             <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.confirmBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
@@ -198,6 +258,8 @@ const styles = StyleSheet.create({
     color: andiColors.onSurface,
   },
   otpCellFilled: { borderColor: andiColors.primary400 },
+  solicitarAccesoLink: { alignItems: 'center', marginTop: andiSpace[6] },
+  solicitarAccesoText: { ...andiType.bodySm, color: andiColors.primary200, textDecorationLine: 'underline', textAlign: 'center' },
   banner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -229,6 +291,8 @@ const styles = StyleSheet.create({
     marginTop: andiSpace[3],
   },
   confirmEntidad: { ...andiType.headingMd, color: andiColors.onSurface, marginTop: andiSpace[1], minHeight: 26, textAlign: 'center' },
+  confirmMetaRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2], marginTop: andiSpace[3] },
+  confirmMetaText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant },
   confirmBtn: { alignSelf: 'stretch', borderRadius: andiRadius.full, overflow: 'hidden', marginTop: andiSpace[6] },
   confirmBtnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
   confirmBtnText: { ...andiType.label, color: andiColors.surface, letterSpacing: 0.5 },

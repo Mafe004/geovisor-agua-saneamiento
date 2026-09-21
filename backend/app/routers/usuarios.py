@@ -19,6 +19,7 @@ from app.schemas.usuarios import (
     CambiarPasswordResponse,
     PendientesResponse,
     PerfilResponse,
+    RegistroInvitacionResponse,
     RegistroResponse,
     RestablecerContrasenaResponse,
     SolicitarRecuperacionResponse,
@@ -67,6 +68,26 @@ class RegistroUsuario(BaseModel):
                 "Formato de fecha incorrecto. Usa YYYY-MM-DD (ej: 2003-08-25)"
             ) from None
         return v
+
+
+class RegistroConInvitacion(BaseModel):
+    """Mismos campos personales que RegistroUsuario, más el token de 6
+    caracteres que decide id_rol/id_entidad (nunca se aceptan esos dos
+    campos directamente en el body -- ver registro_con_invitacion)."""
+
+    token: str = Field(..., min_length=6, max_length=6)
+    nombre_completo: str = Field(..., min_length=2, max_length=150)
+    correo: EmailStr
+    password: str = Field(..., min_length=6, description="Mínimo 6 caracteres")
+    cargo: str | None = Field(
+        None, max_length=120, description="Cargo/puesto en la entidad (ej: Ingeniero de Saneamiento)"
+    )
+    tipo_documento: str | None = Field(None, max_length=20, description="Ej: CC, CE, TI")
+    numero_documento: str | None = Field(None, max_length=50)
+    telefono: str | None = Field(None, max_length=20)
+    pais: str | None = Field(None, max_length=80)
+    ciudad: str | None = Field(None, max_length=80)
+    direccion: str | None = Field(None, max_length=150)
 
 
 class ActualizarPerfil(BaseModel):
@@ -182,6 +203,122 @@ def registro_ciudadano(
             "id_usuario": nuevo_id,
             "estado": "ACTIVO",
             "instruccion": "Tu cuenta ya está activa.",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
+
+
+# =========================
+# REGISTRO POR INVITACIÓN (ENTIDAD / MODERADOR / ADMINISTRADOR)
+# =========================
+
+
+@router.post(
+    "/registro-invitacion",
+    status_code=201,
+    summary="Registro de ENTIDAD/MODERADOR/ADMINISTRADOR con código de invitación (sin token JWT)",
+    response_model=RegistroInvitacionResponse,
+    responses={
+        400: {
+            "description": "Código inválido, usado o expirado; o correo/documento ya registrado"
+        }
+    },
+)
+def registro_con_invitacion(
+    data: RegistroConInvitacion, ip: str | None = Depends(get_client_ip)
+) -> dict[str, Any]:
+    """
+    Público (no requiere token JWT), pero exige un código de invitación
+    vigente generado por un ADMIN (POST /invitaciones -- ver
+    app/routers/invitaciones.py). id_rol e id_entidad NO vienen del cliente:
+    se toman de la invitación, para que nadie pueda auto-asignarse
+    ADMINISTRADOR mandando el id_rol en el body.
+
+    La fila de invitaciones se bloquea con SELECT ... FOR UPDATE dentro de
+    la misma transacción que crea el usuario -- sin esto, dos requests
+    concurrentes con el mismo token podrían leerlo ambos como "no usado"
+    antes de que cualquiera de las dos actualizaciones aterrice, y el código
+    terminaría canjeado dos veces.
+    """
+    try:
+        with transaccion() as cursor:
+            cursor.execute(
+                """
+                SELECT id, id_rol, id_entidad, expira_en, usado
+                FROM invitaciones
+                WHERE token = %s
+                FOR UPDATE;
+                """,
+                (data.token.strip().upper(),),
+            )
+            inv = cursor.fetchone()
+
+            if not inv:
+                raise HTTPException(status_code=400, detail="Código de invitación inválido")
+            if inv["usado"]:
+                raise HTTPException(status_code=400, detail="Este código ya fue utilizado")
+            if datetime.now() > inv["expira_en"]:
+                raise HTTPException(status_code=400, detail="Este código ha expirado")
+
+            cursor.execute("SELECT id_usuario FROM usuarios WHERE correo = %s;", (data.correo,))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail="El correo ya está registrado")
+
+            if data.numero_documento:
+                cursor.execute(
+                    "SELECT id_usuario FROM usuarios WHERE numero_documento = %s;",
+                    (data.numero_documento,),
+                )
+                if cursor.fetchone():
+                    raise HTTPException(
+                        status_code=400, detail="El número de documento ya está registrado"
+                    )
+
+            password_hash = hash_password(data.password)
+
+            cursor.execute(
+                """
+                INSERT INTO usuarios
+                    (id_rol, id_estado_cuenta, id_entidad, nombre_completo, cargo, correo,
+                     password_hash, tipo_documento, numero_documento, telefono, pais, ciudad,
+                     direccion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                """,
+                (
+                    inv["id_rol"],
+                    EstadoCuenta.ACTIVO,
+                    inv["id_entidad"],
+                    data.nombre_completo,
+                    data.cargo,
+                    data.correo,
+                    password_hash,
+                    data.tipo_documento,
+                    data.numero_documento,
+                    data.telefono,
+                    data.pais,
+                    data.ciudad,
+                    data.direccion,
+                ),
+            )
+            nuevo_id = cursor.lastrowid
+
+            cursor.execute("UPDATE invitaciones SET usado = 1 WHERE id = %s;", (inv["id"],))
+
+            registrar_auditoria(
+                cursor,
+                id_usuario=nuevo_id,
+                accion=Accion.REGISTRO,
+                modulo=Modulo.USUARIOS,
+                ip=ip,
+            )
+
+        return {
+            "message": "Cuenta creada exitosamente. Ya puedes iniciar sesión.",
+            "id_usuario": nuevo_id,
+            "id_rol": inv["id_rol"],
+            "estado": "ACTIVO",
         }
     except HTTPException:
         raise
@@ -319,6 +456,7 @@ def ver_perfil(user: dict[str, Any] = Depends(require_active_user)) -> dict[str,
                 SELECT
                     u.id_usuario,
                     u.nombre_completo,
+                    u.cargo,
                     u.correo,
                     u.telefono,
                     u.pais,
@@ -512,6 +650,7 @@ def detalle_usuario(
                 SELECT
                     u.id_usuario,
                     u.nombre_completo,
+                    u.cargo,
                     u.correo,
                     u.telefono,
                     u.pais,

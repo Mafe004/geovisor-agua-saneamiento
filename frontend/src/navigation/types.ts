@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Register: { id_rol: number; codigoData?: { codigo: string; rol?: string; entidad?: string } };
   // New Auth-flow routes (Phase 1 scaffold; screens land in Phases 3/4/6).
   Invitacion: undefined;
+  SolicitarAcceso: undefined;
   CuentaSuspendida: { message?: string };
   TelefonoOpcional: { userId: number };
   ForgotPassword: undefined;

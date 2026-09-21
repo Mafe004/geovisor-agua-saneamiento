@@ -1,15 +1,16 @@
 import React, { useState, useContext, useCallback } from 'react';
-import {
-  View, Text, FlatList, StyleSheet,
-  RefreshControl, TouchableOpacity, Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
-import ReportCard from '../../components/ReportCard';
+import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
+import ReportCard, { AnchorReportCard, DraftReportCard, type DraftSummary } from '../../components/ciudadano/ReportCard';
+import SystemBanner from '../../components/ciudadano/SystemBanner';
+import Skeleton from '../../components/ciudadano/Skeleton';
+import { getDrafts, type ReporteDraft } from '../../utils/offlineDrafts';
+import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import type { Reporte } from '../../types/domain';
 import type { operations } from '../../types/api';
 import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
@@ -23,14 +24,24 @@ type Props = {
 
 type ReportesQuery = operations['listar_reportes_reportes__get']['parameters']['query'];
 
+type Section =
+  | { __type: 'error' }
+  | { __type: 'draft'; item: ReporteDraft }
+  | { __type: 'anchor'; item: Reporte }
+  | { __type: 'neutral'; item: Reporte };
+
 export default function MisReportesScreen({ navigation }: Props) {
   const { user } = useContext(AuthContext);
   const [reportes, setReportes] = useState<Reporte[]>([]);
+  const [drafts, setDrafts] = useState<ReporteDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
-  const loadReportes = useCallback(async (silent = false) => {
+  const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
+    setError(false);
+    setDrafts(await getDrafts());
     try {
       // id_usuario no existe en el query de GET /reportes/ (ver
       // MIGRATION_FINDINGS.md) -- el backend ya filtra "mis reportes" por
@@ -40,104 +51,139 @@ export default function MisReportesScreen({ navigation }: Props) {
       const res = await reportesAPI.listar(params);
       setReportes(res.data || []);
     } catch (_) {
-      Alert.alert('Error', 'No se pudieron cargar tus reportes.');
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [user?.id_usuario]);
 
-  useFocusEffect(useCallback(() => { loadReportes(); }, [loadReportes]));
+  useFocusEffect(useCallback(() => { loadAll(); }, [loadAll]));
 
-  const onRefresh = () => { setRefreshing(true); loadReportes(true); };
+  const onRefresh = () => { setRefreshing(true); loadAll(true); };
 
   const counts = reportes.reduce<Record<string, number>>((acc, r) => {
     acc[r.estado] = (acc[r.estado] || 0) + 1;
     return acc;
   }, {});
+  const [anchor, ...rest] = reportes;
+  const hasNothing = reportes.length === 0 && drafts.length === 0;
 
-  if (loading) {
-    return (
-      <View style={styles.loadingWrap}>
-        <Text style={styles.loadingText}>Cargando reportes…</Text>
-      </View>
-    );
-  }
+  const sections: Section[] = [
+    ...(error ? [{ __type: 'error' } as const] : []),
+    ...drafts.map((item): Section => ({ __type: 'draft', item })),
+    ...(anchor ? [{ __type: 'anchor', item: anchor } as const] : []),
+    ...rest.map((item): Section => ({ __type: 'neutral', item })),
+  ];
+
+  const sectionKey = (s: Section, i: number) => {
+    if (s.__type === 'error') return `error-${i}`;
+    if (s.__type === 'draft') return `draft-${s.item.id}`;
+    return `${s.__type}-${s.item.id_reporte}`;
+  };
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
-        <Text style={styles.headerTitle}>📋 Mis Reportes</Text>
-        <Text style={styles.headerSub}>{reportes.length} reportes en total</Text>
-        {/* Mini stats */}
+      <LiftHeader>
+        <Text style={styles.title}>Mis reportes</Text>
         <View style={styles.statsRow}>
-          {[
-            { key: 'PENDIENTE', label: 'Pendientes', color: '#F59E0B' },
-            { key: 'EN_PROCESO', label: 'En proceso', color: '#8B5CF6' },
-            { key: 'RESUELTO',  label: 'Resueltos',  color: '#10B981' },
-          ].map(s => (
-            <View key={s.key} style={styles.statChip}>
-              <Text style={[styles.statNum, { color: s.color }]}>{counts[s.key] || 0}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
-          ))}
+          <StatBlock value={counts.PENDIENTE || 0} label="Pendientes" />
+          <StatBlock value={counts.EN_PROCESO || 0} label="En proceso" />
+          <StatBlock value={counts.RESUELTO || 0} label="Resueltos" />
         </View>
-      </LinearGradient>
+      </LiftHeader>
 
-      <FlatList
-        data={reportes}
-        keyExtractor={r => String(r.id_reporte)}
-        renderItem={({ item }) => (
-          <ReportCard
-            reporte={item}
-            onPress={r => navigation.navigate('DetalleReporte', { reporte: r })}
+      <LiftSurface>
+        {loading ? (
+          <View style={styles.skeletonWrap}>
+            <Skeleton height={90} radius={ANDI_RADIUS.xl} />
+            <Skeleton height={90} radius={ANDI_RADIUS.xl} delay={120} />
+            <Skeleton height={90} radius={ANDI_RADIUS.xl} delay={240} />
+          </View>
+        ) : (
+          <FlatList
+            data={sections}
+            keyExtractor={sectionKey}
+            contentContainerStyle={hasNothing ? styles.emptyContainer : styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[ANDI_COLORS.primary600]} />}
+            renderItem={({ item: section }) => {
+              if (section.__type === 'error') {
+                return (
+                  <SystemBanner
+                    tone="error"
+                    icon="!"
+                    title="No pudimos traer tus reportes"
+                    message="El servidor no respondió. Tus borradores siguen guardados en el teléfono."
+                    actionLabel="Reintentar"
+                    onAction={() => loadAll()}
+                  />
+                );
+              }
+              if (section.__type === 'draft') {
+                const summary: DraftSummary = section.item;
+                return (
+                  <DraftReportCard
+                    item={summary}
+                    onResume={(draft) => navigation.navigate('Crear', { draftId: draft.id })}
+                  />
+                );
+              }
+              if (section.__type === 'anchor') {
+                return (
+                  <AnchorReportCard
+                    reporte={section.item}
+                    onPress={(r) => navigation.navigate('DetalleReporte', { reporte: r })}
+                  />
+                );
+              }
+              return (
+                <ReportCard
+                  reporte={section.item}
+                  onPress={(r) => navigation.navigate('DetalleReporte', { reporte: r })}
+                />
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>Todavía no has reportado nada</Text>
+                <Text style={styles.emptyText}>
+                  Cuando veas una fuga, un rebose o agua turbia, márcalo en el mapa. Toma menos de medio minuto.
+                </Text>
+                <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('Crear')}>
+                  <Text style={styles.emptyBtnText}>Reportar algo</Text>
+                </TouchableOpacity>
+              </View>
+            }
           />
         )}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1565C0']} />}
-        contentContainerStyle={reportes.length === 0 ? styles.emptyContainer : { paddingVertical: 8 }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>📋</Text>
-            <Text style={styles.emptyTitle}>Sin reportes aún</Text>
-            <Text style={styles.emptyText}>Toca el botón + para crear tu primer reporte.</Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() => navigation.navigate('Crear')}
-            >
-              <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.emptyBtnGrad}>
-                <Text style={styles.emptyBtnText}>Crear reporte</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        }
-      />
+      </LiftSurface>
+    </View>
+  );
+}
+
+function StatBlock({ value, label }: { value: number; label: string }) {
+  return (
+    <View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 16 },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
-  statsRow: { flexDirection: 'row', marginTop: 12, gap: 8 },
-  statChip: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 10,
-    padding: 8,
-    alignItems: 'center',
-  },
-  statNum: { fontSize: 22, fontWeight: '800' },
-  statLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 2 },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#6B7280' },
+  container: { flex: 1, backgroundColor: ANDI_COLORS.background },
+  title: { ...ANDI_TYPE.display, color: '#fff' },
+  statsRow: { flexDirection: 'row', gap: ANDI_SPACING.s5, marginTop: ANDI_SPACING.s5 },
+  statValue: { ...ANDI_TYPE.displayLg, fontSize: 26, color: '#fff' },
+  statLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary200, marginTop: 2 },
+
+  skeletonWrap: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s3 },
+  list: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s3 },
   emptyContainer: { flex: 1 },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyIcon: { fontSize: 64, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 24 },
-  emptyBtn: { borderRadius: 12, overflow: 'hidden' },
-  emptyBtnGrad: { paddingHorizontal: 24, paddingVertical: 12 },
+
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ANDI_SPACING.s6, gap: ANDI_SPACING.s2 },
+  emptyTitle: { ...ANDI_TYPE.section, color: ANDI_COLORS.onSurface, textAlign: 'center' },
+  emptyText: { ...ANDI_TYPE.bodyLg, color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', maxWidth: 280, marginBottom: ANDI_SPACING.s4 },
+  emptyBtn: { minHeight: 52, paddingHorizontal: ANDI_SPACING.s8, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.accent500, alignItems: 'center', justifyContent: 'center' },
   emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

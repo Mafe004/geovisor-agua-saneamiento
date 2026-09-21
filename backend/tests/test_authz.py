@@ -109,10 +109,117 @@ def test_ciudadano_no_ve_reportes_de_otro_ciudadano_en_su_listado(client_ciudada
     assert all(r["id_usuario"] == 1 for r in res.json())
 
 
-def test_ciudadano_no_puede_ver_reporte_de_otro_por_id(client_ciudadano):
-    # Reporte semilla #3 pertenece a id_usuario=4, no a juan (id_usuario=1).
+def test_ciudadano_ve_reportes_de_otros_ciudadanos_en_el_mapa(client_ciudadano):
+    # A diferencia de /reportes/ (test anterior), /reportes/mapa es la vista
+    # comunitaria: los reportes semilla #3 y #4 (de Maria, id_usuario=4)
+    # SÍ deben aparecer aquí para juan (id_usuario=1).
+    res = client_ciudadano.get("/reportes/mapa")
+    assert res.status_code == 200
+    ids_devueltos = {p["id_reporte"] for p in res.json()}
+    assert {3, 4}.issubset(ids_devueltos)
+
+
+def test_reportes_mapa_no_expone_datos_personales_del_creador(client_ciudadano):
+    res = client_ciudadano.get("/reportes/mapa")
+    assert res.status_code == 200
+    puntos = res.json()
+    assert puntos, "la semilla debe traer al menos un reporte"
+    for punto in puntos:
+        assert "id_usuario" not in punto
+        assert "usuario" not in punto
+        assert "nombre_completo" not in punto
+
+
+def test_ciudadano_ve_su_propio_reporte_por_id_como_antes(client_ciudadano):
+    # Reporte semilla #1 pertenece a juan (id_usuario=1) -- dueño, sin cambios.
+    res = client_ciudadano.get("/reportes/1")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["id_usuario"] == 1
+    assert body["usuario"]
+
+
+def test_ciudadano_ve_detalle_comunitario_de_reporte_de_otro(client_ciudadano):
+    # Reporte semilla #3 pertenece a id_usuario=4 (Maria), no a juan --
+    # antes daba 403; ahora es la vista comunitaria (200, schema reducido).
     res = client_ciudadano.get("/reportes/3")
-    assert res.status_code == 403
+    assert res.status_code == 200
+
+
+def test_detalle_comunitario_trae_informacion_publica_util(client_ciudadano):
+    res = client_ciudadano.get("/reportes/3")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["descripcion"] == "Taponamiento del alcantarillado frente al parque central"
+    assert body["estado"]
+    assert body["severidad"]
+    assert body["latitud"] and body["longitud"]
+    assert body["created_at"]
+
+
+def test_detalle_comunitario_no_expone_id_usuario(client_ciudadano):
+    res = client_ciudadano.get("/reportes/3")
+    assert res.status_code == 200
+    assert "id_usuario" not in res.json()
+
+
+def test_detalle_comunitario_no_expone_usuario(client_ciudadano):
+    res = client_ciudadano.get("/reportes/3")
+    assert res.status_code == 200
+    assert "usuario" not in res.json()
+
+
+def test_ciudadano_puede_ver_historial_de_reporte_comunitario(client_ciudadano):
+    # Historial semilla del reporte #3: una sola fila (id_historial=6).
+    res = client_ciudadano.get("/reportes/3/historial")
+    assert res.status_code == 200
+    entradas = res.json()
+    assert len(entradas) == 1
+    assert entradas[0]["estado_anterior"] == "NINGUNO"
+    assert entradas[0]["estado_nuevo"] == "PENDIENTE"
+
+
+def test_historial_comunitario_no_expone_datos_personales_de_quien_actuo(client_ciudadano):
+    res = client_ciudadano.get("/reportes/3/historial")
+    assert res.status_code == 200
+    for entrada in res.json():
+        assert "id_usuario_accion" not in entrada
+        assert "usuario_accion" not in entrada
+
+
+def test_ciudadano_ve_su_propio_historial_completo_como_antes(client_ciudadano):
+    # Reporte semilla #1 (dueño): el historial completo sigue incluyendo
+    # quién hizo cada cambio, sin cambios de comportamiento.
+    res = client_ciudadano.get("/reportes/1/historial")
+    assert res.status_code == 200
+    entradas = res.json()
+    assert entradas
+    assert all("usuario_accion" in e for e in entradas)
+
+
+def test_entidad_ve_reporte_propio_con_schema_completo_sin_cambios(client_entidad):
+    # Reporte semilla #1 es de la entidad 1 (la de client_entidad) -- ENTIDAD
+    # nunca pasa por la vista comunitaria, solo CIUDADANO la tiene.
+    res = client_entidad.get("/reportes/1")
+    assert res.status_code == 200
+    assert "id_usuario" in res.json()
+    assert "usuario" in res.json()
+
+
+def test_moderador_ve_cualquier_reporte_con_schema_completo_sin_cambios(client_moderador):
+    # Reporte semilla #3 (de otro ciudadano): MODERADOR ya podía verlo antes
+    # y sigue recibiendo el schema completo, nunca la vista reducida.
+    res = client_moderador.get("/reportes/3")
+    assert res.status_code == 200
+    assert "id_usuario" in res.json()
+    assert "usuario" in res.json()
+
+
+def test_admin_ve_cualquier_reporte_con_schema_completo_sin_cambios(client_admin):
+    res = client_admin.get("/reportes/3")
+    assert res.status_code == 200
+    assert "id_usuario" in res.json()
+    assert "usuario" in res.json()
 
 
 def test_entidad_no_puede_ver_ni_modificar_reporte_sin_asignar(client_entidad):

@@ -136,7 +136,8 @@ export interface paths {
          * @description Endpoint optimizado para cargar los pines del geovisor.
          *     Devuelve solo los campos necesarios para pintar el mapa:
          *     id, latitud, longitud, tipo_incidente, severidad, estado.
-         *     - CIUDADANO: solo sus reportes.
+         *     - CIUDADANO: vista comunitaria -- todos los reportes (sin datos
+         *       personales del creador, ver ReporteMapaPunto).
          *     - ENTIDAD:   solo los de su entidad.
          *     - MODERADOR / ADMIN: todos.
          */
@@ -244,7 +245,10 @@ export interface paths {
         /**
          * Ver historial de cambios de estado de un reporte
          * @description Devuelve todos los cambios de estado de un reporte ordenados cronológicamente.
-         *     - CIUDADANO: solo puede ver el historial de sus propios reportes.
+         *     - CIUDADANO dueño: ve el historial completo de sus propios reportes.
+         *     - CIUDADANO que no es dueño: vista comunitaria del historial (sin datos
+         *       personales de quién hizo cada cambio) -- igual que el detalle del
+         *       reporte, ver puede_ver_detalle_comunitario().
          *     - ENTIDAD:   solo puede ver el historial de reportes de su entidad.
          *     - MODERADOR / ADMIN: pueden ver cualquier historial.
          */
@@ -1497,6 +1501,37 @@ export interface components {
              */
             fecha_cambio: string;
         };
+        /**
+         * HistorialEntryComunidad
+         * @description Vista comunitaria de GET /reportes/{id_reporte}/historial: igual que
+         *     HistorialEntry pero sin id_usuario_accion ni usuario_accion (quién hizo
+         *     el cambio es un dato personal) -- ver puede_ver_detalle_comunitario() en
+         *     app.core.policies.
+         *
+         *     extra="forbid" por la misma razón que ReporteComunidadDetalle: el
+         *     response_model de historial_reporte es list[HistorialEntry] |
+         *     list[HistorialEntryComunidad], y sin este guardado una fila completa
+         *     también validaría aquí, dejando la unión ambigua.
+         */
+        HistorialEntryComunidad: {
+            /** Id Historial */
+            id_historial: number;
+            /** Id Reporte */
+            id_reporte: number;
+            /** Estado Anterior */
+            estado_anterior: string;
+            /** Estado Nuevo */
+            estado_nuevo: string;
+            /** Comentario */
+            comentario: string | null;
+            /** Rol Usuario Accion */
+            rol_usuario_accion: string;
+            /**
+             * Fecha Cambio
+             * Format: date-time
+             */
+            fecha_cambio: string;
+        };
         /** InfraestructuraCreate */
         InfraestructuraCreate: {
             /** Nombre */
@@ -1840,6 +1875,58 @@ export interface components {
             ciudad?: string | null;
             /** Direccion */
             direccion?: string | null;
+        };
+        /**
+         * ReporteComunidadDetalle
+         * @description Vista comunitaria de GET /reportes/{id_reporte}: misma fuente que
+         *     ReporteDetalle (_select_reporte_detalle_sql()), pero sin id_usuario ni
+         *     usuario (nombre del creador) -- la que ve un CIUDADANO que consulta el
+         *     reporte de otro (ver puede_ver_detalle_comunitario()).
+         *
+         *     extra="forbid" es intencional: el response_model de obtener_reporte es
+         *     ReporteDetalle | ReporteComunidadDetalle, y sin este guardado la fila
+         *     completa de un dueño (que sí trae id_usuario/usuario, campos "extra"
+         *     para este schema) también validaría aquí, dejando la unión ambigua.
+         */
+        ReporteComunidadDetalle: {
+            /** Id Reporte */
+            id_reporte: number;
+            /** Descripcion */
+            descripcion: string;
+            /** Direccion */
+            direccion: string | null;
+            /** Latitud */
+            latitud: number;
+            /** Longitud */
+            longitud: number;
+            /** Imagen Url */
+            imagen_url: string | null;
+            /** Fuente Reporte */
+            fuente_reporte: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id Entidad */
+            id_entidad: number | null;
+            /** Id Tipo Incidente */
+            id_tipo_incidente: number;
+            /** Id Severidad */
+            id_severidad: number;
+            /** Id Estado */
+            id_estado: number;
+            /** Estado */
+            estado: string;
+            /** Tipo Incidente */
+            tipo_incidente: string;
+            /** Severidad */
+            severidad: string;
+            /** Id Entidad Sugerida */
+            id_entidad_sugerida: number | null;
+            /** Entidad Sugerida */
+            entidad_sugerida: string | null;
+            vereda_siasar?: components["schemas"]["VeredaSiasarResumen"] | null;
         };
         /** ReporteCreateRequest */
         ReporteCreateRequest: {
@@ -2639,7 +2726,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReporteDetalle"];
+                    "application/json": components["schemas"]["ReporteDetalle"] | components["schemas"]["ReporteComunidadDetalle"];
                 };
             };
             /** @description Sin permiso */
@@ -2789,7 +2876,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HistorialEntry"][];
+                    "application/json": components["schemas"]["HistorialEntry"][] | components["schemas"]["HistorialEntryComunidad"][];
                 };
             };
             /** @description Sin permiso */

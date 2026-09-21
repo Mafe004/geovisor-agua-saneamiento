@@ -27,23 +27,38 @@ export default function AdminPerfilScreen({ navigation }: Props) {
   // se resuelve con el auditoriaAPI.listar real de abajo). Mockeado acá.
   const invitacionesVivas = 2; // TODO: connect endpoint — no invitaciones system exists yet
 
-  useEffect(() => { loadStats(); }, []);
+  // Cargador inline (no una función nombrada aparte) para que el propio
+  // efecto sea el único llamador -- así el linter puede ver que el
+  // setState solo ocurre después del await, en vez de tratar la llamada
+  // como si pudiera setState de forma síncrona dentro del efecto.
+  useEffect(() => {
+    let cancelado = false;
 
-  const loadStats = async () => {
-    if (!user) return;
-    const [usuariosR, accionesR] = await Promise.allSettled([
-      usuariosAPI.listar(),
-      auditoriaAPI.listar({ id_usuario: user.id_usuario, limite: 1 }),
-    ]);
+    (async () => {
+      if (!user) return;
+      const [usuariosR, accionesR] = await Promise.allSettled([
+        usuariosAPI.listar(),
+        auditoriaAPI.listar({ id_usuario: user.id_usuario, limite: 1 }),
+      ]);
+      if (cancelado) return;
 
-    if (usuariosR.status === 'fulfilled') {
-      const admins = usuariosR.value.data.filter(u => u.rol === 'ADMINISTRADOR' && u.estado_cuenta === 'ACTIVO');
-      setIsOnlyAdmin(admins.length === 1);
-    } else {
-      setIsOnlyAdmin(null);
-    }
-    setMisAcciones(accionesR.status === 'fulfilled' ? accionesR.value.data.total : null);
-  };
+      if (usuariosR.status === 'fulfilled') {
+        const admins = usuariosR.value.data.filter(u => u.rol === 'ADMINISTRADOR' && u.estado_cuenta === 'ACTIVO');
+        setIsOnlyAdmin(admins.length === 1);
+      } else {
+        setIsOnlyAdmin(null);
+      }
+      setMisAcciones(accionesR.status === 'fulfilled' ? accionesR.value.data.total : null);
+    })();
+
+    return () => { cancelado = true; };
+    // deps [] a propósito -- debe correr solo al montar (mismo
+    // comportamiento que antes de este fix, con loadStats declarada
+    // aparte). Listar `user` acá haría refetch en cada cambio de
+    // referencia de user (ej. tras updateUser() en PerfilScreen.tsx), no
+    // solo al entrar a la pantalla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     setLogoutConfirmVisible(false);

@@ -1,5 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // client.ts sets error.friendlyMessage on network-error responses (see the
 // response interceptor below) — augment AxiosError's own type instead of
@@ -39,10 +40,15 @@ declare module 'axios' {
 // ── CAMBIA ESTA IP POR LA DE TU PC ──────────────────────────
 // Para verla en Windows: abre cmd → escribe `ipconfig`
 //                        busca "Dirección IPv4" (ej: 192.168.1.X)
-const DEV_IP = '192.168.1.6'; // <-- REEMPLAZA CON TU IP REAL
+const DEV_IP = '192.168.1.8'; // <-- REEMPLAZA CON TU IP REAL
 const DEV_PORT = '8000';
 
-export const API_URL = `http://${DEV_IP}:${DEV_PORT}`;
+// En web el navegador corre en la misma máquina que el backend, así que
+// 'localhost' siempre resuelve correctamente ahí — usar la IP LAN (pensada
+// para que el teléfono físico llegue a la PC) rompe el flujo en web en
+// cuanto esa IP queda desactualizada (DHCP la reasigna).
+export const API_URL =
+  Platform.OS === 'web' ? `http://localhost:${DEV_PORT}` : `http://${DEV_IP}:${DEV_PORT}`;
 
 // ────────────────────────────────────────────────────────────
 
@@ -100,7 +106,7 @@ client.interceptors.response.use(
           : `No se pudo conectar al servidor (${DEV_IP}:${DEV_PORT}).\n\n` +
             '• Verifica que el backend esté encendido\n' +
             '• Confirma que tu teléfono y PC están en la misma WiFi\n' +
-            '• Revisa que la IP en client.js sea correcta';
+            '• Revisa que la IP en client.ts sea correcta';
         error.friendlyMessage = friendlyMsg;
       }
     }

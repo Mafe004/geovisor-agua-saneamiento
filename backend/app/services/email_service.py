@@ -3,6 +3,7 @@ Envío de correos transaccionales vía Resend. Hoy solo cubre el correo de
 restablecer contraseña que dispara POST /usuarios/solicitar-recuperacion.
 """
 
+import logging
 import os
 
 import resend
@@ -10,12 +11,29 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 resend.api_key = os.environ.get("RESEND_API_KEY", "")
 
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
 # Sin barra final, para poder concatenar "{FRONTEND_URL}/ruta" sin dobles
 # barras si alguien la deja puesta en el .env.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:8081").rstrip("/")
+
+# Log de diagnóstico al importar el módulo -- solo confirma qué se cargó
+# desde .env, nunca la key completa. Útil para distinguir "no se cargó
+# ninguna key" de "se cargó, pero es inválida/placeholder" sin exponer el
+# secreto en la consola.
+if resend.api_key:
+    logger.info(
+        "RESEND_API_KEY cargada desde .env (prefijo: %s..., longitud: %d)",
+        resend.api_key[:6],
+        len(resend.api_key),
+    )
+else:
+    logger.warning(
+        "RESEND_API_KEY no está configurada -- el envío de correos fallará."
+    )
 
 
 def send_password_reset_email(to_email: str, token: str) -> None:

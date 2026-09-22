@@ -240,7 +240,7 @@ export default function MapaScreen({ navigation }: Props) {
       <LiftHeader>
         <View style={styles.topRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.kicker}>Zipaquirá · Cundinamarca</Text>
+            <Text style={styles.kicker}>Cundinamarca</Text>
             <Text style={styles.title}>Cerca de ti</Text>
           </View>
           <TouchableOpacity style={styles.searchBtn} onPress={() => setSearching((s) => !s)}>
@@ -333,13 +333,13 @@ export default function MapaScreen({ navigation }: Props) {
                 <View style={styles.noLocationIcon}><Text style={{ fontSize: 22 }}>◎</Text></View>
                 <Text style={styles.noLocationTitle}>No sé dónde estás</Text>
                 <Text style={styles.noLocationText}>
-                  Sin ubicación puedo mostrarte Zipaquirá completo, pero no lo que tienes al lado.
+                  Sin ubicación puedo mostrarte Cundinamarca completo, pero no lo que tienes al lado.
                 </Text>
                 <TouchableOpacity style={styles.primaryBtn} onPress={requestLocation}>
                   <Text style={styles.primaryBtnText}>Permitir ubicación</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.outlineBtn} onPress={() => setCenter(ZIPAQUIRA)}>
-                  <Text style={styles.outlineBtnText}>Ver todo Zipaquirá</Text>
+                  <Text style={styles.outlineBtnText}>Ver todo Cundinamarca</Text>
                 </TouchableOpacity>
               </View>
             </View>

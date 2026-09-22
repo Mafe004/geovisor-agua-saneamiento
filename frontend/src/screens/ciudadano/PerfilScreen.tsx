@@ -233,7 +233,7 @@ export default function PerfilScreen({ navigation }: Props) {
               <Text style={styles.logoutText}>Cerrar sesión</Text>
             </TouchableOpacity>
 
-            <Text style={styles.version}>Andi · GeoVisor Zipaquirá · v1.0.0</Text>
+            <Text style={styles.version}>Andi · GeoVisor Cundinamarca · v1.0.0</Text>
           </ScrollView>
         </LiftSurface>
       </View>

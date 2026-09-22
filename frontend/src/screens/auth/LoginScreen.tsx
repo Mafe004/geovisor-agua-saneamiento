@@ -87,7 +87,7 @@ export default function LoginScreen({ navigation, route }: Props) {
           <View style={styles.hero}>
             <Text style={styles.logo}>💧</Text>
             <Text style={styles.appName}>Andi</Text>
-            <Text style={styles.tagline}>Agua y saneamiento · Zipaquirá</Text>
+            <Text style={styles.tagline}>Agua y saneamiento · Cundinamarca</Text>
           </View>
 
           {/* Card */}

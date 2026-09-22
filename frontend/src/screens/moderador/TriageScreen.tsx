@@ -93,7 +93,7 @@ export default function TriageScreen() {
   return (
     <View style={styles.container}>
       <AndiHeader
-        overline="Bandeja · Zipaquirá"
+        overline="Bandeja · Cundinamarca"
         title="Por revisar"
         stats={[
           { value: sinRevisar.length, label: 'Sin revisar' },

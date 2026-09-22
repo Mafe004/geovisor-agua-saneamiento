@@ -154,7 +154,7 @@ function ConductAgreement({ checked, onToggle }: { checked: boolean; onToggle: (
       <Text style={styles.agreementText}>
         Al crear esta cuenta te comprometes a usar la plataforma de forma responsable: reportar
         información veraz, respetar a otros usuarios y a las entidades, y no usar el sistema para
-        fines distintos a la gestión de agua y saneamiento de Zipaquirá.
+        fines distintos a la gestión de agua y saneamiento de Cundinamarca.
       </Text>
       <TouchableOpacity style={styles.checkboxRow} onPress={onToggle} activeOpacity={0.7}>
         <Feather

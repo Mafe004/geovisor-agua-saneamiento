@@ -236,7 +236,7 @@ export default function PerfilScreen() {
           <Text style={styles.cardTitle}>💧 Sobre la app</Text>
           <InfoRow icon="🏗️" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
           <InfoRow icon="🎓" label="Proyecto" value="Tesis de grado · 2025" />
-          <InfoRow icon="📍" label="Municipio" value="Zipaquirá, Cundinamarca" />
+          <InfoRow icon="📍" label="Municipio" value="Cundinamarca" />
         </View>
 
         {/* ── CERRAR SESIÓN ── */}

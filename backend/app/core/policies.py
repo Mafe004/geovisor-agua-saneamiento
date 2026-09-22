@@ -42,6 +42,34 @@ def scope_reportes(user: dict, alias: str = "r") -> tuple[list[str], list]:
     raise HTTPException(status_code=403, detail="Rol desconocido")
 
 
+def scope_reportes_mapa(user: dict, alias: str = "r") -> tuple[list[str], list]:
+    """
+    Alcance para GET /reportes/mapa: igual a scope_reportes(), salvo que
+    CIUDADANO ve aquí los reportes de toda la comunidad, no solo los propios
+    -- el mapa es una vista comunitaria de incidentes (la respuesta de ese
+    endpoint, ReporteMapaPunto, ya no lleva id_usuario/nombre, así que ampliar
+    el alcance no expone datos personales). ENTIDAD/MODERADOR/ADMIN/rol
+    desconocido: idéntico a scope_reportes().
+    """
+    if user.get("id_rol") == Rol.CIUDADANO:
+        return [], []
+
+    return scope_reportes(user, alias=alias)
+
+
+def puede_ver_detalle_comunitario(user: dict) -> bool:
+    """
+    Complementa a puede_ver_reporte(): cuando esta última da False, el
+    llamador debe consultar aquí antes de responder 403. Solo CIUDADANO
+    tiene vista comunitaria del detalle/historial de reportes ajenos (sin
+    datos personales del creador) -- igual que scope_reportes_mapa() ya
+    amplía el alcance de CIUDADANO en /reportes/mapa. ENTIDAD/MODERADOR/
+    ADMIN/rol desconocido: si puede_ver_reporte() les da False, se mantiene
+    el 403 de siempre, sin cambios.
+    """
+    return user.get("id_rol") == Rol.CIUDADANO
+
+
 def puede_ver_reporte(user: dict, reporte: dict) -> bool:
     """Autorización a nivel de fila, para cuando el reporte ya está cargado."""
     id_rol = user.get("id_rol")

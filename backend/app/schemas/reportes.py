@@ -40,6 +40,39 @@ class ReporteDetalle(BaseModel):
     vereda_siasar: VeredaSiasarResumen | None = None
 
 
+class ReporteComunidadDetalle(BaseModel):
+    """Vista comunitaria de GET /reportes/{id_reporte}: misma fuente que
+    ReporteDetalle (_select_reporte_detalle_sql()), pero sin id_usuario ni
+    usuario (nombre del creador) -- la que ve un CIUDADANO que consulta el
+    reporte de otro (ver puede_ver_detalle_comunitario()).
+
+    extra="forbid" es intencional: el response_model de obtener_reporte es
+    ReporteDetalle | ReporteComunidadDetalle, y sin este guardado la fila
+    completa de un dueño (que sí trae id_usuario/usuario, campos "extra"
+    para este schema) también validaría aquí, dejando la unión ambigua."""
+
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+    id_reporte: int
+    descripcion: str
+    direccion: str | None
+    latitud: float
+    longitud: float
+    imagen_url: str | None
+    fuente_reporte: str
+    created_at: datetime
+    id_entidad: int | None
+    id_tipo_incidente: int
+    id_severidad: int
+    id_estado: int
+    estado: str
+    tipo_incidente: str
+    severidad: str
+    id_entidad_sugerida: int | None
+    entidad_sugerida: str | None
+    vereda_siasar: VeredaSiasarResumen | None = None
+
+
 class ReporteMapaPunto(BaseModel):
     """Forma de la SELECT ligera en reportes_mapa()."""
 

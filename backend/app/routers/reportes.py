@@ -6,13 +6,20 @@ from pydantic import BaseModel, Field
 from app.core.audit import Accion, Modulo, registrar_auditoria
 from app.core.deps import get_client_ip, require_active_user, require_roles
 from app.core.errors import handle_db_error
-from app.core.policies import puede_cambiar_estado, puede_ver_reporte, scope_reportes
+from app.core.policies import (
+    puede_cambiar_estado,
+    puede_ver_detalle_comunitario,
+    puede_ver_reporte,
+    scope_reportes,
+    scope_reportes_mapa,
+)
 from app.core.roles import EstadoCuenta, Rol
 from app.db.database import get_connection, transaccion
 from app.schemas.reportes import (
     CambiarEstadoResponse,
     CrearReporteResponse,
     EstadisticasResponse,
+    ReporteComunidadDetalle,
     ReporteDetalle,
     ReporteMapaPunto,
 )
@@ -145,6 +152,15 @@ def _anidar_vereda_siasar(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _reporte_a_comunidad(row: dict[str, Any]) -> dict[str, Any]:
+    """
+    Reduce una fila de _select_reporte_detalle_sql() (ya anidada por
+    _anidar_vereda_siasar) a la vista comunitaria: sin id_usuario ni usuario
+    (nombre del creador) -- ver puede_ver_detalle_comunitario().
+    """
+    return {k: v for k, v in row.items() if k not in ("id_usuario", "usuario")}
+
+
 def _insertar_historial(
     cursor,
     id_reporte: int,
@@ -260,7 +276,8 @@ def reportes_mapa(user: dict[str, Any] = Depends(require_active_user)) -> list[d
     Endpoint optimizado para cargar los pines del geovisor.
     Devuelve solo los campos necesarios para pintar el mapa:
     id, latitud, longitud, tipo_incidente, severidad, estado.
-    - CIUDADANO: solo sus reportes.
+    - CIUDADANO: vista comunitaria -- todos los reportes (sin datos
+      personales del creador, ver ReporteMapaPunto).
     - ENTIDAD:   solo los de su entidad.
     - MODERADOR / ADMIN: todos.
     """
@@ -281,7 +298,7 @@ def reportes_mapa(user: dict[str, Any] = Depends(require_active_user)) -> list[d
             JOIN severidad        s ON r.id_severidad      = s.id_severidad
             JOIN estado_reporte  er ON r.id_estado         = er.id_estado
         """
-        conditions, params = scope_reportes(user, alias="r")
+        conditions, params = scope_reportes_mapa(user, alias="r")
         if conditions:
             base_sql += " WHERE " + " AND ".join(conditions)
 
@@ -416,7 +433,7 @@ def estadisticas_reportes(user: dict[str, Any] = Depends(require_active_user)) -
 @router.get(
     "/{id_reporte}",
     summary="Obtener Reporte",
-    response_model=ReporteDetalle,
+    response_model=ReporteDetalle | ReporteComunidadDetalle,
     responses={404: {"description": "Reporte no encontrado"}, 403: {"description": "Sin permiso"}},
 )
 def obtener_reporte(
@@ -433,14 +450,17 @@ def obtener_reporte(
             raise HTTPException(status_code=404, detail="Reporte no encontrado")
         row = _anidar_vereda_siasar(row)
 
-        if not puede_ver_reporte(user, row):
-            if user["id_rol"] == Rol.CIUDADANO:
-                raise HTTPException(
-                    status_code=403, detail="No puedes ver reportes de otros usuarios"
-                )
-            raise HTTPException(status_code=403, detail="No puedes ver reportes de otra entidad")
+        if puede_ver_reporte(user, row):
+            return row
 
-        return row
+        # No es el dueño ni (si aplica) su entidad/moderación/admin: un
+        # CIUDADANO todavía tiene la vista comunitaria (sin datos personales
+        # del creador) -- el resto (ENTIDAD de otra entidad, rol desconocido)
+        # sigue en 403, exactamente como antes.
+        if puede_ver_detalle_comunitario(user):
+            return _reporte_a_comunidad(row)
+
+        raise HTTPException(status_code=403, detail="No puedes ver reportes de otra entidad")
 
     except HTTPException:
         raise

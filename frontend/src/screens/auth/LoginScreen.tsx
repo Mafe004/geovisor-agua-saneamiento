@@ -2,60 +2,78 @@ import React, { useState, useContext } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
-  ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthContext } from '../../context/AuthContext';
 import type { RootStackParamList } from '../../navigation/types';
+import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
-export default function LoginScreen({ navigation }: Props) {
+export default function LoginScreen({ navigation, route }: Props) {
   const { login } = useContext(AuthContext);
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Inline banner replaces Alert for every auth-flow error on this screen
+  // (spec: "Do NOT use Alert for auth errors") -- including the empty-field
+  // check, for consistency, not just the 401 case it was called out for.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Same reasoning, reused for the success case: RegisterScreen's
+  // Entidad/Moderador flows land here with a "cuenta creada" message
+  // instead of a toast library (none is installed in this project).
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // React Navigation keeps Login mounted once it's been visited, so a later
+  // navigate('Login', { successMessage }) updates route.params without
+  // remounting the component. Adjusting state during render (React's own
+  // recommended pattern for this) instead of a useEffect, which would call
+  // setState after an extra commit and trip the "no setState in an effect
+  // to sync from props" lint rule.
+  const [lastParamMsg, setLastParamMsg] = useState<string | undefined>(undefined);
+  if (route.params?.successMessage && route.params.successMessage !== lastParamMsg) {
+    setLastParamMsg(route.params.successMessage);
+    setSuccessMsg(route.params.successMessage);
+  }
 
   const handleLogin = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
     if (!correo.trim() || !password.trim()) {
-      Alert.alert('Campos requeridos', 'Por favor ingresa tu correo y contraseña.');
+      setErrorMsg('Ingresa tu correo y contraseña.');
       return;
     }
+
     try {
       setLoading(true);
       await login(correo.trim().toLowerCase(), password);
+      // Éxito: AuthContext.login() setea el user, y AppNavigator cambia de
+      // stack solo según id_rol -- no hace falta navegar manualmente acá.
     } catch (err) {
-      let title = 'Error de acceso';
-      let msg;
-
-      if (axios.isAxiosError<{ detail?: string }>(err) && err.response?.status === 401) {
-        msg = 'Credenciales incorrectas.\n\nVerifica tu correo y contraseña.';
-      } else if (axios.isAxiosError(err) && err.response?.status === 403) {
-        msg = 'Tu cuenta está inactiva o bloqueada. Contacta al administrador.';
-      } else if (axios.isAxiosError<{ detail?: string }>(err) && err.response?.data?.detail) {
-        msg = err.response.data.detail;
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        setErrorMsg('Correo o contraseña incorrectos.');
+      } else if (axios.isAxiosError<{ detail?: string }>(err) && err.response?.status === 403) {
+        navigation.navigate('CuentaSuspendida', { message: err.response.data?.detail });
       } else if (axios.isAxiosError(err) && err.friendlyMessage) {
-        // Mensaje mejorado de error de red (generado en client.js)
-        title = 'Sin conexión';
-        msg = err.friendlyMessage;
+        // Mensaje mejorado de error de red (generado en client.ts)
+        setErrorMsg(err.friendlyMessage);
       } else if (axios.isAxiosError(err) && !err.response) {
-        title = 'Sin conexión';
-        msg = 'No se pudo conectar al servidor.\n\nVerifica que:\n\u2022 El backend esté corriendo\n• Tu teléfono y PC estén en la misma WiFi\n• La IP en client.js sea correcta';
+        setErrorMsg('No se pudo conectar al servidor. Verifica tu conexión e inténtalo de nuevo.');
       } else {
-        msg = 'Ocurrió un error inesperado. Intenta de nuevo.';
+        setErrorMsg('Ocurrió un error inesperado. Intenta de nuevo.');
       }
-
-      Alert.alert(title, msg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <LinearGradient colors={['#0D47A1', '#1565C0', '#00ACC1']} style={styles.gradient}>
+    <View style={styles.screen}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -65,25 +83,23 @@ export default function LoginScreen({ navigation }: Props) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo / Hero */}
+          {/* Hero */}
           <View style={styles.hero}>
             <Text style={styles.logo}>💧</Text>
-            <Text style={styles.appName}>GeoVisor Agua</Text>
-            <Text style={styles.tagline}>Saneamiento y Agua Potable · Zipaquirá</Text>
+            <Text style={styles.appName}>Andi</Text>
+            <Text style={styles.tagline}>Agua y saneamiento · Cundinamarca</Text>
           </View>
 
           {/* Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Iniciar Sesión</Text>
-
             {/* Correo */}
-            <Text style={styles.label}>Correo electrónico</Text>
+            <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
             <View style={styles.inputWrap}>
-              <Text style={styles.inputIcon}>✉️</Text>
+              <Feather name="mail" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="tu@correo.com"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={andiColors.onSurfaceVariant}
                 value={correo}
                 onChangeText={setCorreo}
                 keyboardType="email-address"
@@ -93,121 +109,184 @@ export default function LoginScreen({ navigation }: Props) {
             </View>
 
             {/* Contraseña */}
-            <Text style={styles.label}>Contraseña</Text>
+            <Text style={[styles.label, styles.labelSpaced]}>CONTRASEÑA</Text>
             <View style={styles.inputWrap}>
-              <Text style={styles.inputIcon}>🔒</Text>
+              <Feather name="lock" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, styles.inputPassword]}
                 placeholder="••••••••"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={andiColors.onSurfaceVariant}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPass}
                 autoCapitalize="none"
               />
               <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
-                <Text style={styles.eyeIcon}>{showPass ? '🙈' : '👁️'}</Text>
+                <Feather name={showPass ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
 
-            {/* Botón */}
+            {/* Olvidé mi contraseña */}
+            <TouchableOpacity
+              style={styles.forgotRow}
+              onPress={() => navigation.navigate('ForgotPassword')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+            </TouchableOpacity>
+
+            {/* Éxito inline (viene de RegisterScreen) */}
+            {successMsg && (
+              <View style={styles.successBanner}>
+                <Feather name="check-circle" size={16} color={andiColors.success600} />
+                <Text style={styles.successText}>{successMsg}</Text>
+              </View>
+            )}
+
+            {/* Error inline */}
+            {errorMsg && (
+              <View style={styles.errorBanner}>
+                <Feather name="alert-triangle" size={16} color={andiColors.error600} />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            )}
+
+            {/* Entrar */}
             <TouchableOpacity
               style={[styles.btn, loading && styles.btnDisabled]}
               onPress={handleLogin}
               disabled={loading}
               activeOpacity={0.85}
             >
-              <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.btnText}>Ingresar</Text>
+                  ? <ActivityIndicator color={andiColors.surface} />
+                  : <Text style={styles.btnText}>Entrar</Text>
                 }
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Cuentas de prueba */}
+            {/* Separador */}
+            <View style={styles.separatorRow}>
+              <View style={styles.separatorLine} />
+              <Text style={styles.separatorText}>o</Text>
+              <View style={styles.separatorLine} />
+            </View>
+
+            {/* Crear cuenta de ciudadano */}
             <TouchableOpacity
-              style={styles.demoBox}
-              onPress={() => {
-                Alert.alert(
-                  '👤 Cuentas de prueba',
-                  'Contraseña de todas: demo2025\n\n' +
-                  '📋 Ciudadano:\njuan@test.com\n\n' +
-                  '🏢 Entidad:\noperador.acueducto@demo.com\n\n' +
-                  '🛡️ Moderador:\nmoderador@demo.com\n\n' +
-                  '⚙️ Admin:\nadmin@geovisor.com',
-                  [
-                    { text: 'Admin', onPress: () => { setCorreo('admin@geovisor.com'); setPassword('demo2025'); } },
-                    { text: 'Ciudadano', onPress: () => { setCorreo('juan@test.com'); setPassword('demo2025'); } },
-                    { text: 'Cerrar', style: 'cancel' },
-                  ]
-                );
-              }}
+              style={styles.outlineBtn}
+              onPress={() => navigation.navigate('Register', { id_rol: 1 })}
+              activeOpacity={0.85}
             >
-              <Text style={styles.demoText}>👁️ Ver cuentas de prueba</Text>
+              <Text style={styles.outlineBtnText}>Crear cuenta de ciudadano</Text>
             </TouchableOpacity>
 
-            {/* Registro */}
-            <View style={styles.registerRow}>
-              <Text style={styles.registerText}>¿No tienes cuenta? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.registerLink}>Regístrate</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Código de invitación */}
+            <TouchableOpacity
+              style={styles.invitacionRow}
+              onPress={() => navigation.navigate('Invitacion')}
+              activeOpacity={0.7}
+            >
+              <Feather name="key" size={16} color={andiColors.primary600} />
+              <Text style={styles.invitacionText}>Tengo un código de invitación</Text>
+            </TouchableOpacity>
           </View>
-
-          <Text style={styles.footer}>v1.0.0 · Tesis de grado 2025</Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
+  screen: { flex: 1, backgroundColor: andiColors.primary900 },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  hero: { alignItems: 'center', marginBottom: 32 },
-  logo: { fontSize: 64 },
-  appName: { fontSize: 28, fontWeight: '800', color: '#fff', marginTop: 8, letterSpacing: 0.5 },
-  tagline: { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 6, textAlign: 'center' },
+  scroll: { flexGrow: 1, justifyContent: 'flex-end' },
+  hero: { alignItems: 'center', paddingTop: '20%', paddingBottom: andiSpace[8] },
+  logo: { fontSize: 48 },
+  appName: { ...andiType.displayLg, color: andiColors.surface, marginTop: andiSpace[2] },
+  tagline: { ...andiType.bodySm, color: andiColors.primary200, marginTop: andiSpace[1], textAlign: 'center' },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    backgroundColor: andiColors.surface,
+    borderTopLeftRadius: andiRadius.xl,
+    borderTopRightRadius: andiRadius.xl,
+    paddingHorizontal: andiSpace[6],
+    paddingTop: andiSpace[8],
+    paddingBottom: andiSpace[10],
   },
-  cardTitle: { fontSize: 22, fontWeight: '700', color: '#1F2937', marginBottom: 20 },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 12 },
+  label: {
+    ...andiType.labelSm,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    color: andiColors.onSurfaceVariant,
+  },
+  labelSpaced: { marginTop: andiSpace[4] },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 12,
+    borderColor: andiColors.outline,
+    borderRadius: andiRadius.md,
+    backgroundColor: andiColors.surfaceDim,
+    paddingHorizontal: andiSpace[3],
+    marginTop: andiSpace[2],
+    minHeight: 48,
   },
-  inputIcon: { fontSize: 16, marginRight: 8 },
-  input: { flex: 1, height: 48, fontSize: 15, color: '#1F2937' },
-  inputPassword: { paddingRight: 8 },
-  eyeBtn: { padding: 4 },
-  eyeIcon: { fontSize: 16 },
-  btn: { marginTop: 24, borderRadius: 14, overflow: 'hidden' },
+  inputIcon: { marginRight: andiSpace[2] },
+  input: { flex: 1, minHeight: 48, fontSize: 15, color: andiColors.onSurface },
+  inputPassword: { paddingRight: andiSpace[2] },
+  eyeBtn: { padding: andiSpace[1] },
+  forgotRow: { alignSelf: 'flex-end', marginTop: andiSpace[2] },
+  forgotText: { ...andiType.bodySm, color: andiColors.primary600 },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: andiSpace[2],
+    marginTop: andiSpace[4],
+    paddingVertical: andiSpace[2],
+    paddingHorizontal: andiSpace[3],
+    borderLeftWidth: 3,
+    borderLeftColor: andiColors.error600,
+    backgroundColor: andiColors.error50,
+    borderRadius: andiRadius.xs,
+  },
+  errorText: { ...andiType.bodySm, color: andiColors.error700, flexShrink: 1 },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: andiSpace[2],
+    marginTop: andiSpace[4],
+    paddingVertical: andiSpace[2],
+    paddingHorizontal: andiSpace[3],
+    borderLeftWidth: 3,
+    borderLeftColor: andiColors.success600,
+    backgroundColor: andiColors.success50,
+    borderRadius: andiRadius.xs,
+  },
+  successText: { ...andiType.bodySm, color: andiColors.success700, flexShrink: 1 },
+  btn: { marginTop: andiSpace[6], borderRadius: andiRadius.full, overflow: 'hidden' },
   btnDisabled: { opacity: 0.6 },
   btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  demoBox: {
-    marginTop: 14, paddingVertical: 8, alignItems: 'center',
-    borderTopWidth: 1, borderTopColor: '#F3F4F6',
+  btnText: { ...andiType.label, color: andiColors.surface, letterSpacing: 0.5 },
+  separatorRow: { flexDirection: 'row', alignItems: 'center', marginTop: andiSpace[6], gap: andiSpace[3] },
+  separatorLine: { flex: 1, height: 1, backgroundColor: andiColors.outlineVariant },
+  separatorText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant },
+  outlineBtn: {
+    marginTop: andiSpace[6],
+    height: 52,
+    borderRadius: andiRadius.full,
+    borderWidth: 1.5,
+    borderColor: andiColors.primary600,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  demoText: { color: '#9CA3AF', fontSize: 12 },
-  registerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 14 },
-  registerText: { color: '#6B7280', fontSize: 14 },
-  registerLink: { color: '#1565C0', fontSize: 14, fontWeight: '700' },
-  footer: { textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 24 },
+  outlineBtnText: { ...andiType.label, color: andiColors.primary600 },
+  invitacionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: andiSpace[2],
+    marginTop: andiSpace[6],
+  },
+  invitacionText: { ...andiType.bodySm, color: andiColors.primary600 },
 });

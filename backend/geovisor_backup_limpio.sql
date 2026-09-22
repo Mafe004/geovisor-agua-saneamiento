@@ -179,6 +179,7 @@ CREATE TABLE `usuarios` (
   `id_estado_cuenta` int          NOT NULL,
   `id_entidad`       int          DEFAULT NULL,
   `nombre_completo`  varchar(150) NOT NULL,
+  `cargo`            varchar(120) DEFAULT NULL,
   `correo`           varchar(120) NOT NULL,
   `password_hash`    varchar(255) NOT NULL,
   `fecha_nacimiento` date         DEFAULT NULL,
@@ -202,25 +203,28 @@ CREATE TABLE `usuarios` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Contraseña de todos los usuarios de prueba: demo2025
+-- OJO: VALUES posicional, sin lista de columnas -- el orden acá tiene que
+-- calzar exacto con el de la CREATE TABLE de arriba (cargo va justo
+-- después de nombre_completo).
 INSERT INTO `usuarios` VALUES
-  (1,1,1,NULL,'Juan Pérez',              'juan@test.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+  (1,1,1,NULL,'Juan Pérez',              NULL,'juan@test.com',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','123456789',NULL,NULL,NULL,NULL,NOW(),NOW()),
 
-  (2,2,1,1,'Operador Entidad - Acueducto','operador.acueducto@demo.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+  (2,2,1,1,'Operador Entidad - Acueducto',NULL,'operador.acueducto@demo.com',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','900000001','3001112233','Colombia','Zipaquirá','Oficina principal',NOW(),NOW()),
 
-  (3,3,1,NULL,'Moderador Prueba',         'moderador@demo.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+  (3,3,1,NULL,'Moderador Prueba',         NULL,'moderador@demo.com',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','900000002','3001112244','Colombia','Zipaquirá','Oficina moderación',NOW(),NOW()),
 
-  (4,1,1,NULL,'Maria Test',              'maria.test@correo.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+  (4,1,1,NULL,'Maria Test',              NULL,'maria.test@correo.com',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','987654321','3009876543','Colombia','Zipaquirá',NULL,NOW(),NOW()),
 
-  (5,4,1,NULL,'Admin Geovisor',           'admin@geovisor.com',
-   '$pbkdf2-sha256$29000$NMa4txbCGCNEaI2RklJKSQ$1o4DhRRmByc5HAQVvxO8jR1vbgjK3yA2fEXbLOrVyQM',
+  (5,4,1,NULL,'Admin Geovisor',           NULL,'admin@geovisor.com',
+   '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
    NULL,'CC','111111111',NULL,NULL,NULL,NULL,NOW(),NOW());
 
 -- ============================================================
@@ -379,6 +383,53 @@ CREATE TABLE `recuperacion_contrasena` (
   UNIQUE KEY `token` (`token`),
   KEY `fk_recup_usuario` (`id_usuario`),
   CONSTRAINT `fk_recup_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ------------------------------------------------------------
+
+-- Códigos de invitación para altas de ENTIDAD/MODERADOR/ADMINISTRADOR --
+-- ver backend/migrations/0002_invitaciones.sql (misma definición, ya
+-- aplicada acá para que un `mysql < geovisor_backup_limpio.sql` fresco no
+-- necesite además correr migrations/run_migrations.py).
+DROP TABLE IF EXISTS `invitaciones`;
+CREATE TABLE `invitaciones` (
+  `id`         int          NOT NULL AUTO_INCREMENT,
+  `token`      char(6)      NOT NULL,
+  `id_rol`     int          NOT NULL,
+  `id_entidad` int          DEFAULT NULL,
+  `creado_por` int          NOT NULL,
+  `expira_en`  datetime     NOT NULL,
+  `usado`      tinyint(1)   NOT NULL DEFAULT 0,
+  `creado_en`  datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token` (`token`),
+  KEY `fk_invitaciones_rol` (`id_rol`),
+  KEY `fk_invitaciones_entidad` (`id_entidad`),
+  KEY `fk_invitaciones_creado_por` (`creado_por`),
+  CONSTRAINT `fk_invitaciones_rol`        FOREIGN KEY (`id_rol`)     REFERENCES `roles`     (`id_rol`),
+  CONSTRAINT `fk_invitaciones_entidad`    FOREIGN KEY (`id_entidad`) REFERENCES `entidades` (`id_entidad`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_invitaciones_creado_por` FOREIGN KEY (`creado_por`) REFERENCES `usuarios`  (`id_usuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ------------------------------------------------------------
+
+-- Solicitudes públicas de acceso como ADMINISTRADOR sin invitación previa
+-- -- ver backend/migrations/0004_solicitudes_acceso.sql (misma definición,
+-- ya aplicada acá por la misma razón que `invitaciones` arriba).
+DROP TABLE IF EXISTS `solicitudes_acceso`;
+CREATE TABLE `solicitudes_acceso` (
+  `id`              int                                        NOT NULL AUTO_INCREMENT,
+  `nombre_completo` varchar(150)                                NOT NULL,
+  `correo`          varchar(150)                                NOT NULL,
+  `motivo`          text                                        NOT NULL,
+  `estado`          enum('PENDIENTE','APROBADO','RECHAZADO')    NOT NULL DEFAULT 'PENDIENTE',
+  `revisado_por`    int                                         DEFAULT NULL,
+  `creado_en`       timestamp                                   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `revisado_en`     timestamp                                   NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `correo` (`correo`),
+  KEY `fk_solicitudes_revisado_por` (`revisado_por`),
+  CONSTRAINT `fk_solicitudes_revisado_por` FOREIGN KEY (`revisado_por`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ------------------------------------------------------------

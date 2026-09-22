@@ -9,6 +9,11 @@ import type { components } from './api';
 
 // ── Reportes ────────────────────────────────────────────────────────
 export type Reporte = components['schemas']['ReporteDetalle'];
+// Vista comunitaria de GET /reportes/{id}: la recibe un CIUDADANO que
+// consulta el reporte de otro (ver backend/app/schemas/reportes.py). No
+// trae id_usuario ni usuario -- cualquier pantalla que acepte `Reporte |
+// ReporteComunidad` debe tratar esos dos campos como ausentes.
+export type ReporteComunidad = components['schemas']['ReporteComunidadDetalle'];
 export type ReporteMapaPunto = components['schemas']['ReporteMapaPunto'];
 export type ReporteCreateRequest = components['schemas']['ReporteCreateRequest'];
 export type CrearReporteResponse = components['schemas']['CrearReporteResponse'];
@@ -16,6 +21,9 @@ export type CambiarEstadoRequest = components['schemas']['CambiarEstadoRequest']
 export type CambiarEstadoResponse = components['schemas']['CambiarEstadoResponse'];
 export type AsignarEntidadRequest = components['schemas']['AsignarEntidadRequest'];
 export type HistorialEntry = components['schemas']['HistorialEntry'];
+// Vista comunitaria de GET /reportes/{id}/historial -- sin id_usuario_accion
+// ni usuario_accion, mismo criterio que ReporteComunidad arriba.
+export type HistorialEntryComunidad = components['schemas']['HistorialEntryComunidad'];
 export type EstadisticasResponse = components['schemas']['EstadisticasResponse'];
 export type EstadisticaEstadoItem = components['schemas']['EstadisticaEstadoItem'];
 export type EstadisticaTipoItem = components['schemas']['EstadisticaTipoItem'];
@@ -43,6 +51,23 @@ export type RegistroResponse = components['schemas']['RegistroResponse'];
 export type ActualizarPerfilResponse = components['schemas']['ActualizarPerfilResponse'];
 export type CambiarPasswordResponse = components['schemas']['CambiarPasswordResponse'];
 export type CambiarEstadoUsuarioResponse = components['schemas']['CambiarEstadoUsuarioResponse'];
+export type SolicitarRecuperacion = components['schemas']['SolicitarRecuperacion'];
+export type SolicitarRecuperacionResponse = components['schemas']['SolicitarRecuperacionResponse'];
+export type RestablecerContrasena = components['schemas']['RestablecerContrasena'];
+export type RestablecerContrasenaResponse = components['schemas']['RestablecerContrasenaResponse'];
+export type RegistroConInvitacion = components['schemas']['RegistroConInvitacion'];
+export type RegistroInvitacionResponse = components['schemas']['RegistroInvitacionResponse'];
+
+// ── Invitaciones ──────────────────────────────────────────────────────
+export type CrearInvitacionRequest = components['schemas']['CrearInvitacionRequest'];
+export type CrearInvitacionResponse = components['schemas']['CrearInvitacionResponse'];
+export type ValidarInvitacionResponse = components['schemas']['ValidarInvitacionResponse'];
+
+// ── Solicitudes de acceso (Admin sin invitación) ────────────────────────
+export type CrearSolicitudAcceso = components['schemas']['CrearSolicitudAcceso'];
+export type MensajeResponse = components['schemas']['MensajeResponse'];
+export type SolicitudAccesoItem = components['schemas']['SolicitudAccesoItem'];
+export type AprobarSolicitudResponse = components['schemas']['AprobarSolicitudResponse'];
 
 // ── Entidades ─────────────────────────────────────────────────────────
 export type EntidadDetalle = components['schemas']['EntidadDetalle'];

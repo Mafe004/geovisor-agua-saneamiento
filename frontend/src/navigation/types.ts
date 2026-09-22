@@ -1,13 +1,35 @@
-import type { Reporte } from '../types/domain';
+import type { Reporte, ReporteComunidad } from '../types/domain';
 
 export type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
+  Login: { successMessage?: string } | undefined;
+  Register: { id_rol: number; codigoData?: { codigo: string; rol?: string; entidad?: string } };
+  // New Auth-flow routes (Phase 1 scaffold; screens land in Phases 3/4/6).
+  Invitacion: undefined;
+  SolicitarAcceso: undefined;
+  CuentaSuspendida: { message?: string };
+  TelefonoOpcional: { userId: number };
+  ForgotPassword: undefined;
+  // Nombre en minúsculas/guiones a propósito, a diferencia de toda otra ruta
+  // de este ParamList: sin un `linking` prop explícito en AppNavigator,
+  // React Navigation deriva el path web del nombre de ruta tal cual, y el
+  // correo de restablecimiento (app/services/email_service.py, backend)
+  // apunta literal a "{FRONTEND_URL}/nueva-contrasena?token=..." -- el
+  // nombre de ruta ES el path público, así que tiene que coincidir exacto.
+  'nueva-contrasena': { token?: string } | undefined;
   CiudadanoHome: undefined;
   EntidadHome: undefined;
   ModeradorHome: undefined;
   AdminHome: undefined;
-  DetalleReporte: { reporte: Reporte };
+  // Admin profile, reached from the Dashboard header avatar (not a tab).
+  AdminPerfil: undefined;
+  // Admin-only, reached from AdminPerfil's section list.
+  SolicitudesAcceso: undefined;
+  // ReporteComunidad: solo llega aquí desde el Mapa/Detalle de Ciudadano,
+  // cuando el reporte abierto es de otro usuario (vista comunitaria, sin
+  // id_usuario/usuario -- ver reportesAPI.obtener en api/services.ts).
+  // Entidad/Moderador/Administrador solo navegan aquí con un Reporte
+  // completo, nunca con la vista reducida.
+  DetalleReporte: { reporte: Reporte | ReporteComunidad };
 };
 
 // Tabs de CiudadanoTabs (AppNavigator.tsx) -- ciudadano y entidad navegan
@@ -18,7 +40,9 @@ export type RootStackParamList = {
 export type CiudadanoTabParamList = {
   Mapa: undefined;
   Reportes: undefined;
-  Crear: undefined;
+  // draftId opcional: permite reanudar un borrador local guardado con
+  // utils/offlineDrafts.ts (ver MisReportesScreen -> "Seguir").
+  Crear: { draftId?: string } | undefined;
   Notificaciones: undefined;
   Perfil: undefined;
 };
@@ -30,4 +54,15 @@ export type EntidadTabParamList = {
   Historial: undefined;
   Mapa: undefined;
   Perfil: undefined;
+};
+
+// AdminTabs (AppNavigator.tsx) -- DashboardScreen's "Revisarlas" button jumps
+// to the sibling Usuarios tab with a filter param, same sibling-navigation
+// need as the ParamLists above.
+export type AdminTabParamList = {
+  Panel: undefined;
+  Reportes: undefined;
+  Usuarios: { filter?: string } | undefined;
+  Entidades: undefined;
+  Auditoría: undefined;
 };

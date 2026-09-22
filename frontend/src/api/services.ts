@@ -2,6 +2,7 @@ import client from './client';
 import type { operations } from '../types/api';
 import type {
   ActualizarEntidadResponse,
+  AprobarSolicitudResponse,
   ActualizarInfraestructuraResponse,
   ActualizarPerfil,
   ActualizarPerfilResponse,
@@ -21,13 +22,17 @@ import type {
   ComunidadMapa,
   CrearEntidadResponse,
   CrearInfraestructuraResponse,
+  CrearInvitacionRequest,
+  CrearInvitacionResponse,
   CrearReporteResponse,
+  CrearSolicitudAcceso,
   EntidadCreate,
   EntidadDetalle,
   EntidadUpdate,
   EstadisticasResponse,
   EstadoReporteItem,
   HistorialEntry,
+  HistorialEntryComunidad,
   InfraestructuraCreate,
   InfraestructuraItem,
   InfraestructuraUpdate,
@@ -35,24 +40,35 @@ import type {
   LoginResponse,
   MarcarLeidaResponse,
   MarcarTodasLeidasResponse,
+  MensajeResponse,
   MunicipioSiasar,
   NotificacionItem,
+  PendientesResponse,
   PerfilResponse,
+  RegistroConInvitacion,
+  RegistroInvitacionResponse,
   RegistroResponse,
   RegistroUsuario,
   Reporte,
+  ReporteComunidad,
   ReporteCreateRequest,
   ReporteMapaPunto,
+  RestablecerContrasena,
+  RestablecerContrasenaResponse,
   ResumenModuloItem,
   ResumenMunicipio,
   SeveridadItem,
   SistemaDetalle,
   SistemaMapa,
+  SolicitarRecuperacion,
+  SolicitarRecuperacionResponse,
+  SolicitudAccesoItem,
   TipoIncidenteItem,
   UserPublic,
   UsuarioDetalleResponse,
   UsuarioListItem,
   UsuariosDeEntidadResponse,
+  ValidarInvitacionResponse,
 } from '../types/domain';
 
 type ReportesQuery = operations['listar_reportes_reportes__get']['parameters']['query'];
@@ -76,6 +92,10 @@ export const usuariosAPI = {
   register: (data: RegistroUsuario) => client.post<RegistroResponse>('/usuarios/registro', data),
   registro: (data: RegistroUsuario) =>
     client.post<RegistroResponse>('/usuarios/registro', data), // alias
+  // Registro de Entidad/Moderador/Administrador vía código de invitación
+  // (público, sin JWT -- el rol lo decide el token, no el cliente).
+  registrarConInvitacion: (data: RegistroConInvitacion) =>
+    client.post<RegistroInvitacionResponse>('/usuarios/registro-invitacion', data),
   // Perfil propio
   perfil: () => client.get<PerfilResponse>('/usuarios/perfil'),
   actualizarPerfil: (data: ActualizarPerfil) =>
@@ -85,9 +105,15 @@ export const usuariosAPI = {
   // Gestión (admin)
   listar: (params?: Record<string, unknown>) =>
     client.get<UsuarioListItem[]>('/usuarios/', { params }),
+  pendientes: () => client.get<PendientesResponse>('/usuarios/pendientes'),
   detalle: (id: number) => client.get<UsuarioDetalleResponse>(`/usuarios/${id}`),
   cambiarEstado: (id: number, data: CambiarEstadoCuenta) =>
     client.put<CambiarEstadoUsuarioResponse>(`/usuarios/${id}/estado`, data),
+  // Recuperación de contraseña (pública, sin token)
+  solicitarRecuperacion: (data: SolicitarRecuperacion) =>
+    client.post<SolicitarRecuperacionResponse>('/usuarios/solicitar-recuperacion', data),
+  restablecerContrasena: (data: RestablecerContrasena) =>
+    client.post<RestablecerContrasenaResponse>('/usuarios/restablecer-contrasena', data),
 };
 
 // ========================
@@ -95,7 +121,10 @@ export const usuariosAPI = {
 // ========================
 export const reportesAPI = {
   listar: (params?: ReportesQuery) => client.get<Reporte[]>('/reportes/', { params }),
-  obtener: (id: number) => client.get<Reporte>(`/reportes/${id}`),
+  // GET /reportes/{id} devuelve la vista comunitaria reducida (sin
+  // id_usuario/usuario) cuando un CIUDADANO consulta el reporte de otro --
+  // ver backend/app/routers/reportes.py: obtener_reporte().
+  obtener: (id: number) => client.get<Reporte | ReporteComunidad>(`/reportes/${id}`),
   crear: (data: ReporteCreateRequest) => client.post<CrearReporteResponse>('/reportes/', data),
   cambiarEstado: (id: number, data: CambiarEstadoRequest) =>
     client.put<CambiarEstadoResponse>(`/reportes/${id}/estado`, data),
@@ -103,7 +132,10 @@ export const reportesAPI = {
     client.put<CambiarEstadoResponse>(`/reportes/${id}/entidad`, data),
   mapa: () => client.get<ReporteMapaPunto[]>('/reportes/mapa'),
   estadisticas: () => client.get<EstadisticasResponse>('/reportes/estadisticas'),
-  historial: (id: number) => client.get<HistorialEntry[]>(`/reportes/${id}/historial`),
+  // Mismo criterio que obtener(): reducido para un CIUDADANO viendo el
+  // historial de un reporte comunitario -- ver historial.py: historial_reporte().
+  historial: (id: number) =>
+    client.get<HistorialEntry[] | HistorialEntryComunidad[]>(`/reportes/${id}/historial`),
 };
 
 // ========================
@@ -154,6 +186,34 @@ export const entidadesAPI = {
   asignarUsuario: (eid: number, uid: number) =>
     client.put<AsignarUsuarioResponse>(`/entidades/${eid}/asignar-usuario/${uid}`),
   usuarios: (id: number) => client.get<UsuariosDeEntidadResponse>(`/entidades/${id}/usuarios`),
+};
+
+// ========================
+// INVITACIONES
+// ========================
+export const invitacionesAPI = {
+  // Solo ADMIN (require_roles(Rol.ADMIN) en el backend).
+  crear: (data: CrearInvitacionRequest) =>
+    client.post<CrearInvitacionResponse>('/invitaciones/', data),
+  // Público, sin JWT -- validación del código antes de mostrar el
+  // formulario de registro (InvitacionScreen).
+  validar: (token: string) =>
+    client.get<ValidarInvitacionResponse>(`/invitaciones/${token}`),
+};
+
+// ========================
+// SOLICITUDES DE ACCESO (Admin sin invitación previa)
+// ========================
+export const solicitudesAccesoAPI = {
+  // Público, sin JWT.
+  crear: (data: CrearSolicitudAcceso) =>
+    client.post<MensajeResponse>('/solicitudes-acceso/', data),
+  // Solo ADMIN a partir de acá.
+  listar: () => client.get<SolicitudAccesoItem[]>('/solicitudes-acceso/'),
+  aprobar: (id: number) =>
+    client.patch<AprobarSolicitudResponse>(`/solicitudes-acceso/${id}/aprobar`),
+  rechazar: (id: number) =>
+    client.patch<MensajeResponse>(`/solicitudes-acceso/${id}/rechazar`),
 };
 
 // ========================

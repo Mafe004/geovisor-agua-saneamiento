@@ -126,6 +126,15 @@ export const reportesAPI = {
   // ver backend/app/routers/reportes.py: obtener_reporte().
   obtener: (id: number) => client.get<Reporte | ReporteComunidad>(`/reportes/${id}`),
   crear: (data: ReporteCreateRequest) => client.post<CrearReporteResponse>('/reportes/', data),
+  // Evidencia fotográfica opcional: devuelve la ruta relativa
+  // (/uploads/reportes/<uuid>.jpg) que luego va como imagen_url en crear().
+  // Content-Type y timeout solo para esta request -- el default JSON/12s
+  // de client.ts no se toca.
+  subirImagen: (form: FormData) =>
+    client.post<{ imagen_url: string }>('/reportes/imagen', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    }),
   cambiarEstado: (id: number, data: CambiarEstadoRequest) =>
     client.put<CambiarEstadoResponse>(`/reportes/${id}/estado`, data),
   asignarEntidad: (id: number, data: AsignarEntidadRequest) =>

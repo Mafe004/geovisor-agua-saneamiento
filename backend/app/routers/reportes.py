@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.audit import Accion, Modulo, registrar_auditoria
@@ -22,10 +24,20 @@ from app.schemas.reportes import (
     ReporteComunidadDetalle,
     ReporteDetalle,
     ReporteMapaPunto,
+    SubirImagenResponse,
 )
 from app.services.siasar import buscar_comunidad_cercana
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
+
+# Evidencia fotográfica: main.py crea IMAGENES_REPORTES_DIR al arrancar y
+# monta UPLOADS_DIR en /uploads con StaticFiles -- por eso la ruta que se
+# guarda en reportes.imagen_url es relativa a ese mount, nunca un path de
+# disco ni una URL con host.
+UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
+IMAGENES_REPORTES_DIR = UPLOADS_DIR / "reportes"
+MAX_IMAGEN_BYTES = 5 * 1024 * 1024
+IMAGEN_URL_PATTERN = r"^/uploads/reportes/[0-9a-f]{32}\.(jpg|png|webp)$"
 
 
 # =========================
@@ -45,7 +57,10 @@ class ReporteCreateRequest(BaseModel):
     direccion: str | None = Field(None, max_length=255)
     latitud: float | None = None
     longitud: float | None = None
-    imagen_url: str | None = Field(None, max_length=500)
+    # varchar(300) en MySQL. Solo acepta rutas devueltas por POST
+    # /reportes/imagen -- nunca un file:// local del teléfono ni una URL
+    # externa.
+    imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
     fuente_reporte: str = Field("CIUDADANO", max_length=50)
 
 
@@ -159,6 +174,20 @@ def _reporte_a_comunidad(row: dict[str, Any]) -> dict[str, Any]:
     (nombre del creador) -- ver puede_ver_detalle_comunitario().
     """
     return {k: v for k, v in row.items() if k not in ("id_usuario", "usuario")}
+
+
+def _extension_imagen(data: bytes) -> str | None:
+    """
+    Detecta el formato por magic bytes (no por filename ni content-type,
+    que los controla el cliente). None si no es JPG, PNG ni WEBP.
+    """
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
 
 
 def _insertar_historial(
@@ -468,6 +497,41 @@ def obtener_reporte(
         handle_db_error(e)
     finally:
         conn.close()
+
+
+@router.post(
+    "/imagen",
+    status_code=201,
+    summary="Subir evidencia fotográfica (CIUDADANO / ENTIDAD)",
+    response_model=SubirImagenResponse,
+    responses={
+        413: {"description": "La imagen supera 5 MB"},
+        415: {"description": "Formato no permitido"},
+    },
+)
+def subir_imagen(
+    archivo: UploadFile = File(...),
+    user: dict[str, Any] = Depends(require_roles(Rol.CIUDADANO, Rol.ENTIDAD)),
+) -> dict[str, Any]:
+    """
+    Paso previo (opcional) a POST /reportes/: guarda la foto y devuelve la
+    ruta relativa que el cliente envía como imagen_url. Mismos roles que
+    pueden crear reportes. El nombre en disco es siempre un UUID generado
+    acá -- el filename del cliente nunca se usa, así no hay path traversal.
+    """
+    # Lee como máximo un byte de más: basta para saber si se pasó del
+    # límite sin cargar en memoria un archivo arbitrariamente grande.
+    data = archivo.file.read(MAX_IMAGEN_BYTES + 1)
+    if len(data) > MAX_IMAGEN_BYTES:
+        raise HTTPException(status_code=413, detail="La imagen supera el máximo de 5 MB")
+
+    ext = _extension_imagen(data)
+    if not ext:
+        raise HTTPException(status_code=415, detail="Formato no permitido. Usa JPG, PNG o WEBP")
+
+    nombre = f"{uuid4().hex}.{ext}"
+    (IMAGENES_REPORTES_DIR / nombre).write_bytes(data)
+    return {"imagen_url": f"/uploads/reportes/{nombre}"}
 
 
 @router.post(

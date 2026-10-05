@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator,
+  ScrollView, Alert, ActivityIndicator, Image, Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, type CompositeNavigationProp, type RouteProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -43,6 +44,22 @@ const PRELLENADO: Record<string, string> = {
 
 type Mode = 'form' | 'draft-saved' | 'success';
 
+// En móvil el FormData de React Native acepta {uri, name, type} y lee el
+// archivo él mismo; en web ese objeto no sirve y hay que adjuntar el Blob.
+async function construirFormFoto(foto: ImagePicker.ImagePickerAsset): Promise<FormData> {
+  const form = new FormData();
+  const name = foto.fileName || 'foto.jpg';
+  const type = foto.mimeType || 'image/jpeg';
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(foto.uri)).blob();
+    form.append('archivo', blob, name);
+  } else {
+    // El tipo TS de FormData es el del DOM y no conoce la forma {uri,name,type}.
+    form.append('archivo', { uri: foto.uri, name, type } as unknown as Blob);
+  }
+  return form;
+}
+
 export default function CrearReporteScreen({ navigation, route }: Props) {
   const draftId = route.params?.draftId ?? null;
 
@@ -62,6 +79,11 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
   const [successSummary, setSuccessSummary] = useState('');
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId);
   const [proximidadSiasar, setProximidadSiasar] = useState<CercanaResponse | null>(null);
+  // Evidencia opcional. fotoSubida = ruta ya devuelta por /reportes/imagen
+  // para esta misma foto: si luego falla la creación del reporte, el
+  // reintento la reutiliza en vez de subirla otra vez.
+  const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [fotoSubida, setFotoSubida] = useState<string | null>(null);
 
   useEffect(() => {
     catalogosAPI.tiposIncidente().then((r) => setTipos(r.data || [])).catch(() => {});
@@ -139,10 +161,32 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
 
   const handleCenterChange = ({ latitude, longitude }: MapCenterChange) => setCoordenadas({ latitude, longitude });
 
+  const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
+    if (result.canceled || !result.assets?.length) return;
+    setFoto(result.assets[0]);
+    setFotoSubida(null);
+  };
+
+  const tomarFoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.');
+      return;
+    }
+    elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
+  };
+
+  const elegirDeGaleria = async () => {
+    elegirFoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 }));
+  };
+
+  const quitarFoto = () => { setFoto(null); setFotoSubida(null); };
+
   const resetForm = () => {
     setDescripcion(''); setDireccion(''); setCoordenadas(null);
     setIdTipo(null); setSeveridad('MEDIA'); setDescTouched(false);
     setCurrentDraftId(null); setProximidadSiasar(null);
+    setFoto(null); setFotoSubida(null);
   };
 
   const tipoLabel = () => tipos.find((t) => t.id_tipo_incidente === idTipo)?.nombre;
@@ -189,6 +233,28 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
       fuente_reporte: 'CIUDADANO',
     };
 
+    // Sin foto: payload idéntico al de siempre (sin la clave imagen_url).
+    if (!foto) { await crearReporte(payload); return; }
+
+    if (fotoSubida) { await crearReporte({ ...payload, imagen_url: fotoSubida }); return; }
+
+    let imagenUrl: string;
+    try {
+      setLoading(true);
+      imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
+      setFotoSubida(imagenUrl);
+    } catch (_) {
+      setLoading(false);
+      Alert.alert('No se pudo subir la foto.', '¿Quieres reintentar o enviar el reporte sin foto?', [
+        { text: 'Reintentar', onPress: () => { handleSubmit(); } },
+        { text: 'Enviar sin foto', onPress: () => { crearReporte(payload); } },
+      ]);
+      return;
+    }
+    await crearReporte({ ...payload, imagen_url: imagenUrl });
+  };
+
+  const crearReporte = async (payload: ReporteCreateRequest) => {
     try {
       setLoading(true);
       await reportesAPI.crear(payload);
@@ -383,6 +449,34 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             />
           </Section>
 
+          <Section n="05" title="Foto (opcional)">
+            {foto ? (
+              <View style={styles.fotoCard}>
+                <Image source={{ uri: foto.uri }} style={styles.fotoPreview} resizeMode="cover" />
+                <View style={[styles.fotoActions, styles.fotoActionsCard]}>
+                  <TouchableOpacity style={styles.fotoBtn} onPress={elegirDeGaleria} disabled={loading}>
+                    <Text style={styles.fotoBtnText}>Cambiar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.fotoBtn} onPress={tomarFoto} disabled={loading}>
+                    <Text style={styles.fotoBtnText}>Tomar otra</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.fotoBtn} onPress={quitarFoto} disabled={loading}>
+                    <Text style={styles.fotoBtnRemoveText}>Quitar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.fotoActions}>
+                <TouchableOpacity style={styles.fotoBtn} onPress={tomarFoto}>
+                  <Text style={styles.fotoBtnText}>Tomar foto</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.fotoBtn} onPress={elegirDeGaleria}>
+                  <Text style={styles.fotoBtnText}>Galería</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Section>
+
           <TouchableOpacity style={styles.draftLink} onPress={handleSaveDraft}>
             <Text style={styles.draftLinkText}>Guardar como borrador para terminar después</Text>
           </TouchableOpacity>
@@ -447,6 +541,14 @@ const styles = StyleSheet.create({
   siasarHint: { fontSize: 11, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
 
   textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: 14, color: ANDI_COLORS.onSurface, minHeight: 90 },
+
+  fotoCard: { borderRadius: ANDI_RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, backgroundColor: ANDI_COLORS.surface },
+  fotoPreview: { width: '100%', height: 180 },
+  fotoActions: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
+  fotoActionsCard: { padding: ANDI_SPACING.s3 },
+  fotoBtn: { flex: 1, minHeight: 44, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
+  fotoBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
+  fotoBtnRemoveText: { color: ANDI_COLORS.error, fontWeight: '600', fontSize: 12 },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
   draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },

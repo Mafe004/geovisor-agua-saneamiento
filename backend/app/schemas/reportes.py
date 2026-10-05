@@ -93,6 +93,15 @@ class CrearReporteResponse(BaseModel):
     reporte: ReporteDetalle
 
 
+class SubirImagenResponse(BaseModel):
+    """Respuesta de POST /reportes/imagen: ruta relativa (sin host) que el
+    cliente manda luego como imagen_url al crear el reporte -- el host lo
+    pone el frontend al mostrarla (API_URL), así una IP LAN que cambie no
+    deja URLs rotas guardadas en la base."""
+
+    imagen_url: str
+
+
 class CambiarEstadoResponse(BaseModel):
     message: str
     reporte: ReporteDetalle

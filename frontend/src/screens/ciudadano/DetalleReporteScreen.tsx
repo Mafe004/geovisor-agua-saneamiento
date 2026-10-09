@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform, Image } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { API_URL } from '../../api/client';
 import { reportesAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { SeverityChip, CategoryChip } from '../../components/ciudadano/Chip';
@@ -49,6 +50,33 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
   }, [idReporte]);
 
   useFocusEffect(useCallback(() => { loadHistorial(); }, [loadHistorial]));
+
+  // imagen_url llega relativa al mount /uploads del backend
+  // (/uploads/reportes/<uuid>.jpg) -- se antepone el mismo API_URL que usa
+  // axios. Una URL absoluta (filas antiguas) se usa tal cual.
+  const imagenPath = reporte.imagen_url?.trim();
+  const imagenUri = imagenPath
+    ? /^https?:\/\//i.test(imagenPath)
+      ? imagenPath
+      : `${API_URL}${imagenPath.startsWith('/') ? '' : '/'}${imagenPath}`
+    : null;
+  const [fotoRatio, setFotoRatio] = useState<number | null>(null);
+  const [fotoError, setFotoError] = useState(false);
+
+  useEffect(() => {
+    setFotoRatio(null);
+    setFotoError(false);
+    if (!imagenUri) return;
+    // Proporción real de la foto para que ocupe el ancho disponible sin
+    // deformarse (vertical u horizontal).
+    let cancelado = false;
+    Image.getSize(
+      imagenUri,
+      (w, h) => { if (!cancelado) setFotoRatio(w > 0 && h > 0 ? w / h : 4 / 3); },
+      () => { if (!cancelado) setFotoError(true); },
+    );
+    return () => { cancelado = true; };
+  }, [imagenUri]);
 
   const hasCoords = reporte.latitud != null && reporte.longitud != null
     && !(Number(reporte.latitud) === 0 && Number(reporte.longitud) === 0);
@@ -114,6 +142,25 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
 
           <Text style={styles.description}>{reporte.descripcion || '—'}</Text>
 
+          {!!imagenUri && (
+            <View style={{ gap: ANDI_SPACING.s2 }}>
+              <Text style={styles.sectionLabel}>Evidencia fotográfica</Text>
+              {fotoError ? (
+                <Text style={styles.emptyHistorial}>No se pudo cargar la fotografía.</Text>
+              ) : fotoRatio == null ? (
+                <Skeleton height={200} radius={ANDI_RADIUS.xl} />
+              ) : (
+                <Image
+                  source={{ uri: imagenUri }}
+                  style={[styles.foto, { aspectRatio: fotoRatio }]}
+                  resizeMode="contain"
+                  accessibilityLabel="Fotografía adjunta al reporte"
+                  onError={() => setFotoError(true)}
+                />
+              )}
+            </View>
+          )}
+
           <View style={styles.nowCard}>
             <Text style={styles.nowKicker}>Ahora mismo</Text>
             {/* ReporteDetalle no expone un nombre de entidad (solo
@@ -167,6 +214,8 @@ const styles = StyleSheet.create({
   mapBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
 
   description: { ...ANDI_TYPE.bodyLg, color: ANDI_COLORS.onSurface },
+
+  foto: { width: '100%', borderRadius: ANDI_RADIUS.xl, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, backgroundColor: ANDI_COLORS.surface },
 
   nowCard: { backgroundColor: ANDI_COLORS.primary900, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
   nowKicker: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary300, marginBottom: ANDI_SPACING.s2 },

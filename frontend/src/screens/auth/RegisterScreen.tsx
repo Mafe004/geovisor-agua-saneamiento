@@ -13,6 +13,7 @@ import type { RegistroUsuario } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 import { Rol } from '../../types/models';
 import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -54,13 +55,14 @@ function Field({
   rightIcon?: keyof typeof Feather.glyphMap;
   onRightIconPress?: () => void;
 }) {
+  const r = useResponsive();
   return (
     <>
       <Text style={styles.label}>{label}</Text>
       <View style={[styles.inputWrap, readOnly && styles.inputWrapReadOnly]}>
         <Feather name={icon} size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { fontSize: r.scaleFont(15) }]}
           placeholder={placeholder}
           placeholderTextColor={andiColors.onSurfaceVariant}
           value={value}
@@ -612,6 +614,7 @@ function AdministradorFlow({ navigation, route }: Props) {
 export default function RegisterScreen(props: Props) {
   const { navigation, route } = props;
   const { id_rol } = route.params;
+  const r = useResponsive();
 
   let content: React.ReactNode;
   if (id_rol === Rol.ENTIDAD) content = <EntidadFlow {...props} />;
@@ -622,9 +625,11 @@ export default function RegisterScreen(props: Props) {
   return (
     <View style={styles.screen}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Header id_rol={id_rol} onBack={() => navigation.goBack()} />
-          <View style={styles.card}>{content}</View>
+        <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} keyboardShouldPersistTaps="handled">
+          <View style={{ width: '100%', maxWidth: r.maxContentWidth(560) }}>
+            <Header id_rol={id_rol} onBack={() => navigation.goBack()} />
+            <View style={styles.card}>{content}</View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

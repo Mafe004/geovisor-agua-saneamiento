@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { andiColors, andiRadius, andiSpace, andiType } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase } from '../../theme/andi';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 
 interface AndiErrorStateProps {
   icon: keyof typeof Feather.glyphMap;
@@ -22,6 +23,9 @@ export default function AndiErrorState({
   icon, title, body, code, ctaLabel, onPressCta,
   ctaVariant = 'solid', iconBg = andiColors.surfaceMid, iconFg = andiColors.onSurfaceVariant,
 }: AndiErrorStateProps) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <View style={styles.container}>
       <View style={[styles.circle, { backgroundColor: iconBg }]}>
@@ -42,19 +46,19 @@ export default function AndiErrorState({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: andiSpace[6] },
   circle: {
     width: 112, height: 112, borderRadius: andiRadius.full,
     alignItems: 'center', justifyContent: 'center', marginBottom: andiSpace[5],
   },
   title: { color: andiColors.onSurface, marginBottom: andiSpace[2], textAlign: 'center' },
-  body: { color: andiColors.onSurfaceVariant, textAlign: 'center', maxWidth: 300, marginBottom: andiSpace[4] },
+  body: { color: andiColors.onSurfaceVariant, textAlign: 'center', maxWidth: r.isTablet ? 420 : 300, marginBottom: andiSpace[4] },
   codeChip: { backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg, paddingHorizontal: andiSpace[3], paddingVertical: andiSpace[2], marginBottom: andiSpace[6] },
-  codeText: { fontFamily: 'monospace', fontSize: 12, lineHeight: 16, fontWeight: '500', color: andiColors.onSurfaceVariant },
+  codeText: { fontFamily: 'monospace', fontSize: r.scaleFont(12), lineHeight: r.scaleFont(16), fontWeight: '500', color: andiColors.onSurfaceVariant },
   cta: { minHeight: 48, paddingHorizontal: andiSpace[6], borderRadius: andiRadius.full, alignItems: 'center', justifyContent: 'center' },
   ctaOutline: { borderWidth: 1, borderColor: andiColors.outline },
   ctaSolid: { backgroundColor: andiColors.primary600 },
-  ctaText: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: andiColors.onSurface },
+  ctaText: { fontSize: r.scaleFont(14), lineHeight: r.scaleFont(20), fontWeight: '600', color: andiColors.onSurface },
   ctaTextSolid: { color: andiColors.n0 },
 });

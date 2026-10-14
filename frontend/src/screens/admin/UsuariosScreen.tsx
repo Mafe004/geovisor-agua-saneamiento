@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
   RefreshControl, Modal, ActivityIndicator,
@@ -9,7 +9,8 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { usuariosAPI } from '../../api/services';
 import type { UsuarioListItem } from '../../types/domain';
 import type { AdminTabParamList } from '../../navigation/types';
-import { andiColors, andiType, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Props = BottomTabScreenProps<AdminTabParamList, 'Usuarios'>;
 
@@ -43,6 +44,9 @@ function initials(nombre: string) {
 }
 
 export default function UsuariosScreen({ route }: Props) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const [usuarios, setUsuarios] = useState<UsuarioListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -201,7 +205,7 @@ export default function UsuariosScreen({ route }: Props) {
         <FlatList
           data={usuariosFiltrados}
           keyExtractor={u => String(u.id_usuario)}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadUsuarios(true); }} colors={[andiColors.primary600]} />
           }
@@ -264,7 +268,7 @@ export default function UsuariosScreen({ route }: Props) {
 
       <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
             <Text style={styles.modalTitle}>¿Suspender cuenta?</Text>
             <Text style={styles.modalMessage}>{confirmMessage}</Text>
             <TextInput
@@ -305,7 +309,7 @@ export default function UsuariosScreen({ route }: Props) {
           activeOpacity={1}
           onPress={() => setPendingActionUser(null)}
         >
-          <TouchableOpacity style={styles.sheetCard} activeOpacity={1} onPress={() => {}}>
+          <TouchableOpacity style={[styles.sheetCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]} activeOpacity={1} onPress={() => {}}>
             <View style={styles.sheetHandle} />
             {pendingActionUser && (
               <>
@@ -343,7 +347,7 @@ export default function UsuariosScreen({ route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   header: { height: 160, paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4] },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2] },

@@ -1,11 +1,12 @@
-import React, { useState, useContext, useCallback } from 'react';
+import React, { useState, useContext, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { reportesAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
-import { andiColors, andiRadius, andiSpace, andiType, andiOverlineDecor, andiStatusPill, andiSeverityColor } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiSeverityColor } from '../../theme/andi';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { EstadisticasResponse } from '../../types/domain';
 
 const MES_LABEL: Record<string, string> = {
@@ -23,6 +24,9 @@ function cap(s: string) {
 }
 
 export default function CifrasEntidadScreen() {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
+  const andiType = useScaledType(andiTypeBase);
   const { user } = useContext(AuthContext);
   const [stats, setStats] = useState<EstadisticasResponse | null>(null);
   const [entidadNombre, setEntidadNombre] = useState('');
@@ -63,7 +67,8 @@ export default function CifrasEntidadScreen() {
         {loading ? (
           <View style={styles.center}><ActivityIndicator size="large" color={andiColors.primary} /></View>
         ) : (
-          <ScrollView contentContainerStyle={styles.scroll}>
+          <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}>
+            <View style={styles.contentWrap}>
             <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Por estado</Text>
             <View style={{ gap: andiSpace[2] }}>
               {['PENDIENTE', 'EN_REVISION', 'EN_PROCESO', 'RESUELTO'].map(nombre => {
@@ -118,6 +123,7 @@ export default function CifrasEntidadScreen() {
             <Text style={[andiType.caption, styles.footerNote]}>
               Todo sale de /reportes/estadisticas, ya filtrado por tu entidad en el servidor.
             </Text>
+            </View>
           </ScrollView>
         )}
       </AndiBody>
@@ -131,17 +137,18 @@ function interpolatePrimary(t: number) {
   return stops[idx] ?? andiColors.primary400;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: andiSpace[5], paddingTop: andiSpace[5], paddingBottom: andiSpace[8] },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
   sectionLabel: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[3], marginTop: andiSpace[2] },
 
   barRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[3] },
   barLabel: { width: 88, flexShrink: 0, color: andiColors.onSurface },
   barTrack: { flex: 1, height: 24, borderRadius: andiRadius.full, backgroundColor: andiColors.surfaceMid, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: andiRadius.full },
-  barCount: { width: 24, textAlign: 'right', fontFamily: 'monospace', fontSize: 14, fontWeight: '600', color: andiColors.onSurface },
+  barCount: { width: 24, textAlign: 'right', fontFamily: 'monospace', fontSize: r.scaleFont(14), fontWeight: '600', color: andiColors.onSurface },
 
   severidadRow: { flexDirection: 'row', gap: andiSpace[2] },
   severidadCard: { flex: 1, backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg, padding: andiSpace[3] },
@@ -149,7 +156,7 @@ const styles = StyleSheet.create({
   dot10: { width: 10, height: 10, borderRadius: 5 },
   severidadLabel: { color: andiColors.onSurfaceVariant },
 
-  mesChart: { flexDirection: 'row', alignItems: 'flex-end', gap: andiSpace[2], height: 120 },
+  mesChart: { flexDirection: 'row', alignItems: 'flex-end', gap: andiSpace[2], height: r.scaleHeight(120) },
   mesCol: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 6 },
   mesBar: { width: '100%', borderTopLeftRadius: andiRadius.sm, borderTopRightRadius: andiRadius.sm },
   mesLabel: { color: andiColors.onSurfaceVariant },

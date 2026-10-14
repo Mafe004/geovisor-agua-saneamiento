@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthContext } from '../../context/AuthContext';
 import type { RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TelefonoOpcional'>;
 
@@ -15,6 +16,8 @@ const INFO_ROWS: { icon: keyof typeof Feather.glyphMap; text: string }[] = [
 ];
 
 export default function TelefonoOpcionalScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { logout } = useContext(AuthContext);
   const [telefono, setTelefono] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,6 +49,7 @@ export default function TelefonoOpcionalScreen({ navigation }: Props) {
 
   return (
     <View style={styles.screen}>
+      <View style={styles.contentWrap}>
       <View style={styles.hero}>
         <Feather name="phone" size={64} color={andiColors.primary600} />
         <Text style={styles.title}>¿Añades tu teléfono?</Text>
@@ -90,22 +94,24 @@ export default function TelefonoOpcionalScreen({ navigation }: Props) {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: andiColors.surface, padding: andiSpace[6] },
+const makeStyles = (r: Responsive) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: andiColors.surface, padding: andiSpace[6], alignItems: 'center' },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(480) },
   hero: { alignItems: 'center', marginTop: andiSpace[10] },
-  title: { ...andiType.headingMd, color: andiColors.onSurface, marginTop: andiSpace[4], textAlign: 'center' },
-  subtitle: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[2], textAlign: 'center' },
+  title: { ...r.scaleType(andiType.headingMd), color: andiColors.onSurface, marginTop: andiSpace[4], textAlign: 'center' },
+  subtitle: { ...r.scaleType(andiType.bodySm), color: andiColors.onSurfaceVariant, marginTop: andiSpace[2], textAlign: 'center' },
 
   infoTable: { marginTop: andiSpace[8], gap: andiSpace[3] },
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[3] },
-  infoText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, flex: 1, lineHeight: 18 },
+  infoText: { ...r.scaleType(andiType.bodySm), color: andiColors.onSurfaceVariant, flex: 1, lineHeight: 18 },
 
   label: {
-    ...andiType.labelSm, textTransform: 'uppercase', letterSpacing: 1.5,
+    ...r.scaleType(andiType.labelSm), textTransform: 'uppercase', letterSpacing: 1.5,
     color: andiColors.onSurfaceVariant, marginTop: andiSpace[8],
   },
   inputWrap: {
@@ -114,9 +120,9 @@ const styles = StyleSheet.create({
     backgroundColor: andiColors.surfaceDim, paddingHorizontal: andiSpace[3],
     marginTop: andiSpace[2], minHeight: 48,
   },
-  prefix: { ...andiType.bodyLg, color: andiColors.onSurface },
+  prefix: { ...r.scaleType(andiType.bodyLg), color: andiColors.onSurface },
   prefixDivider: { width: 1, height: 20, backgroundColor: andiColors.outlineVariant, marginHorizontal: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: 15, color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
 
   btnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[8] },
   outlineBtn: {
@@ -124,9 +130,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: andiColors.primary600,
     justifyContent: 'center', alignItems: 'center',
   },
-  outlineBtnText: { ...andiType.label, color: andiColors.primary600 },
+  outlineBtnText: { ...r.scaleType(andiType.label), color: andiColors.primary600 },
   primaryBtn: { flex: 1, borderRadius: andiRadius.full, overflow: 'hidden' },
   btnDisabled: { opacity: 0.5 },
   primaryBtnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
-  primaryBtnText: { ...andiType.label, color: andiColors.surface, textAlign: 'center' },
+  primaryBtnText: { ...r.scaleType(andiType.label), color: andiColors.surface, textAlign: 'center' },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -6,7 +6,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { usuariosAPI, auditoriaAPI } from '../../api/services';
 import type { RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminPerfil'>;
 
@@ -16,6 +17,9 @@ function initials(nombre: string) {
 }
 
 export default function AdminPerfilScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const { user, logout } = useAuth();
   const [isOnlyAdmin, setIsOnlyAdmin] = useState<boolean | null>(null);
   const [misAcciones, setMisAcciones] = useState<number | null>(null);
@@ -83,7 +87,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
           </View>
         </LinearGradient>
 
-        <View style={styles.body}>
+        <View style={[styles.body, { width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }]}>
           {isOnlyAdmin && (
             <View style={styles.warningBanner}>
               <Feather name="alert-triangle" size={18} color={andiColors.error600} />
@@ -157,7 +161,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
 
       <Modal visible={logoutConfirmVisible} transparent animationType="fade" onRequestClose={() => setLogoutConfirmVisible(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
             <Text style={styles.modalTitle}>¿Cerrar sesión?</Text>
             <View style={styles.modalBtnRow}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setLogoutConfirmVisible(false)}>
@@ -174,7 +178,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: andiColors.surfaceMid },
   scroll: { flexGrow: 1 },
   header: { height: 200, paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4] },

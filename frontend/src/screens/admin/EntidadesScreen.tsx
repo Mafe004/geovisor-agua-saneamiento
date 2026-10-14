@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch,
   ActivityIndicator, RefreshControl,
@@ -7,7 +7,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { entidadesAPI } from '../../api/services';
 import type { EntidadDetalle, UsuarioDeEntidadItem } from '../../types/domain';
-import { andiColors, andiType, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { useResponsive, useScaledType } from '../../theme/responsive';
 
 // id_estado_cuenta: 1=ACTIVO, 2=INACTIVO, 3=SUSPENDIDO, 4=PENDIENTE (mismo
 // catálogo que usuarios -- ver backend/CLAUDE.md "Account states").
@@ -24,6 +25,9 @@ const ESTADO_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
 const MAX_CHIPS = 3;
 
 export default function EntidadesScreen() {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
   const [operadores, setOperadores] = useState<Record<number, UsuarioDeEntidadItem[]>>({});
   const [loading, setLoading] = useState(true);
@@ -89,11 +93,12 @@ export default function EntidadesScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadEntidades(true); }} colors={[andiColors.primary600]} />
           }
         >
+        <View style={{ width: '100%', maxWidth: r.maxContentWidth(700) }}>
           {entidades.length === 1 && (
             <View style={styles.infoNote}>
               <Feather name="info" size={16} color={andiColors.warning700} />
@@ -160,13 +165,14 @@ export default function EntidadesScreen() {
               <Text style={styles.emptyStateText}>No hay entidades registradas</Text>
             </View>
           )}
+        </View>
         </ScrollView>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

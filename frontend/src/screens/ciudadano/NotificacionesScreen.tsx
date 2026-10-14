@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { notificacionesAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { NotificacionItem } from '../../types/domain';
 
 const TIPO_META: Record<string, { icon: string; title: string }> = {
@@ -38,6 +39,8 @@ function isSection(row: ListRow): row is SectionRow {
 }
 
 export default function NotificacionesScreen() {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [notis, setNotis] = useState<NotificacionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,18 +165,18 @@ export default function NotificacionesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  title: { ...ANDI_TYPE.display, color: '#fff' },
+  title: { ...r.scaleType(ANDI_TYPE.display), color: '#fff' },
   unreadRow: { flexDirection: 'row', alignItems: 'baseline', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s2 },
-  unreadNum: { ...ANDI_TYPE.displayLg, fontSize: 30, color: '#fff' },
-  unreadLabel: { ...ANDI_TYPE.body, color: ANDI_COLORS.primary200 },
+  unreadNum: { ...ANDI_TYPE.displayLg, fontSize: r.scaleFont(30), color: '#fff' },
+  unreadLabel: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.primary200 },
   markAllBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.primary600, alignItems: 'center', justifyContent: 'center' },
-  markAllText: { color: ANDI_COLORS.primary100, fontWeight: '600', fontSize: 12 },
+  markAllText: { color: ANDI_COLORS.primary100, fontWeight: '600', fontSize: r.scaleFont(12) },
 
   skeletonWrap: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s3 },
-  list: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s2, flexGrow: 1 },
+  list: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s2, flexGrow: 1, width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' },
   sectionLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s2, marginBottom: 2 },
 
   card: { flexDirection: 'row', gap: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4, borderWidth: 1 },
@@ -183,17 +186,17 @@ const styles = StyleSheet.create({
   iconWrapUnread: { backgroundColor: ANDI_COLORS.stProBg },
   iconWrapRead: { backgroundColor: ANDI_COLORS.surfaceMid },
   icon: { fontSize: 16 },
-  cardTitle: { ...ANDI_TYPE.label, color: ANDI_COLORS.onSurface },
+  cardTitle: { ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
   cardTitleRead: { fontWeight: '400', color: ANDI_COLORS.n600 },
-  cardMeta: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
-  cardTime: { ...ANDI_TYPE.caption, color: ANDI_COLORS.n400, marginTop: 4 },
+  cardMeta: { ...r.scaleType(ANDI_TYPE.caption), color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
+  cardTime: { ...r.scaleType(ANDI_TYPE.caption), color: ANDI_COLORS.n400, marginTop: 4 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ANDI_COLORS.primary600, marginTop: 4 },
 
   empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: ANDI_SPACING.s16, gap: ANDI_SPACING.s2 },
-  emptyTitle: { ...ANDI_TYPE.section, color: ANDI_COLORS.onSurface },
-  emptyText: { ...ANDI_TYPE.body, color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center' },
+  emptyTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface },
+  emptyText: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center' },
 
   footerNote: { marginTop: ANDI_SPACING.s4, padding: ANDI_SPACING.s5, borderWidth: 1, borderStyle: 'dashed', borderColor: ANDI_COLORS.outline, borderRadius: ANDI_RADIUS.xl, alignItems: 'center' },
-  footerTitle: { ...ANDI_TYPE.label, color: ANDI_COLORS.n600, textAlign: 'center' },
-  footerText: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', marginTop: 4 },
+  footerTitle: { ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.n600, textAlign: 'center' },
+  footerText: { ...r.scaleType(ANDI_TYPE.caption), color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', marginTop: 4 },
 });

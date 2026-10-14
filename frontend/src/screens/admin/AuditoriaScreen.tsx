@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { auditoriaAPI } from '../../api/services';
 import type { LogAuditoriaItem } from '../../types/domain';
-import { andiColors, andiType, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type ModuloFilter = 'TODOS' | 'REPORTES' | 'AUTH' | 'USUARIOS';
 const FILTERS: { key: ModuloFilter; label: string }[] = [
@@ -58,6 +59,9 @@ function formatFecha(iso: string) {
 }
 
 export default function AuditoriaScreen() {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const [logs, setLogs] = useState<LogAuditoriaItem[]>([]);
   const [filter, setFilter] = useState<ModuloFilter>('TODOS');
   const [loading, setLoading] = useState(true);
@@ -114,7 +118,7 @@ export default function AuditoriaScreen() {
         <FlatList
           data={logs}
           keyExtractor={l => String(l.id_log)}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadLogs(true); }} colors={[andiColors.primary600]} />
           }
@@ -153,7 +157,7 @@ export default function AuditoriaScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface },

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext } from 'react';
+import React, { useState, useCallback, useContext, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -15,6 +15,7 @@ import AndiEmptyState from '../../components/andi/AndiEmptyState';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -43,6 +44,8 @@ function formatRelative(dateStr: string | undefined) {
 }
 
 export default function ReportesAsignadosScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { user } = useContext(AuthContext);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [entidadNombre, setEntidadNombre] = useState<string>('');
@@ -213,14 +216,14 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
-  chipsRow: { flexDirection: 'row', gap: andiSpace[2], paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[3] },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2], paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[3] },
   list: { paddingHorizontal: andiSpace[5], paddingBottom: andiSpace[6] },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   tomarBtn: {
     minHeight: 44, paddingHorizontal: andiSpace[4], borderRadius: andiRadius.full,
     backgroundColor: andiColors.primary50, alignItems: 'center', justifyContent: 'center',
   },
-  tomarBtnText: { fontSize: 13, lineHeight: 18, fontWeight: '600', color: andiColors.primary700 },
+  tomarBtnText: { fontSize: r.scaleFont(13), lineHeight: r.scaleFont(18), fontWeight: '600', color: andiColors.primary700 },
 });

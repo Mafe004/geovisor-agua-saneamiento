@@ -1,4 +1,4 @@
-import React, { useState, useContext, useCallback } from 'react';
+import React, { useState, useContext, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -11,6 +11,7 @@ import SystemBanner from '../../components/ciudadano/SystemBanner';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import { getDrafts, type ReporteDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { Reporte } from '../../types/domain';
 import type { operations } from '../../types/api';
 import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
@@ -31,6 +32,8 @@ type Section =
   | { __type: 'neutral'; item: Reporte };
 
 export default function MisReportesScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { user } = useContext(AuthContext);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [drafts, setDrafts] = useState<ReporteDraft[]>([]);
@@ -87,9 +90,9 @@ export default function MisReportesScreen({ navigation }: Props) {
       <LiftHeader>
         <Text style={styles.title}>Mis reportes</Text>
         <View style={styles.statsRow}>
-          <StatBlock value={counts.PENDIENTE || 0} label="Pendientes" />
-          <StatBlock value={counts.EN_PROCESO || 0} label="En proceso" />
-          <StatBlock value={counts.RESUELTO || 0} label="Resueltos" />
+          <StatBlock styles={styles} value={counts.PENDIENTE || 0} label="Pendientes" />
+          <StatBlock styles={styles} value={counts.EN_PROCESO || 0} label="En proceso" />
+          <StatBlock styles={styles} value={counts.RESUELTO || 0} label="Resueltos" />
         </View>
       </LiftHeader>
 
@@ -161,7 +164,9 @@ export default function MisReportesScreen({ navigation }: Props) {
   );
 }
 
-function StatBlock({ value, label }: { value: number; label: string }) {
+type MisReportesStyles = ReturnType<typeof makeStyles>;
+
+function StatBlock({ value, label, styles }: { value: number; label: string; styles: MisReportesStyles }) {
   return (
     <View>
       <Text style={styles.statValue}>{value}</Text>
@@ -170,20 +175,20 @@ function StatBlock({ value, label }: { value: number; label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
-  title: { ...ANDI_TYPE.display, color: '#fff' },
+  title: { ...r.scaleType(ANDI_TYPE.display), color: '#fff' },
   statsRow: { flexDirection: 'row', gap: ANDI_SPACING.s5, marginTop: ANDI_SPACING.s5 },
-  statValue: { ...ANDI_TYPE.displayLg, fontSize: 26, color: '#fff' },
+  statValue: { ...ANDI_TYPE.displayLg, fontSize: r.scaleFont(26), color: '#fff' },
   statLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary200, marginTop: 2 },
 
   skeletonWrap: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s3 },
-  list: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s3 },
+  list: { padding: ANDI_SPACING.s5, gap: ANDI_SPACING.s3, width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' },
   emptyContainer: { flex: 1 },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ANDI_SPACING.s6, gap: ANDI_SPACING.s2 },
-  emptyTitle: { ...ANDI_TYPE.section, color: ANDI_COLORS.onSurface, textAlign: 'center' },
-  emptyText: { ...ANDI_TYPE.bodyLg, color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', maxWidth: 280, marginBottom: ANDI_SPACING.s4 },
+  emptyTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface, textAlign: 'center' },
+  emptyText: { ...r.scaleType(ANDI_TYPE.bodyLg), color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', maxWidth: 280, marginBottom: ANDI_SPACING.s4 },
   emptyBtn: { minHeight: 52, paddingHorizontal: ANDI_SPACING.s8, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.accent500, alignItems: 'center', justifyContent: 'center' },
-  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: r.scaleFont(15) },
 });

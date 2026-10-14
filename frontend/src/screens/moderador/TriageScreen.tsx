@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import AndiEmptyState from '../../components/andi/AndiEmptyState';
 import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
 import TriageSheet from './TriageSheet';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem, EntidadDetalle } from '../../types/domain';
 
 type Filtro = 'todos' | 'sin_revisar' | 'sin_entidad' | 'alta';
@@ -35,6 +36,8 @@ function formatRelative(dateStr: string | undefined) {
 }
 
 export default function TriageScreen() {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
   const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
@@ -216,25 +219,27 @@ export default function TriageScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: andiSpace[2],
     marginHorizontal: andiSpace[5], marginTop: andiSpace[4],
     backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg,
     paddingHorizontal: andiSpace[3], height: 44,
+    maxWidth: r.maxContentWidth(700), alignSelf: 'center',
   },
-  searchInput: { flex: 1, fontSize: 14, color: andiColors.onSurface, height: '100%' },
+  searchInput: { flex: 1, fontSize: r.scaleFont(14), color: andiColors.onSurface, height: '100%' },
   chipsRow: {
-    flexDirection: 'row', gap: andiSpace[2],
+    flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2],
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[3],
+    width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center',
   },
-  list: { paddingHorizontal: andiSpace[5], paddingBottom: andiSpace[6] },
+  list: { paddingHorizontal: andiSpace[5], paddingBottom: andiSpace[6], width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' },
   flagBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 10, height: 20, borderRadius: andiRadius.full,
     backgroundColor: andiColors.accent500,
   },
-  flagBadgeText: { fontSize: 10, lineHeight: 14, fontWeight: '600', color: andiColors.n0, textTransform: 'uppercase', letterSpacing: 0.8 },
-  suggestedText: { fontSize: 12, lineHeight: 16, color: andiColors.onSurfaceVariant },
+  flagBadgeText: { fontSize: r.scaleFont(10), lineHeight: 14, fontWeight: '600', color: andiColors.n0, textTransform: 'uppercase', letterSpacing: 0.8 },
+  suggestedText: { fontSize: r.scaleFont(12), lineHeight: 16, color: andiColors.onSurfaceVariant },
 });

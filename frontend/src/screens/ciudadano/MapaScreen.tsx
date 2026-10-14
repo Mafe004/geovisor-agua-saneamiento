@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
@@ -13,6 +13,7 @@ import { StatusChip, SeverityChip } from '../../components/ciudadano/Chip';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
   ReporteMapaPunto, MunicipioSiasar, ComunidadMapa, SistemaMapa,
   ComunidadDetalle, SistemaDetalle,
@@ -45,6 +46,8 @@ type SiasarSeleccion =
   | { tipo: 'sistema'; data: SistemaDetalle };
 
 export default function MapaScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [pines, setPines] = useState<ReporteMapaPunto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -405,9 +408,9 @@ export default function MapaScreen({ navigation }: Props) {
         {selectedSiasar && (
           <ScrollView style={styles.siasarPanel} nestedScrollEnabled>
             {selectedSiasar.tipo === 'comunidad' ? (
-              <ComunidadPanel data={selectedSiasar.data} onClose={() => setSelectedSiasar(null)} />
+              <ComunidadPanel styles={styles} data={selectedSiasar.data} onClose={() => setSelectedSiasar(null)} />
             ) : (
-              <SistemaPanel data={selectedSiasar.data} onClose={() => setSelectedSiasar(null)} />
+              <SistemaPanel styles={styles} data={selectedSiasar.data} onClose={() => setSelectedSiasar(null)} />
             )}
           </ScrollView>
         )}
@@ -416,7 +419,9 @@ export default function MapaScreen({ navigation }: Props) {
   );
 }
 
-function ComunidadPanel({ data, onClose }: { data: ComunidadDetalle; onClose: () => void }) {
+type MapaStyles = ReturnType<typeof makeStyles>;
+
+function ComunidadPanel({ data, onClose, styles }: { data: ComunidadDetalle; onClose: () => void; styles: MapaStyles }) {
   return (
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
@@ -428,7 +433,7 @@ function ComunidadPanel({ data, onClose }: { data: ComunidadDetalle; onClose: ()
   );
 }
 
-function SistemaPanel({ data, onClose }: { data: SistemaDetalle; onClose: () => void }) {
+function SistemaPanel({ data, onClose, styles }: { data: SistemaDetalle; onClose: () => void; styles: MapaStyles }) {
   return (
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
@@ -465,50 +470,50 @@ function SistemaPanel({ data, onClose }: { data: SistemaDetalle; onClose: () => 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: ANDI_SPACING.s4 },
   kicker: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary200 },
-  title: { ...ANDI_TYPE.display, color: '#fff', marginTop: 2 },
+  title: { ...r.scaleType(ANDI_TYPE.display), color: '#fff', marginTop: 2 },
   searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
   searchIcon: { color: '#fff', fontSize: 17 },
   countRow: { flexDirection: 'row', alignItems: 'baseline', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
-  countNum: { ...ANDI_TYPE.displayLg, fontSize: 30, color: '#fff' },
-  countLabel: { ...ANDI_TYPE.body, color: ANDI_COLORS.primary200 },
+  countNum: { ...ANDI_TYPE.displayLg, fontSize: r.scaleFont(30), color: '#fff' },
+  countLabel: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.primary200 },
   searchInput: {
     marginTop: ANDI_SPACING.s4, backgroundColor: ANDI_COLORS.primary700, borderRadius: ANDI_RADIUS.md,
-    paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 10, color: '#fff', fontSize: 14,
+    paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 10, color: '#fff', fontSize: r.scaleFont(14),
   },
 
   filterBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, padding: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s2 },
   filterChip: { minHeight: 36, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surface, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },
   filterChipActive: { backgroundColor: ANDI_COLORS.primary600, borderColor: ANDI_COLORS.primary600 },
-  filterText: { fontSize: 12, fontWeight: '600', color: ANDI_COLORS.onSurface },
+  filterText: { fontSize: r.scaleFont(12), fontWeight: '600', color: ANDI_COLORS.onSurface },
   filterTextActive: { color: '#fff' },
 
   layerBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, paddingHorizontal: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s3 },
   layerChip: { minHeight: 32, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },
   layerChipActive: { backgroundColor: ANDI_COLORS.primary600, borderColor: ANDI_COLORS.primary600 },
   layerChipActiveSiasar: { backgroundColor: ANDI_COLORS.success, borderColor: ANDI_COLORS.success },
-  layerChipText: { fontSize: 11, fontWeight: '600', color: ANDI_COLORS.onSurfaceVariant },
+  layerChipText: { fontSize: r.scaleFont(11), fontWeight: '600', color: ANDI_COLORS.onSurfaceVariant },
   layerChipTextActive: { color: '#fff' },
   municipioBtn: { minHeight: 32, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  municipioBtnText: { fontSize: 11, fontWeight: '700', color: ANDI_COLORS.primary700 },
+  municipioBtnText: { fontSize: r.scaleFont(11), fontWeight: '700', color: ANDI_COLORS.primary700 },
 
   municipioList: { maxHeight: 220, backgroundColor: ANDI_COLORS.surface, borderTopWidth: 1, borderTopColor: ANDI_COLORS.outlineVariant },
   municipioItem: { paddingHorizontal: ANDI_SPACING.s4, paddingVertical: ANDI_SPACING.s3, borderBottomWidth: 1, borderBottomColor: ANDI_COLORS.surfaceMid },
-  municipioItemText: { fontSize: 13, fontWeight: '600', color: ANDI_COLORS.onSurface },
-  municipioItemMeta: { fontSize: 11, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
+  municipioItemText: { fontSize: r.scaleFont(13), fontWeight: '600', color: ANDI_COLORS.onSurface },
+  municipioItemMeta: { fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
 
   mapWrap: { flex: 1, minHeight: 0 },
   map: { flex: 1 },
   loadingWrap: { flex: 1, padding: ANDI_SPACING.s4 },
 
   noLocationWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ANDI_SPACING.s5, backgroundColor: ANDI_COLORS.mapGround },
-  noLocationCard: { width: '100%', backgroundColor: ANDI_COLORS.surface, borderRadius: ANDI_RADIUS.xxl, padding: ANDI_SPACING.s5, alignItems: 'center' },
+  noLocationCard: { width: '100%', maxWidth: r.maxContentWidth(420), backgroundColor: ANDI_COLORS.surface, borderRadius: ANDI_RADIUS.xxl, padding: ANDI_SPACING.s5, alignItems: 'center' },
   noLocationIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: ANDI_COLORS.warningContainer, alignItems: 'center', justifyContent: 'center', marginBottom: ANDI_SPACING.s4 },
-  noLocationTitle: { ...ANDI_TYPE.section, color: ANDI_COLORS.onSurface, marginBottom: ANDI_SPACING.s2 },
-  noLocationText: { ...ANDI_TYPE.body, color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', marginBottom: ANDI_SPACING.s5 },
+  noLocationTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface, marginBottom: ANDI_SPACING.s2 },
+  noLocationText: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', marginBottom: ANDI_SPACING.s5 },
   primaryBtn: { width: '100%', minHeight: 48, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary600, alignItems: 'center', justifyContent: 'center', marginBottom: ANDI_SPACING.s2 },
   primaryBtnText: { color: '#fff', fontWeight: '700' },
   outlineBtn: { width: '100%', minHeight: 48, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },
@@ -527,38 +532,40 @@ const styles = StyleSheet.create({
   },
 
   emptyOverlay: { position: 'absolute', top: '30%', left: 0, right: 0, alignItems: 'center', gap: ANDI_SPACING.s2 },
-  emptyText: { ...ANDI_TYPE.body, color: ANDI_COLORS.onSurfaceVariant },
+  emptyText: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.onSurfaceVariant },
 
   legend: {
-    position: 'absolute', bottom: ANDI_SPACING.s4, left: ANDI_SPACING.s4, maxWidth: 240,
+    position: 'absolute', bottom: ANDI_SPACING.s4, left: ANDI_SPACING.s4, maxWidth: r.isTablet ? 320 : '65%',
     backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s2, gap: 2,
   },
-  legendCaption: { fontSize: 9, color: ANDI_COLORS.onSurfaceVariant },
+  legendCaption: { fontSize: r.scaleFont(9), color: ANDI_COLORS.onSurfaceVariant },
 
   anchorCard: {
     position: 'absolute', left: ANDI_SPACING.s4, right: ANDI_SPACING.s4, bottom: ANDI_SPACING.s4,
+    alignSelf: r.isTablet ? 'center' : undefined, width: r.isTablet ? r.maxContentWidth(480) : undefined,
     backgroundColor: ANDI_COLORS.primary900, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4,
   },
   anchorTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: ANDI_SPACING.s2 },
-  anchorId: { fontSize: 12, color: ANDI_COLORS.primary200, fontWeight: '600' },
+  anchorId: { fontSize: r.scaleFont(12), color: ANDI_COLORS.primary200, fontWeight: '600' },
   anchorClose: { color: ANDI_COLORS.primary200, fontSize: 16 },
-  anchorTitle: { ...ANDI_TYPE.card, color: '#fff' },
+  anchorTitle: { ...r.scaleType(ANDI_TYPE.card), color: '#fff' },
   anchorChips: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s3, marginBottom: ANDI_SPACING.s3 },
   anchorBtn: { minHeight: 48, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary100, alignItems: 'center', justifyContent: 'center' },
-  anchorBtnText: { color: ANDI_COLORS.primary900, fontWeight: '700', fontSize: 14 },
+  anchorBtnText: { color: ANDI_COLORS.primary900, fontWeight: '700', fontSize: r.scaleFont(14) },
 
   siasarPanel: {
     position: 'absolute', left: ANDI_SPACING.s4, right: ANDI_SPACING.s4, bottom: ANDI_SPACING.s4, maxHeight: '55%',
+    alignSelf: r.isTablet ? 'center' : undefined, width: r.isTablet ? r.maxContentWidth(480) : undefined,
   },
   siasarCard: {
     backgroundColor: ANDI_COLORS.surface, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4,
     borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant,
   },
-  siasarTitle: { fontWeight: '700', color: ANDI_COLORS.onSurface, fontSize: 15, flex: 1 },
-  siasarSubtitle: { fontSize: 12, color: ANDI_COLORS.onSurfaceVariant, marginBottom: 8 },
-  siasarRow: { fontSize: 12, color: ANDI_COLORS.onSurface, marginBottom: 4 },
+  siasarTitle: { fontWeight: '700', color: ANDI_COLORS.onSurface, fontSize: r.scaleFont(15), flex: 1 },
+  siasarSubtitle: { fontSize: r.scaleFont(12), color: ANDI_COLORS.onSurfaceVariant, marginBottom: 8 },
+  siasarRow: { fontSize: r.scaleFont(12), color: ANDI_COLORS.onSurface, marginBottom: 4 },
   siasarSection: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: ANDI_COLORS.outlineVariant },
-  siasarSectionTitle: { fontSize: 12, fontWeight: '700', color: ANDI_COLORS.onSurface, marginBottom: 4 },
-  siasarSubItemMeta: { fontSize: 11, color: ANDI_COLORS.onSurfaceVariant },
-  siasarFuente: { fontSize: 10, color: ANDI_COLORS.n400, marginTop: 8, fontStyle: 'italic' },
+  siasarSectionTitle: { fontSize: r.scaleFont(12), fontWeight: '700', color: ANDI_COLORS.onSurface, marginBottom: 4 },
+  siasarSubItemMeta: { fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant },
+  siasarFuente: { fontSize: r.scaleFont(10), color: ANDI_COLORS.n400, marginTop: 8, fontStyle: 'italic' },
 });

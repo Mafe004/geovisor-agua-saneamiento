@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, statusMeta, severityMeta } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type ChipSize = 'md' | 'lg';
 
 export function StatusChip({ estado, size = 'md' }: { estado?: string | null; size?: ChipSize }) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const meta = statusMeta(estado);
   const lg = size === 'lg';
   return (
@@ -15,6 +18,8 @@ export function StatusChip({ estado, size = 'md' }: { estado?: string | null; si
 }
 
 export function SeverityChip({ severidad, size = 'md' }: { severidad?: string | null; size?: ChipSize }) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const meta = severityMeta(severidad);
   const lg = size === 'lg';
   return (
@@ -26,6 +31,8 @@ export function SeverityChip({ severidad, size = 'md' }: { severidad?: string | 
 }
 
 export function CategoryChip({ label }: { label: string }) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <View style={[styles.pill, styles.categoryPill]}>
       <Text style={[styles.pillText, styles.categoryText]}>{label}</Text>
@@ -41,6 +48,8 @@ const SYNC_META = {
 } as const;
 
 export function SyncChip({ state }: { state: keyof typeof SYNC_META }) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const meta = SYNC_META[state];
   return (
     <View style={[styles.pill, styles.overlinePill, { backgroundColor: meta.bg }, meta.dashed && styles.dashedBorder]}>
@@ -49,7 +58,7 @@ export function SyncChip({ state }: { state: keyof typeof SYNC_META }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -61,14 +70,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   pillLg: { minHeight: 36, paddingHorizontal: ANDI_SPACING.s4 },
-  pillText: { fontSize: 12, fontWeight: '600' },
-  pillTextLg: { fontSize: 13 },
+  pillText: { fontSize: r.scaleFont(12), fontWeight: '600' },
+  pillTextLg: { fontSize: r.scaleFont(13) },
   dot: { width: 8, height: 8, borderRadius: 4 },
   severityPill: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outline },
-  severityText: { color: ANDI_COLORS.onSurface, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.6 },
+  severityText: { color: ANDI_COLORS.onSurface, textTransform: 'uppercase', fontSize: r.scaleFont(10), letterSpacing: 0.6 },
   categoryPill: { borderWidth: 1, borderColor: ANDI_COLORS.outline, backgroundColor: ANDI_COLORS.surface },
   categoryText: { color: ANDI_COLORS.onSurface },
   overlinePill: { paddingHorizontal: ANDI_SPACING.s3, minHeight: 26 },
-  overlineText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  overlineText: { fontSize: r.scaleFont(10), fontWeight: '700', letterSpacing: 0.8 },
   dashedBorder: { borderWidth: 1, borderStyle: 'dashed', borderColor: ANDI_COLORS.outline },
 });

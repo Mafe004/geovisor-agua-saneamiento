@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator,
@@ -16,6 +16,7 @@ import SystemBanner from '../../components/ciudadano/SystemBanner';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
 import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
 
@@ -44,6 +45,8 @@ const PRELLENADO: Record<string, string> = {
 type Mode = 'form' | 'draft-saved' | 'success';
 
 export default function CrearReporteScreen({ navigation, route }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const draftId = route.params?.draftId ?? null;
 
   const [descripcion, setDescripcion] = useState('');
@@ -228,7 +231,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
           </View>
         </LiftHeader>
-        <LiftSurface style={{ padding: ANDI_SPACING.s5 }}>
+        <LiftSurface style={{ padding: ANDI_SPACING.s5, width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }}>
           <SystemBanner
             tone="success"
             icon="✓"
@@ -261,7 +264,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
           </View>
         </LiftHeader>
-        <LiftSurface style={{ padding: ANDI_SPACING.s5 }}>
+        <LiftSurface style={{ padding: ANDI_SPACING.s5, width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }}>
           <SystemBanner
             tone={savedTone}
             icon={savedTone === 'warning' ? '⇅' : '!'}
@@ -300,16 +303,17 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
           <Text style={styles.screenTitle}>Nuevo reporte</Text>
         </View>
         <View style={styles.progressRow}>
-          <ProgressStep label="Tipo" done={!!idTipo} />
-          <ProgressStep label="Gravedad" done={!!severidad} />
-          <ProgressStep label="Sitio" done={!!coordenadas} />
+          <ProgressStep styles={styles} label="Tipo" done={!!idTipo} />
+          <ProgressStep styles={styles} label="Gravedad" done={!!severidad} />
+          <ProgressStep styles={styles} label="Sitio" done={!!coordenadas} />
         </View>
       </LiftHeader>
 
       <LiftSurface>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+        <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+          <View style={{ width: '100%', maxWidth: r.maxContentWidth(600), gap: ANDI_SPACING.s4 }}>
 
-          <Section n="01" title="Qué está pasando">
+          <Section styles={styles} n="01" title="Qué está pasando">
             <View style={styles.chipWrap}>
               {tipos.length === 0 && <Text style={styles.mutedText}>Cargando tipos…</Text>}
               {tipos.map((t) => (
@@ -326,11 +330,11 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             </View>
           </Section>
 
-          <Section n="02" title="Qué tan grave">
+          <Section styles={styles} n="02" title="Qué tan grave">
             <SeverityPicker value={severidad} onChange={setSeveridad} />
           </Section>
 
-          <Section n="03" title="Dónde">
+          <Section styles={styles} n="03" title="Dónde">
             <View style={styles.mapCard}>
               <MapaWebView
                 style={styles.map}
@@ -370,7 +374,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             </View>
           </Section>
 
-          <Section n="04" title={descTouched ? 'Cuéntanos qué ves' : 'Cuéntanos · ya lo llenamos'}>
+          <Section styles={styles} n="04" title={descTouched ? 'Cuéntanos qué ves' : 'Cuéntanos · ya lo llenamos'}>
             <TextInput
               style={styles.textarea}
               placeholder="Describe el problema: qué observas, desde cuándo, qué tan grave es…"
@@ -390,13 +394,16 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
           <TouchableOpacity style={[styles.submitBtn, loading && styles.disabled]} onPress={handleSubmit} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Enviar reporte</Text>}
           </TouchableOpacity>
+          </View>
         </ScrollView>
       </LiftSurface>
     </View>
   );
 }
 
-function Section({ n, title, children }: { n: string; title: string; children: React.ReactNode }) {
+type CrearReporteStyles = ReturnType<typeof makeStyles>;
+
+function Section({ n, title, children, styles }: { n: string; title: string; children: React.ReactNode; styles: CrearReporteStyles }) {
   return (
     <View>
       <Text style={styles.sectionLabel}>{n} · {title}</Text>
@@ -405,7 +412,7 @@ function Section({ n, title, children }: { n: string; title: string; children: R
   );
 }
 
-function ProgressStep({ label, done }: { label: string; done: boolean }) {
+function ProgressStep({ label, done, styles }: { label: string; done: boolean; styles: CrearReporteStyles }) {
   return (
     <View style={{ flex: 1 }}>
       <View style={[styles.progressBar, done && styles.progressBarDone]} />
@@ -414,55 +421,55 @@ function ProgressStep({ label, done }: { label: string; done: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
   closeIcon: { color: '#fff', fontSize: 16 },
-  screenTitle: { ...ANDI_TYPE.screen, color: '#fff' },
+  screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   progressRow: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   progressBar: { height: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
   progressBarDone: { backgroundColor: ANDI_COLORS.primary300 },
   progressLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary300, marginTop: 6 },
   progressLabelDone: { color: ANDI_COLORS.primary100 },
 
-  scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10, gap: ANDI_SPACING.s4 },
+  scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10 },
   sectionLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.onSurfaceVariant, marginBottom: ANDI_SPACING.s2 },
-  mutedText: { fontSize: 12, color: ANDI_COLORS.n400, fontStyle: 'italic' },
+  mutedText: { fontSize: r.scaleFont(12), color: ANDI_COLORS.n400, fontStyle: 'italic' },
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   typeChip: { minHeight: 44, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surface, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },
   typeChipActive: { backgroundColor: ANDI_COLORS.primary600, borderColor: ANDI_COLORS.primary600 },
-  typeChipText: { fontSize: 12, fontWeight: '600', color: ANDI_COLORS.onSurface },
+  typeChipText: { fontSize: r.scaleFont(12), fontWeight: '600', color: ANDI_COLORS.onSurface },
   typeChipTextActive: { color: '#fff' },
 
   mapCard: { borderRadius: ANDI_RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant },
   map: { height: 180 },
   mapFooter: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, padding: ANDI_SPACING.s3, backgroundColor: ANDI_COLORS.surface },
-  direccionInput: { fontSize: 13, color: ANDI_COLORS.onSurface, padding: 0 },
-  coordText: { fontFamily: ANDI_MONO, fontSize: 11, color: ANDI_COLORS.onSurfaceVariant, marginTop: 4 },
-  coordPending: { fontSize: 11, color: ANDI_COLORS.warning, marginTop: 4, fontWeight: '600' },
+  direccionInput: { fontSize: r.scaleFont(13), color: ANDI_COLORS.onSurface, padding: 0 },
+  coordText: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant, marginTop: 4 },
+  coordPending: { fontSize: r.scaleFont(11), color: ANDI_COLORS.warning, marginTop: 4, fontWeight: '600' },
   adjustBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  adjustBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 11 },
-  siasarHint: { fontSize: 11, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
+  adjustBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(11) },
+  siasarHint: { fontSize: r.scaleFont(11), color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
 
-  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: 14, color: ANDI_COLORS.onSurface, minHeight: 90 },
+  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface, minHeight: 90 },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
-  draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
+  draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },
 
   submitBtn: { minHeight: 56, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary600, alignItems: 'center', justifyContent: 'center' },
-  submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  submitBtnText: { color: '#fff', fontSize: r.scaleFont(15), fontWeight: '700' },
   disabled: { opacity: 0.6 },
 
   mascotWrap: { alignItems: 'center', paddingVertical: ANDI_SPACING.s5, gap: ANDI_SPACING.s2 },
-  queuedHeadline: { ...ANDI_TYPE.display, color: ANDI_COLORS.onSurface, marginTop: ANDI_SPACING.s3 },
-  queuedSub: { ...ANDI_TYPE.bodyLg, color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center' },
+  queuedHeadline: { ...r.scaleType(ANDI_TYPE.display), color: ANDI_COLORS.onSurface, marginTop: ANDI_SPACING.s3 },
+  queuedSub: { ...r.scaleType(ANDI_TYPE.bodyLg), color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center' },
   queuedCard: { backgroundColor: ANDI_COLORS.surfaceMid, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4, marginBottom: ANDI_SPACING.s4 },
-  queuedCardTitle: { ...ANDI_TYPE.card, color: ANDI_COLORS.onSurface },
+  queuedCardTitle: { ...r.scaleType(ANDI_TYPE.card), color: ANDI_COLORS.onSurface },
   queuedCardMeta: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant, marginTop: 4 },
   primaryBtn: { minHeight: 56, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary600, alignItems: 'center', justifyContent: 'center' },
-  primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  primaryBtnText: { color: '#fff', fontSize: r.scaleFont(15), fontWeight: '700' },
   textBtn: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   textBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600' },
 });

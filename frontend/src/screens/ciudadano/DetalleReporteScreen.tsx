@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -10,6 +10,7 @@ import Skeleton from '../../components/ciudadano/Skeleton';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO, statusMeta } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { Reporte, ReporteComunidad, HistorialEntry, HistorialEntryComunidad } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -21,6 +22,8 @@ function formatDate(d?: string | null) {
 }
 
 export default function DetalleReporteScreen({ route, navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { reporte: inicial } = route.params;
   // Puede llegar la vista comunitaria (reporte de otro usuario, sin
   // id_usuario/usuario) si se navegó aquí desde el Mapa -- esta pantalla no
@@ -142,7 +145,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ANDI_SPACING.s6 },
   emptyText: { color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center' },
@@ -150,28 +153,28 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
   backIcon: { color: '#fff', fontSize: 18 },
-  kicker: { fontFamily: ANDI_MONO, fontSize: 11, color: ANDI_COLORS.primary200 },
-  screenTitle: { ...ANDI_TYPE.screen, color: '#fff' },
+  kicker: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.primary200 },
+  screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   inverseChip: { paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
-  inverseChipText: { color: ANDI_COLORS.primary100, fontSize: 12, fontWeight: '600' },
+  inverseChipText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
 
-  scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10, gap: ANDI_SPACING.s4 },
+  scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10, gap: ANDI_SPACING.s4, width: '100%', maxWidth: r.maxContentWidth(640), alignSelf: 'center' },
 
   mapCard: { borderRadius: ANDI_RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant },
   map: { height: 150 },
   mapFooter: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, padding: ANDI_SPACING.s3, backgroundColor: ANDI_COLORS.surface },
-  mapLabel: { ...ANDI_TYPE.label, color: ANDI_COLORS.onSurface },
-  mapCoords: { fontFamily: ANDI_MONO, fontSize: 11, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
+  mapLabel: { ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
+  mapCoords: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
   mapBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  mapBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
+  mapBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },
 
-  description: { ...ANDI_TYPE.bodyLg, color: ANDI_COLORS.onSurface },
+  description: { ...r.scaleType(ANDI_TYPE.bodyLg), color: ANDI_COLORS.onSurface },
 
   nowCard: { backgroundColor: ANDI_COLORS.primary900, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
   nowKicker: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary300, marginBottom: ANDI_SPACING.s2 },
-  nowTitle: { ...ANDI_TYPE.card, color: '#fff' },
-  nowComment: { ...ANDI_TYPE.body, color: ANDI_COLORS.primary100, marginTop: ANDI_SPACING.s2, fontStyle: 'italic' },
+  nowTitle: { ...r.scaleType(ANDI_TYPE.card), color: '#fff' },
+  nowComment: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.primary100, marginTop: ANDI_SPACING.s2, fontStyle: 'italic' },
 
   sectionLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.onSurfaceVariant },
   emptyHistorial: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant },

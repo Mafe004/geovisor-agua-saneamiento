@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 interface AndiChipProps {
   label: string;
@@ -11,6 +12,8 @@ interface AndiChipProps {
 /** Filter/segment pill — solid teal when active, accent-tinted for the
  * "needs attention" chip (Sin entidad), outline otherwise. */
 export default function AndiChip({ label, variant = 'outline', onPress }: AndiChipProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const style =
     variant === 'solid' ? styles.solid :
     variant === 'accent' ? styles.accent :
@@ -27,7 +30,7 @@ export default function AndiChip({ label, variant = 'outline', onPress }: AndiCh
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   chip: {
     height: 36,
     paddingHorizontal: andiSpace[4],
@@ -36,7 +39,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
-  label: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  label: { fontSize: r.scaleFont(13), lineHeight: r.scaleFont(18), fontWeight: '600' },
   solid: { backgroundColor: andiColors.primary600, borderColor: andiColors.primary600 },
   solidText: { color: andiColors.n0 },
   accent: { backgroundColor: andiColors.accent100, borderColor: andiColors.accent300 },

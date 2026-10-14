@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useResponsive, type Responsive } from '../theme/responsive';
 
 type GradientColors = readonly [string, string, ...string[]];
 
@@ -14,6 +15,8 @@ interface StatCardProps {
 }
 
 export default function StatCard({ title, value, subtitle, icon, gradient, style }: StatCardProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const colors: GradientColors = gradient || ['#1565C0', '#1976D2'];
 
   return (
@@ -28,7 +31,7 @@ export default function StatCard({ title, value, subtitle, icon, gradient, style
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   card: {
     borderRadius: 16,
     padding: 16,
@@ -47,21 +50,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   icon: {
-    fontSize: 24,
+    fontSize: r.scaleFont(24),
   },
   value: {
-    fontSize: 32,
+    fontSize: r.scaleFont(32),
     fontWeight: '800',
     color: '#fff',
   },
   title: {
-    fontSize: 13,
+    fontSize: r.scaleFont(13),
     fontWeight: '600',
     color: 'rgba(255,255,255,0.9)',
     marginBottom: 2,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: r.scaleFont(11),
     color: 'rgba(255,255,255,0.65)',
   },
 });

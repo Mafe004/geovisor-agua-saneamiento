@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, Modal, ActivityIndicator,
@@ -11,7 +11,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { solicitudesAccesoAPI } from '../../api/services';
 import type { SolicitudAccesoItem } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SolicitudesAcceso'>;
 
@@ -42,6 +43,9 @@ function initials(nombre: string) {
 }
 
 export default function SolicitudesAccesoScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const [solicitudes, setSolicitudes] = useState<SolicitudAccesoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -166,7 +170,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
         <FlatList
           data={solicitudes}
           keyExtractor={s => String(s.id)}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} colors={[andiColors.primary600]} />
           }
@@ -253,7 +257,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
       {/* Confirmación de rechazo -- Modal, no Alert.alert (no dispara diálogo nativo bloqueante). */}
       <Modal visible={rechazarTarget !== null} transparent animationType="fade" onRequestClose={() => setRechazarTarget(null)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
             <Text style={styles.modalTitle}>¿Rechazar solicitud?</Text>
             <Text style={styles.modalMessage}>
               ¿Rechazar la solicitud de {rechazarTarget?.nombre_completo}?
@@ -278,7 +282,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
         onRequestClose={() => setTokenModal(null)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
             <Feather name="check-circle" size={32} color={andiColors.success600} style={{ alignSelf: 'center' }} />
             <Text style={[styles.modalTitle, { textAlign: 'center', marginTop: andiSpace[2] }]}>
               Solicitud aprobada
@@ -308,7 +312,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   header: { paddingTop: andiSpace[10], paddingBottom: andiSpace[4], paddingHorizontal: andiSpace[4] },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2] },

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
@@ -11,10 +11,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthContext } from '../../context/AuthContext';
 import type { RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export default function LoginScreen({ navigation, route }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { login } = useContext(AuthContext);
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
@@ -198,15 +201,17 @@ export default function LoginScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: andiColors.primary900 },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'flex-end' },
+  scroll: { flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' },
   hero: { alignItems: 'center', paddingTop: '20%', paddingBottom: andiSpace[8] },
-  logo: { fontSize: 48 },
-  appName: { ...andiType.displayLg, color: andiColors.surface, marginTop: andiSpace[2] },
-  tagline: { ...andiType.bodySm, color: andiColors.primary200, marginTop: andiSpace[1], textAlign: 'center' },
+  logo: { fontSize: r.scaleFont(48) },
+  appName: { ...r.scaleType(andiType.displayLg), color: andiColors.surface, marginTop: andiSpace[2] },
+  tagline: { ...r.scaleType(andiType.bodySm), color: andiColors.primary200, marginTop: andiSpace[1], textAlign: 'center' },
   card: {
+    width: '100%',
+    maxWidth: r.maxContentWidth(480),
     backgroundColor: andiColors.surface,
     borderTopLeftRadius: andiRadius.xl,
     borderTopRightRadius: andiRadius.xl,
@@ -215,7 +220,7 @@ const styles = StyleSheet.create({
     paddingBottom: andiSpace[10],
   },
   label: {
-    ...andiType.labelSm,
+    ...r.scaleType(andiType.labelSm),
     textTransform: 'uppercase',
     letterSpacing: 1.5,
     color: andiColors.onSurfaceVariant,
@@ -233,7 +238,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: 15, color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
   inputPassword: { paddingRight: andiSpace[2] },
   eyeBtn: { padding: andiSpace[1] },
   forgotRow: { alignSelf: 'flex-end', marginTop: andiSpace[2] },

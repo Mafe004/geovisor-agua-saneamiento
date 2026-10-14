@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_SPACING, statusMeta } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { HistorialEntry, HistorialEntryComunidad } from '../../types/domain';
 
 function formatDateTime(d?: string | null) {
@@ -21,6 +22,8 @@ interface TimelineProps {
 }
 
 export default function Timeline({ items }: TimelineProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <View>
       {items.map((item, index) => {
@@ -49,14 +52,14 @@ export default function Timeline({ items }: TimelineProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   row: { flexDirection: 'row', gap: ANDI_SPACING.s3 },
   rail: { alignItems: 'center', width: 14 },
   node: { width: 12, height: 12, borderRadius: 6 },
   line: { flex: 1, width: 2, backgroundColor: ANDI_COLORS.outlineVariant, marginTop: 2 },
   content: { flex: 1 },
   contentSpacing: { paddingBottom: ANDI_SPACING.s4 },
-  title: { fontSize: 13, fontWeight: '600', color: ANDI_COLORS.onSurface },
-  subtitle: { fontSize: 11.5, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
-  comment: { fontSize: 12.5, color: ANDI_COLORS.n600, marginTop: 6 },
+  title: { fontSize: r.scaleFont(13), fontWeight: '600', color: ANDI_COLORS.onSurface },
+  subtitle: { fontSize: r.scaleFont(11.5), color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
+  comment: { fontSize: r.scaleFont(12.5), color: ANDI_COLORS.n600, marginTop: 6 },
 });

@@ -1,4 +1,4 @@
-import React, { useContext, useState, useCallback, useEffect } from 'react';
+import React, { useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, TextInput, ActivityIndicator, KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { getDrafts, type ReporteDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { UserPublic } from '../../types/domain';
 import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
 
@@ -32,6 +33,8 @@ type Props = {
 };
 
 export default function PerfilScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { user: userReal, logout, updateUser } = useContext(AuthContext);
   const user = userReal as UserLegacy | null;
 
@@ -172,12 +175,13 @@ export default function PerfilScreen({ navigation }: Props) {
         </LiftHeader>
 
         <LiftSurface>
-          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} showsVerticalScrollIndicator={false}>
+            <View style={styles.contentWrap}>
 
             <View style={styles.statsRow}>
-              <StatBlock value={stats.total} label="Reportados" />
-              <StatBlock value={stats.resueltos} label="Resueltos" />
-              <StatBlock value={stats.pendientes} label="Pendientes" />
+              <StatBlock styles={styles} value={stats.total} label="Reportados" />
+              <StatBlock styles={styles} value={stats.resueltos} label="Resueltos" />
+              <StatBlock styles={styles} value={stats.pendientes} label="Pendientes" />
             </View>
 
             {!editMode && successBanner && (
@@ -210,9 +214,9 @@ export default function PerfilScreen({ navigation }: Props) {
               </View>
             ) : (
               <View style={styles.rowsCard}>
-                <MenuRow icon="◍" label="Datos personales" onPress={() => setEditMode(true)} />
-                <MenuRow icon="⚿" label="Cambiar contraseña" onPress={() => setPassModal(true)} />
-                <MenuRow icon="◔" label="Avisos y seguimiento" value="Activos" onPress={() => navigation.navigate('Notificaciones')} last />
+                <MenuRow styles={styles} icon="◍" label="Datos personales" onPress={() => setEditMode(true)} />
+                <MenuRow styles={styles} icon="⚿" label="Cambiar contraseña" onPress={() => setPassModal(true)} />
+                <MenuRow styles={styles} icon="◔" label="Avisos y seguimiento" value="Activos" onPress={() => navigation.navigate('Notificaciones')} last />
               </View>
             )}
 
@@ -234,13 +238,14 @@ export default function PerfilScreen({ navigation }: Props) {
             </TouchableOpacity>
 
             <Text style={styles.version}>Andi · GeoVisor Cundinamarca · v1.0.0</Text>
+            </View>
           </ScrollView>
         </LiftSurface>
       </View>
 
       <Modal visible={passModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }}>
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Cambiar contraseña</Text>
@@ -283,7 +288,7 @@ export default function PerfilScreen({ navigation }: Props) {
 
       <Modal visible={logoutModal} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Cerrar sesión</Text>
               <TouchableOpacity onPress={() => setLogoutModal(false)}>
@@ -306,7 +311,9 @@ export default function PerfilScreen({ navigation }: Props) {
   );
 }
 
-function StatBlock({ value, label }: { value: number; label: string }) {
+type PerfilStyles = ReturnType<typeof makeStyles>;
+
+function StatBlock({ value, label, styles }: { value: number; label: string; styles: PerfilStyles }) {
   return (
     <View style={styles.statBlock}>
       <Text style={styles.statValue}>{value}</Text>
@@ -315,7 +322,7 @@ function StatBlock({ value, label }: { value: number; label: string }) {
   );
 }
 
-function MenuRow({ icon, label, value, onPress, last }: { icon: string; label: string; value?: string; onPress: () => void; last?: boolean }) {
+function MenuRow({ icon, label, value, onPress, last, styles }: { icon: string; label: string; value?: string; onPress: () => void; last?: boolean; styles: PerfilStyles }) {
   return (
     <TouchableOpacity style={[styles.menuRow, !last && styles.menuRowBorder]} onPress={onPress} activeOpacity={0.7}>
       <Text style={styles.menuIcon}>{icon}</Text>
@@ -326,7 +333,7 @@ function MenuRow({ icon, label, value, onPress, last }: { icon: string; label: s
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s4 },
   avatar: {
@@ -334,45 +341,46 @@ const styles = StyleSheet.create({
     backgroundColor: ANDI_COLORS.primary600, borderWidth: 2, borderColor: ANDI_COLORS.primary300,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { ...ANDI_TYPE.display, fontSize: 24, color: '#fff' },
+  avatarText: { ...ANDI_TYPE.display, fontSize: r.scaleFont(24), color: '#fff' },
   identityText: { flex: 1 },
-  name: { ...ANDI_TYPE.screen, color: '#fff' },
-  email: { fontFamily: ANDI_MONO, fontSize: 12, color: ANDI_COLORS.primary200, marginTop: 2 },
+  name: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
+  email: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(12), color: ANDI_COLORS.primary200, marginTop: 2 },
   badgeRow: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   rolPill: { paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
-  rolPillText: { color: ANDI_COLORS.primary100, fontSize: 12, fontWeight: '600' },
+  rolPillText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
   statusPill: { paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 4, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.primary600 },
-  statusPillText: { color: ANDI_COLORS.primary100, fontSize: 12, fontWeight: '600' },
+  statusPillText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
 
-  scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10, gap: ANDI_SPACING.s4 },
+  scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10 },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600), gap: ANDI_SPACING.s4 },
 
   statsRow: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
   statBlock: { flex: 1, backgroundColor: ANDI_COLORS.surfaceMid, borderRadius: ANDI_RADIUS.lg, padding: ANDI_SPACING.s3 },
-  statValue: { ...ANDI_TYPE.display, fontSize: 22, color: ANDI_COLORS.onSurface },
+  statValue: { ...ANDI_TYPE.display, fontSize: r.scaleFont(22), color: ANDI_COLORS.onSurface },
   statLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
 
   rowsCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, overflow: 'hidden' },
   menuRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, paddingHorizontal: ANDI_SPACING.s4 },
   menuRowBorder: { borderBottomWidth: 1, borderBottomColor: ANDI_COLORS.outlineVariant },
   menuIcon: { fontSize: 17, color: ANDI_COLORS.primary600, width: 20, textAlign: 'center' },
-  menuLabel: { flex: 1, ...ANDI_TYPE.label, color: ANDI_COLORS.onSurface },
+  menuLabel: { flex: 1, ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
   menuValue: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant },
   menuChevron: { color: ANDI_COLORS.onSurfaceVariant, fontSize: 16 },
 
   editCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
-  fieldLabel: { ...ANDI_TYPE.label, fontSize: 12, color: ANDI_COLORS.onSurfaceVariant, marginBottom: 6, marginTop: ANDI_SPACING.s3 },
+  fieldLabel: { ...ANDI_TYPE.label, fontSize: r.scaleFont(12), color: ANDI_COLORS.onSurfaceVariant, marginBottom: 6, marginTop: ANDI_SPACING.s3 },
   input: {
     borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md,
     backgroundColor: ANDI_COLORS.surfaceMid, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12,
-    fontSize: 14, color: ANDI_COLORS.onSurface,
+    fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface,
   },
   inputError: { borderColor: ANDI_COLORS.error },
-  errorText: { color: ANDI_COLORS.error, fontSize: 11, marginTop: 4 },
+  errorText: { color: ANDI_COLORS.error, fontSize: r.scaleFont(11), marginTop: 4 },
   editActions: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   editCancelBtn: { flex: 1, minHeight: 48, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },
   editCancelText: { color: ANDI_COLORS.onSurface, fontWeight: '600' },
   saveBtn: { flex: 1, minHeight: 48, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary600, alignItems: 'center', justifyContent: 'center' },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: r.scaleFont(15) },
   disabled: { opacity: 0.6 },
 
   pendingCard: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, backgroundColor: ANDI_COLORS.surfaceMid, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
@@ -380,21 +388,21 @@ const styles = StyleSheet.create({
   pendingTitle: { ...ANDI_TYPE.label, color: ANDI_COLORS.onSurface },
   pendingMeta: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
   pendingBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center', backgroundColor: ANDI_COLORS.surface },
-  pendingBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
+  pendingBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },
 
   logoutBtn: { minHeight: 52, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.error, backgroundColor: ANDI_COLORS.errorContainer, alignItems: 'center', justifyContent: 'center' },
-  logoutText: { color: ANDI_COLORS.onErrorContainer, fontWeight: '700', fontSize: 14 },
+  logoutText: { color: ANDI_COLORS.onErrorContainer, fontWeight: '700', fontSize: r.scaleFont(14) },
 
-  version: { textAlign: 'center', color: ANDI_COLORS.onSurfaceVariant, fontSize: 11 },
+  version: { textAlign: 'center', color: ANDI_COLORS.onSurfaceVariant, fontSize: r.scaleFont(11) },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end', alignItems: 'center' },
   modalCard: { backgroundColor: ANDI_COLORS.surface, borderTopLeftRadius: ANDI_RADIUS.xxl, borderTopRightRadius: ANDI_RADIUS.xxl, padding: ANDI_SPACING.s6, paddingBottom: ANDI_SPACING.s10 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { ...ANDI_TYPE.section, color: ANDI_COLORS.onSurface },
+  modalTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface },
   modalClose: { fontSize: 20, color: ANDI_COLORS.onSurfaceVariant, padding: 4 },
-  modalMessage: { ...ANDI_TYPE.body, color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s2 },
+  modalMessage: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s2 },
   logoutConfirmBtn: { backgroundColor: ANDI_COLORS.error },
   passWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, backgroundColor: ANDI_COLORS.surfaceMid, paddingRight: 8 },
-  passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: 14, color: ANDI_COLORS.onSurface },
+  passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface },
   eyeBtn: { padding: 6 },
 });

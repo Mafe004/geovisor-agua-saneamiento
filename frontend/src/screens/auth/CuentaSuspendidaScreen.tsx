@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CuentaSuspendida'>;
 
 export default function CuentaSuspendidaScreen({ navigation, route }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const message = route.params?.message ?? 'Tu cuenta no está activa en este momento.';
 
   return (
@@ -45,11 +48,11 @@ export default function CuentaSuspendidaScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: andiColors.primary900, justifyContent: 'space-between' },
   top: { alignItems: 'center', paddingTop: '30%', paddingHorizontal: andiSpace[6] },
-  title: { ...andiType.headingLg, color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },
-  subtitle: { ...andiType.bodySm, color: andiColors.primary200, marginTop: andiSpace[2], textAlign: 'center', minHeight: 16 },
+  title: { ...r.scaleType(andiType.headingLg), color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },
+  subtitle: { ...r.scaleType(andiType.bodySm), color: andiColors.primary200, marginTop: andiSpace[2], textAlign: 'center', minHeight: 16 },
   chip: {
     marginTop: andiSpace[4],
     backgroundColor: andiColors.error100,
@@ -57,8 +60,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
-  chipText: { ...andiType.labelSm, color: andiColors.error700, letterSpacing: 0.8 },
+  chipText: { ...r.scaleType(andiType.labelSm), color: andiColors.error700, letterSpacing: 0.8 },
   card: {
+    width: '100%',
+    maxWidth: r.maxContentWidth(480),
+    alignSelf: 'center',
     backgroundColor: andiColors.surface,
     borderTopLeftRadius: andiRadius.xl,
     borderTopRightRadius: andiRadius.xl,
@@ -68,7 +74,7 @@ const styles = StyleSheet.create({
   },
   btn: { borderRadius: andiRadius.full, overflow: 'hidden' },
   btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
-  btnText: { ...andiType.label, color: andiColors.surface, letterSpacing: 0.5 },
+  btnText: { ...r.scaleType(andiType.label), color: andiColors.surface, letterSpacing: 0.5 },
   linkRow: { alignItems: 'center', marginTop: andiSpace[6] },
-  linkText: { ...andiType.bodySm, color: andiColors.primary600 },
+  linkText: { ...r.scaleType(andiType.bodySm), color: andiColors.primary600 },
 });

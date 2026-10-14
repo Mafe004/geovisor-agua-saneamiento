@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { andiColors, andiRadius, andiSpace, andiStatusPill } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 interface AndiStatusBadgeProps {
   status?: string;
@@ -10,6 +11,8 @@ interface AndiStatusBadgeProps {
 }
 
 export default function AndiStatusBadge({ status, onDark }: AndiStatusBadgeProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const cfg = andiStatusPill[(status ?? '').toUpperCase()] ?? andiStatusPill.PENDIENTE!;
 
   const bg = onDark ? andiColors.primary700 : cfg.bg;
@@ -28,7 +31,7 @@ export default function AndiStatusBadge({ status, onDark }: AndiStatusBadgeProps
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: andiSpace[4], height: 20,
@@ -36,5 +39,5 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  label: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
+  label: { fontSize: r.scaleFont(12), lineHeight: r.scaleFont(16), fontWeight: '600' },
 });

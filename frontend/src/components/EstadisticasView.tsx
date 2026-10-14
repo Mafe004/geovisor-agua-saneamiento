@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import StatCard from './StatCard';
 import type { EstadisticasResponse } from '../types/domain';
+import { useResponsive, type Responsive } from '../theme/responsive';
 
 interface EstadisticasViewProps {
   stats: EstadisticasResponse;
@@ -9,6 +10,8 @@ interface EstadisticasViewProps {
 }
 
 export default function EstadisticasView({ stats, title }: EstadisticasViewProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   // El backend agrupa con GROUP BY: cada arreglo solo trae las filas con
   // conteo > 0. Una clave ausente significa cero, no dato faltante.
   const byEstado = Object.fromEntries(
@@ -76,9 +79,9 @@ export default function EstadisticasView({ stats, title }: EstadisticasViewProps
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   sectionTitle: {
-    fontSize: 13, fontWeight: '700', color: '#6B7280',
+    fontSize: r.scaleFont(13), fontWeight: '700', color: '#6B7280',
     textTransform: 'uppercase', letterSpacing: 0.8,
     marginBottom: 10, marginTop: 16,
   },
@@ -90,8 +93,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   tipoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
-  tipoName: { fontSize: 12, color: '#374151', width: 120 },
+  tipoName: { fontSize: r.scaleFont(12), color: '#374151', width: r.scaleWidth(120), flexShrink: 1 },
   tipoBarWrap: { flex: 1, height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' },
   tipoBar: { height: 8, backgroundColor: '#1565C0', borderRadius: 4, minWidth: 4 },
-  tipoCount: { fontSize: 12, fontWeight: '700', color: '#1565C0', width: 28, textAlign: 'right' },
+  tipoCount: { fontSize: r.scaleFont(12), fontWeight: '700', color: '#1565C0', width: 28, textAlign: 'right' },
 });

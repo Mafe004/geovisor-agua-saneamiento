@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator,
@@ -14,6 +14,7 @@ import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 // Tab "Crear" de Entidad (-> navega a 'Asignados' tras enviar). Hasta la
 // integración del rol Ciudadano de Ciudadano_V2_TS este archivo también
@@ -32,6 +33,8 @@ type Props = {
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 
 export default function CrearReporteScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { isCiudadano } = useContext(AuthContext);
   const destinoMisReportes = isCiudadano ? 'Reportes' : 'Asignados';
   const [descripcion, setDescripcion] = useState('');
@@ -151,10 +154,11 @@ export default function CrearReporteScreen({ navigation }: Props) {
       </LinearGradient>
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
       >
+        <View style={styles.contentWrap}>
         {/* ── Descripción ── */}
         <Text style={styles.label}>Descripción *</Text>
         <TextInput
@@ -280,51 +284,53 @@ export default function CrearReporteScreen({ navigation }: Props) {
             }
           </LinearGradient>
         </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 16 },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  headerTitle: { color: '#fff', fontSize: r.scaleFont(20), fontWeight: '700' },
+  headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: r.scaleFont(12), marginTop: 2 },
   scroll: { padding: 16, paddingBottom: 40 },
-  label: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 8, marginTop: 16 },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
+  label: { fontSize: r.scaleFont(13), fontWeight: '700', color: '#374151', marginBottom: 8, marginTop: 16 },
   textarea: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#fff', padding: 12, fontSize: 14, color: '#1F2937',
+    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(14), color: '#1F2937',
     minHeight: 100,
   },
   inputField: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#fff', padding: 12, fontSize: 14, color: '#1F2937', height: 48,
+    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(14), color: '#1F2937', height: 48,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  emptyChip: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' },
+  emptyChip: { fontSize: r.scaleFont(12), color: '#9CA3AF', fontStyle: 'italic' },
   chip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
     backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
   },
   chipActive: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
-  chipText: { fontSize: 13, color: '#374151', fontWeight: '600' },
+  chipText: { fontSize: r.scaleFont(13), color: '#374151', fontWeight: '600' },
   chipTextActive: { color: '#fff' },
   mapSection: { marginTop: 8 },
   mapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mapHint: { fontSize: 12, color: '#6B7280', marginBottom: 8, lineHeight: 16 },
+  mapHint: { fontSize: r.scaleFont(12), color: '#6B7280', marginBottom: 8, lineHeight: 16 },
   locBtn: {
     backgroundColor: '#EFF6FF', borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 6,
     borderWidth: 1, borderColor: '#BFDBFE',
   },
-  locBtnText: { color: '#1565C0', fontSize: 13, fontWeight: '600' },
-  map: { height: 240, borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: '#E5E7EB' },
-  coordText: { fontSize: 11, color: '#6B7280', marginTop: 6, textAlign: 'center' },
-  coordTextPending: { fontSize: 11, color: '#F59E0B', marginTop: 6, textAlign: 'center', fontWeight: '600' },
-  siasarHint: { fontSize: 11, color: '#065F46', marginTop: 6, textAlign: 'center' },
+  locBtnText: { color: '#1565C0', fontSize: r.scaleFont(13), fontWeight: '600' },
+  map: { height: r.scaleHeight(240), borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: '#E5E7EB' },
+  coordText: { fontSize: r.scaleFont(11), color: '#6B7280', marginTop: 6, textAlign: 'center' },
+  coordTextPending: { fontSize: r.scaleFont(11), color: '#F59E0B', marginTop: 6, textAlign: 'center', fontWeight: '600' },
+  siasarHint: { fontSize: r.scaleFont(11), color: '#065F46', marginTop: 6, textAlign: 'center' },
   btn: { marginTop: 24, borderRadius: 14, overflow: 'hidden' },
   btnDisabled: { opacity: 0.6 },
   btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  btnText: { color: '#fff', fontSize: r.scaleFont(16), fontWeight: '700' },
 });

@@ -1,7 +1,8 @@
 import { StyleSheet } from 'react-native';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
+import type { Responsive } from '../../theme/responsive';
 
-export const styles = StyleSheet.create({
+export const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   body: { padding: 0 },
   map: { flex: 1 },
@@ -17,5 +18,5 @@ export const styles = StyleSheet.create({
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: andiRadius.full },
-  legendText: { fontSize: 12, lineHeight: 16, color: andiColors.onSurfaceVariant },
+  legendText: { fontSize: r.scaleFont(12), lineHeight: r.scaleFont(16), color: andiColors.onSurfaceVariant },
 });

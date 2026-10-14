@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import StatusBadge from './StatusBadge';
 import { COLORS } from '../theme/colors';
 import type { Reporte } from '../types/domain';
+import { useResponsive, type Responsive } from '../theme/responsive';
 
 function formatDate(dateStr: string | undefined) {
   if (!dateStr) return '';
@@ -19,6 +20,8 @@ interface ReportCardProps {
 }
 
 export default function ReportCard({ reporte, onPress, highlighted, style }: ReportCardProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <TouchableOpacity
       style={[styles.card, highlighted && styles.cardHighlighted, style]}
@@ -79,7 +82,7 @@ export default function ReportCard({ reporte, onPress, highlighted, style }: Rep
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -113,13 +116,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   id: {
-    fontSize: 12,
+    fontSize: r.scaleFont(12),
     fontWeight: '700',
     color: COLORS.primary,
     letterSpacing: 0.5,
   },
   description: {
-    fontSize: 14,
+    fontSize: r.scaleFont(14),
     color: '#1F2937',
     lineHeight: 20,
     marginBottom: 8,
@@ -133,11 +136,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metaIcon: {
-    fontSize: 11,
+    fontSize: r.scaleFont(11),
     marginRight: 4,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: r.scaleFont(12),
     color: '#6B7280',
     flex: 1,
   },
@@ -147,7 +150,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   date: {
-    fontSize: 11,
+    fontSize: r.scaleFont(11),
     color: '#9CA3AF',
   },
 });

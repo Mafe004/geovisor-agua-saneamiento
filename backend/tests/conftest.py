@@ -34,6 +34,35 @@ if not _DB_NAME.endswith("_test"):
         returncode=1,
     )
 
+
+def _admin_connect():
+    """Conexión al servidor sin base seleccionada (para CREATE/DROP DATABASE)."""
+    return pymysql.connect(
+        host=os.environ.get("DB_HOST", "localhost"),
+        port=int(os.environ.get("DB_PORT", 3306)),
+        user=os.environ.get("DB_USER", "root"),
+        password=os.environ.get("DB_PASSWORD", ""),
+        autocommit=True,
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+
+# ── La base tiene que existir ANTES de importar la app ───────────────────
+# app.db.database crea el pool al importarse (mincached=2), y eso abre
+# conexiones a DB_NAME de inmediato. En un MySQL recién creado (CI) la base
+# todavía no existe, así que sin esto el import revienta con "Unknown
+# database" y pytest aborta cargando este conftest (exit code 4). Aquí solo
+# se crea vacía — _seed_snapshot la recrea y la llena más abajo.
+_bootstrap_conn = _admin_connect()
+try:
+    with _bootstrap_conn.cursor() as _cur:
+        _cur.execute(
+            f"CREATE DATABASE IF NOT EXISTS `{_DB_NAME}` "
+            "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+        )
+finally:
+    _bootstrap_conn.close()
+
 from fastapi.testclient import TestClient  # noqa: E402 (después del guard)
 
 from app.core.security import hash_password  # noqa: E402
@@ -119,14 +148,7 @@ def _seed_snapshot():
     semilla para que el reseed entre tests no tenga que volver a correr
     todo el script cada vez.
     """
-    admin_conn = pymysql.connect(
-        host=os.environ.get("DB_HOST", "localhost"),
-        port=int(os.environ.get("DB_PORT", 3306)),
-        user=os.environ.get("DB_USER", "root"),
-        password=os.environ.get("DB_PASSWORD", ""),
-        autocommit=True,
-        cursorclass=pymysql.cursors.DictCursor,
-    )
+    admin_conn = _admin_connect()
     try:
         with admin_conn.cursor() as cur:
             cur.execute(f"DROP DATABASE IF EXISTS `{_DB_NAME}`;")

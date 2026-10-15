@@ -19,6 +19,8 @@ type Props = {
 
 type ReportesQuery = operations['listar_reportes_reportes__get']['parameters']['query'];
 
+const PAGE_SIZE = 200; // máximo que acepta GET /reportes/ (limite le=200)
+
 export default function TodosReportesScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
@@ -28,6 +30,7 @@ export default function TodosReportesScreen({ navigation }: Props) {
   const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
   const [idEstado, setIdEstado] = useState<number | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -40,12 +43,23 @@ export default function TodosReportesScreen({ navigation }: Props) {
   const loadReportes = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params: ReportesQuery = {};
-      if (idEstado != null) params.id_estado = idEstado;
-      const res = await reportesAPI.listar(params);
-      setReportes(res.data || []);
+      // GET /reportes/ pagina (limite máx. 200, default 50) mientras que
+      // /reportes/estadisticas cuenta todo -- se recorren todas las páginas
+      // para que este listado y el total del Panel siempre coincidan.
+      const todos: Reporte[] = [];
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const params: ReportesQuery = { limite: PAGE_SIZE, offset };
+        if (idEstado != null) params.id_estado = idEstado;
+        const res = await reportesAPI.listar(params);
+        const page = res.data || [];
+        todos.push(...page);
+        if (page.length < PAGE_SIZE) break;
+      }
+      setReportes(todos);
+      setError(false);
     } catch (_) {
-      setReportes([]);
+      // No vaciar la lista en silencio: un 500 se veía igual que "0 reportes".
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -125,13 +139,19 @@ export default function TodosReportesScreen({ navigation }: Props) {
         }
         contentContainerStyle={[styles.listContent, reportesFiltrados.length === 0 && styles.emptyContainer]}
         ListEmptyComponent={
-          !loading ? (
+          loading ? null : error ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>⚠️</Text>
+              <Text style={styles.emptyTitle}>No se pudieron cargar los reportes</Text>
+              <Text style={styles.emptyText}>Desliza hacia abajo para reintentar.</Text>
+            </View>
+          ) : (
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>📭</Text>
               <Text style={styles.emptyTitle}>Sin resultados</Text>
               <Text style={styles.emptyText}>No hay reportes con el filtro seleccionado.</Text>
             </View>
-          ) : null
+          )
         }
       />
     </View>

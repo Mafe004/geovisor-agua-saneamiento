@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator,
   TextInput, TouchableOpacity, FlatList,
@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, siasarAPI, usuariosAPI, entidadesAPI, auditoriaAPI } from '../../api/services';
@@ -80,9 +80,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadStats(); }, []);
-
-  const loadStats = async (silent = false) => {
+  const loadStats = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     // Cada estadística viene de un endpoint independiente -- allSettled para
     // que una falla no vacíe las demás (ver fix previo en este mismo
@@ -112,7 +110,17 @@ export default function DashboardScreen() {
 
     setLoading(false);
     setRefreshing(false);
-  };
+  }, []);
+
+  // Recargar en cada foco (no solo al montar): las tabs quedan montadas, así
+  // que con useEffect el panel seguía mostrando conteos viejos mientras la
+  // pestaña Reportes (que ya usa useFocusEffect) mostraba los nuevos. Solo
+  // la primera carga muestra el spinner de pantalla completa.
+  const loadedOnce = useRef(false);
+  useFocusEffect(useCallback(() => {
+    loadStats(loadedOnce.current);
+    loadedOnce.current = true;
+  }, [loadStats]));
 
   if (loading) {
     return (

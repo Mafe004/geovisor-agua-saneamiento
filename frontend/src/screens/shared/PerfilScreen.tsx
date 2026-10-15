@@ -243,7 +243,7 @@ export default function PerfilScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>💧 Sobre la app</Text>
           <InfoRow styles={styles} icon="🏗️" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
-          <InfoRow styles={styles} icon="🎓" label="Proyecto" value="Tesis de grado · 2025" />
+          <InfoRow styles={styles} icon="🎓" label="Proyecto" value="Tesis de grado · 2026" />
           <InfoRow styles={styles} icon="📍" label="Municipio" value="Cundinamarca" />
         </View>
 

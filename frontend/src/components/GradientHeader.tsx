@@ -39,7 +39,7 @@ export default function GradientHeader({ title, subtitle, onBack, rightAction, c
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
-  container: { paddingTop: 48, paddingBottom: 16 },
+  container: { paddingTop: 16, paddingBottom: 16 },
   content: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
   left: { width: 40 },
   center: { flex: 1, alignItems: 'center' },

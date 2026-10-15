@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import type { CompositeNavigationProp, ParamListBase } from '@react-navigation/native';
@@ -147,152 +148,156 @@ export default function CrearReporteScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
-        <Text style={styles.headerTitle}>➕ Nuevo Reporte</Text>
-        <Text style={styles.headerSub}>Reporta un problema de agua o saneamiento</Text>
-      </LinearGradient>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
+          <Text style={styles.headerTitle}>➕ Nuevo Reporte</Text>
+          <Text style={styles.headerSub}>Reporta un problema de agua o saneamiento</Text>
+        </LinearGradient>
 
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
-      >
-        <View style={styles.contentWrap}>
-        {/* ── Descripción ── */}
-        <Text style={styles.label}>Descripción *</Text>
-        <TextInput
-          style={styles.textarea}
-          placeholder="Describe el problema con detalle: qué observas, desde cuándo, qué tan grave es…"
-          placeholderTextColor="#9CA3AF"
-          multiline
-          numberOfLines={4}
-          value={descripcion}
-          onChangeText={setDescripcion}
-          textAlignVertical="top"
-        />
-
-        {/* ── Dirección ── */}
-        <Text style={styles.label}>Dirección aproximada (opcional)</Text>
-        <TextInput
-          style={styles.inputField}
-          placeholder="Ej: Carrera 7 # 3-45, barrio Centro"
-          placeholderTextColor="#9CA3AF"
-          value={direccion}
-          onChangeText={setDireccion}
-        />
-
-        {/* ── Tipo incidente ── */}
-        <Text style={styles.label}>Tipo de incidente *</Text>
-        <View style={styles.chipRow}>
-          {tipos.length === 0 && (
-            <Text style={styles.emptyChip}>Cargando tipos…</Text>
-          )}
-          {tipos.map(t => (
-            <TouchableOpacity
-              key={t.id_tipo_incidente}
-              style={[styles.chip, idTipo === t.id_tipo_incidente && styles.chipActive]}
-              onPress={() => setIdTipo(t.id_tipo_incidente)}
-            >
-              <Text style={[styles.chipText, idTipo === t.id_tipo_incidente && styles.chipTextActive]}>
-                {t.nombre}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── Severidad ── */}
-        <Text style={styles.label}>Severidad *</Text>
-        <View style={styles.chipRow}>
-          {severidades.length === 0 && (
-            <Text style={styles.emptyChip}>Cargando severidades…</Text>
-          )}
-          {severidades.map(s => (
-            <TouchableOpacity
-              key={s.id_severidad}
-              style={[styles.chip, idSeveridad === s.id_severidad && styles.chipActive]}
-              onPress={() => setIdSeveridad(s.id_severidad)}
-            >
-              <Text style={[styles.chipText, idSeveridad === s.id_severidad && styles.chipTextActive]}>
-                {s.nombre}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── Mapa con pin central ── */}
-        <View style={styles.mapSection}>
-          <View style={styles.mapHeader}>
-            <Text style={styles.label}>Ubicación del problema *</Text>
-            <TouchableOpacity style={styles.locBtn} onPress={getMyLocation} disabled={locLoading}>
-              {locLoading
-                ? <ActivityIndicator size="small" color="#1565C0" />
-                : <Text style={styles.locBtnText}>📍 Mi ubicación</Text>
-              }
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.mapHint}>
-            Arrastra el mapa hasta que el pin rojo quede sobre el lugar exacto del problema
-          </Text>
-
-          {/* MapaWebView con showCenterPin — NO necesita react-native-maps */}
-          <MapaWebView
-            style={styles.map}
-            latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
-            longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
-            zoom={15}
-            showCenterPin={true}
-            onCenterChange={handleCenterChange}
-            markers={[]}
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          <View style={styles.contentWrap}>
+          {/* ── Descripción ── */}
+          <Text style={styles.label}>Descripción *</Text>
+          <TextInput
+            style={styles.textarea}
+            placeholder="Describe el problema con detalle: qué observas, desde cuándo, qué tan grave es…"
+            placeholderTextColor="#9CA3AF"
+            multiline
+            numberOfLines={4}
+            value={descripcion}
+            onChangeText={setDescripcion}
+            textAlignVertical="top"
           />
 
-          {coordenadas ? (
-            <Text style={styles.coordText}>
-              📌 Lat {coordenadas.latitude.toFixed(5)}, Lng {coordenadas.longitude.toFixed(5)}
-            </Text>
-          ) : (
-            <Text style={styles.coordTextPending}>
-              ⚠️ Aún no has seleccionado una ubicación
-            </Text>
-          )}
+          {/* ── Dirección ── */}
+          <Text style={styles.label}>Dirección aproximada (opcional)</Text>
+          <TextInput
+            style={styles.inputField}
+            placeholder="Ej: Carrera 7 # 3-45, barrio Centro"
+            placeholderTextColor="#9CA3AF"
+            value={direccion}
+            onChangeText={setDireccion}
+          />
 
-          {coordenadas && proximidadSiasar && (
-            <Text style={styles.siasarHint}>
-              {proximidadSiasar.comunidad
-                ? `📊 Ubicación cerca de la vereda ${proximidadSiasar.comunidad.nombre}, ${proximidadSiasar.comunidad.municipio} (a ${proximidadSiasar.distancia_m} m)`
-                : '📊 Fuera de las veredas registradas en SIASAR'}
-            </Text>
-          )}
-        </View>
+          {/* ── Tipo incidente ── */}
+          <Text style={styles.label}>Tipo de incidente *</Text>
+          <View style={styles.chipRow}>
+            {tipos.length === 0 && (
+              <Text style={styles.emptyChip}>Cargando tipos…</Text>
+            )}
+            {tipos.map(t => (
+              <TouchableOpacity
+                key={t.id_tipo_incidente}
+                style={[styles.chip, idTipo === t.id_tipo_incidente && styles.chipActive]}
+                onPress={() => setIdTipo(t.id_tipo_incidente)}
+              >
+                <Text style={[styles.chipText, idTipo === t.id_tipo_incidente && styles.chipTextActive]}>
+                  {t.nombre}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-        {/* ── Botón enviar ── */}
-        <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          <LinearGradient
-            colors={['#1565C0', '#00ACC1']}
-            style={styles.btnGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+          {/* ── Severidad ── */}
+          <Text style={styles.label}>Severidad *</Text>
+          <View style={styles.chipRow}>
+            {severidades.length === 0 && (
+              <Text style={styles.emptyChip}>Cargando severidades…</Text>
+            )}
+            {severidades.map(s => (
+              <TouchableOpacity
+                key={s.id_severidad}
+                style={[styles.chip, idSeveridad === s.id_severidad && styles.chipActive]}
+                onPress={() => setIdSeveridad(s.id_severidad)}
+              >
+                <Text style={[styles.chipText, idSeveridad === s.id_severidad && styles.chipTextActive]}>
+                  {s.nombre}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ── Mapa con pin central ── */}
+          <View style={styles.mapSection}>
+            <View style={styles.mapHeader}>
+              <Text style={styles.label}>Ubicación del problema *</Text>
+              <TouchableOpacity style={styles.locBtn} onPress={getMyLocation} disabled={locLoading}>
+                {locLoading
+                  ? <ActivityIndicator size="small" color="#1565C0" />
+                  : <Text style={styles.locBtnText}>📍 Mi ubicación</Text>
+                }
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.mapHint}>
+              Arrastra el mapa hasta que el pin rojo quede sobre el lugar exacto del problema
+            </Text>
+
+            {/* MapaWebView con showCenterPin — NO necesita react-native-maps */}
+            <MapaWebView
+              style={styles.map}
+              latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
+              longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
+              zoom={15}
+              showCenterPin={true}
+              onCenterChange={handleCenterChange}
+              markers={[]}
+            />
+
+            {coordenadas ? (
+              <Text style={styles.coordText}>
+                📌 Lat {coordenadas.latitude.toFixed(5)}, Lng {coordenadas.longitude.toFixed(5)}
+              </Text>
+            ) : (
+              <Text style={styles.coordTextPending}>
+                ⚠️ Aún no has seleccionado una ubicación
+              </Text>
+            )}
+
+            {coordenadas && proximidadSiasar && (
+              <Text style={styles.siasarHint}>
+                {proximidadSiasar.comunidad
+                  ? `📊 Ubicación cerca de la vereda ${proximidadSiasar.comunidad.nombre}, ${proximidadSiasar.comunidad.municipio} (a ${proximidadSiasar.distancia_m} m)`
+                  : '📊 Fuera de las veredas registradas en SIASAR'}
+              </Text>
+            )}
+          </View>
+
+          {/* ── Botón enviar ── */}
+          <TouchableOpacity
+            style={[styles.btn, loading && styles.btnDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
           >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnText}>Enviar reporte</Text>
-            }
-          </LinearGradient>
-        </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+            <LinearGradient
+              colors={['#1565C0', '#00ACC1']}
+              style={styles.btnGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.btnText}>Enviar reporte</Text>
+              }
+            </LinearGradient>
+          </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: '#1565C0' },
   container: { flex: 1, backgroundColor: '#F3F4F6' },
-  header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 16 },
+  header: { paddingTop: 16, paddingBottom: 16, paddingHorizontal: 16 },
   headerTitle: { color: '#fff', fontSize: r.scaleFont(20), fontWeight: '700' },
   headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: r.scaleFont(12), marginTop: 2 },
   scroll: { padding: 16, paddingBottom: 40 },

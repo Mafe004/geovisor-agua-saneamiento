@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { auditoriaAPI } from '../../api/services';
@@ -89,77 +90,81 @@ export default function AuditoriaScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-        <Text style={styles.headerTitle}>Auditoría</Text>
-      </LinearGradient>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+          <Text style={styles.headerTitle}>Auditoría</Text>
+        </LinearGradient>
 
-      <View style={styles.filterRow}>
-        {FILTERS.map(f => {
-          const active = filter === f.key;
-          return (
-            <TouchableOpacity
-              key={f.key}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setFilter(f.key)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={andiColors.primary600} />
-        </View>
-      ) : (
-        <FlatList
-          data={logs}
-          keyExtractor={l => String(l.id_log)}
-          contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadLogs(true); }} colors={[andiColors.primary600]} />
-          }
-          renderItem={({ item }) => {
-            const badge = ACCION_BADGE[item.accion] ?? ACCION_BADGE_DEFAULT;
-            const sobrePersonas = item.modulo === 'USUARIOS' || item.modulo === 'AUTH';
+        <View style={styles.filterRow}>
+          {FILTERS.map(f => {
+            const active = filter === f.key;
             return (
-              <View style={styles.row}>
-                <View style={[styles.bar, { backgroundColor: sobrePersonas ? andiColors.error400 : andiColors.primary600 }]} />
-                <View style={styles.rowBody}>
-                  <View style={styles.rowTopLine}>
-                    <Text style={styles.actorName} numberOfLines={1}>{item.usuario ?? 'Usuario eliminado'}</Text>
-                    <View style={[styles.actionBadge, { backgroundColor: badge.bg }]}>
-                      <Text style={[styles.actionBadgeText, { color: badge.fg }]}>{item.accion}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.targetLine} numberOfLines={1}>{ACCION_LABEL[item.accion] ?? item.accion}</Text>
-                  <Text style={styles.moduleLabel}>{item.modulo}</Text>
-                </View>
-                <View style={styles.rowRight}>
-                  <Text style={styles.timestamp}>{formatFecha(item.fecha_accion)}</Text>
-                  <Text style={styles.ip}>{item.ip_origen ?? '—'}</Text>
-                </View>
-              </View>
+              <TouchableOpacity
+                key={f.key}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setFilter(f.key)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
+              </TouchableOpacity>
             );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Feather name="shield" size={48} color={andiColors.onSurfaceVariant} />
-              <Text style={styles.emptyStateText}>Sin registros de auditoría</Text>
-            </View>
-          }
-        />
-      )}
-    </View>
+          })}
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={andiColors.primary600} />
+          </View>
+        ) : (
+          <FlatList
+            data={logs}
+            keyExtractor={l => String(l.id_log)}
+            contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadLogs(true); }} colors={[andiColors.primary600]} />
+            }
+            renderItem={({ item }) => {
+              const badge = ACCION_BADGE[item.accion] ?? ACCION_BADGE_DEFAULT;
+              const sobrePersonas = item.modulo === 'USUARIOS' || item.modulo === 'AUTH';
+              return (
+                <View style={styles.row}>
+                  <View style={[styles.bar, { backgroundColor: sobrePersonas ? andiColors.error400 : andiColors.primary600 }]} />
+                  <View style={styles.rowBody}>
+                    <View style={styles.rowTopLine}>
+                      <Text style={styles.actorName} numberOfLines={1}>{item.usuario ?? 'Usuario eliminado'}</Text>
+                      <View style={[styles.actionBadge, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.actionBadgeText, { color: badge.fg }]}>{item.accion}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.targetLine} numberOfLines={1}>{ACCION_LABEL[item.accion] ?? item.accion}</Text>
+                    <Text style={styles.moduleLabel}>{item.modulo}</Text>
+                  </View>
+                  <View style={styles.rowRight}>
+                    <Text style={styles.timestamp}>{formatFecha(item.fecha_accion)}</Text>
+                    <Text style={styles.ip}>{item.ip_origen ?? '—'}</Text>
+                  </View>
+                </View>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Feather name="shield" size={48} color={andiColors.onSurfaceVariant} />
+                <Text style={styles.emptyStateText}>Sin registros de auditoría</Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
-  header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
+  header: { paddingTop: andiSpace[4], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface },
 
   filterRow: {

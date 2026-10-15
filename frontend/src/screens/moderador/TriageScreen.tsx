@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { reportesAPI, catalogosAPI, entidadesAPI } from '../../api/services';
@@ -94,132 +95,136 @@ export default function TriageScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <AndiHeader
-        overline="Bandeja · Cundinamarca"
-        title="Por revisar"
-        stats={[
-          { value: sinRevisar.length, label: 'Sin revisar' },
-          { value: sinEntidad.length, label: 'Sin entidad', color: andiColors.accent300 },
-          { value: reportes.length, label: 'Abiertos' },
-        ]}
-        rightElement={
-          <AndiHeaderIconButton
-            icon={busquedaVisible ? 'x' : 'search'}
-            onPress={() => {
-              setBusquedaVisible(v => !v);
-              if (busquedaVisible) setBusqueda('');
-            }}
-          />
-        }
-      />
-
-      <AndiBody>
-        {busquedaVisible && (
-          <View style={styles.searchRow}>
-            <Feather name="search" size={16} color={andiColors.onSurfaceVariant} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar por descripción, dirección o ciudadano…"
-              placeholderTextColor={andiColors.onSurfaceVariant}
-              value={busqueda}
-              onChangeText={setBusqueda}
-              autoFocus
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <AndiHeader
+          overline="Bandeja · Cundinamarca"
+          title="Por revisar"
+          stats={[
+            { value: sinRevisar.length, label: 'Sin revisar' },
+            { value: sinEntidad.length, label: 'Sin entidad', color: andiColors.accent300 },
+            { value: reportes.length, label: 'Abiertos' },
+          ]}
+          rightElement={
+            <AndiHeaderIconButton
+              icon={busquedaVisible ? 'x' : 'search'}
+              onPress={() => {
+                setBusquedaVisible(v => !v);
+                if (busquedaVisible) setBusqueda('');
+              }}
             />
-          </View>
-        )}
+          }
+        />
 
-        <View style={styles.chipsRow}>
-          <AndiChip label="Sin revisar" variant={filtro === 'sin_revisar' ? 'solid' : 'outline'} onPress={() => setFiltro(f => f === 'sin_revisar' ? 'todos' : 'sin_revisar')} />
-          <AndiChip label={`Sin entidad · ${sinEntidad.length}`} variant="accent" onPress={() => setFiltro(f => f === 'sin_entidad' ? 'todos' : 'sin_entidad')} />
-          <AndiChip label="Alta" variant={filtro === 'alta' ? 'solid' : 'outline'} onPress={() => setFiltro(f => f === 'alta' ? 'todos' : 'alta')} />
-        </View>
+        <AndiBody>
+          {busquedaVisible && (
+            <View style={styles.searchRow}>
+              <Feather name="search" size={16} color={andiColors.onSurfaceVariant} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Buscar por descripción, dirección o ciudadano…"
+                placeholderTextColor={andiColors.onSurfaceVariant}
+                value={busqueda}
+                onChangeText={setBusqueda}
+                autoFocus
+              />
+            </View>
+          )}
 
-        {loading ? (
-          <View style={styles.list}>
-            <AndiSkeletonList count={4} />
+          <View style={styles.chipsRow}>
+            <AndiChip label="Sin revisar" variant={filtro === 'sin_revisar' ? 'solid' : 'outline'} onPress={() => setFiltro(f => f === 'sin_revisar' ? 'todos' : 'sin_revisar')} />
+            <AndiChip label={`Sin entidad · ${sinEntidad.length}`} variant="accent" onPress={() => setFiltro(f => f === 'sin_entidad' ? 'todos' : 'sin_entidad')} />
+            <AndiChip label="Alta" variant={filtro === 'alta' ? 'solid' : 'outline'} onPress={() => setFiltro(f => f === 'alta' ? 'todos' : 'alta')} />
           </View>
-        ) : reportesFiltrados.length === 0 ? (
-          busqueda.trim() ? (
-            <AndiEmptyState
-              icon="search"
-              title="Sin resultados"
-              body={`Nada coincide con "${busqueda.trim()}" en este filtro.`}
-              ctaLabel="Borrar búsqueda"
-              onPressCta={() => setBusqueda('')}
-            />
+
+          {loading ? (
+            <View style={styles.list}>
+              <AndiSkeletonList count={4} />
+            </View>
+          ) : reportesFiltrados.length === 0 ? (
+            busqueda.trim() ? (
+              <AndiEmptyState
+                icon="search"
+                title="Sin resultados"
+                body={`Nada coincide con "${busqueda.trim()}" en este filtro.`}
+                ctaLabel="Borrar búsqueda"
+                onPressCta={() => setBusqueda('')}
+              />
+            ) : (
+              <AndiEmptyState
+                icon="check"
+                title="Bandeja al día"
+                body={`Nada sin revisar y nada sin entidad. Los ${reportes.length} reportes abiertos ya están en manos de alguien.`}
+                ctaLabel="Ver los abiertos"
+                onPressCta={() => setFiltro('todos')}
+              />
+            )
           ) : (
-            <AndiEmptyState
-              icon="check"
-              title="Bandeja al día"
-              body={`Nada sin revisar y nada sin entidad. Los ${reportes.length} reportes abiertos ya están en manos de alguien.`}
-              ctaLabel="Ver los abiertos"
-              onPressCta={() => setFiltro('todos')}
-            />
-          )
-        ) : (
-          <FlatList
-            data={reportesFiltrados}
-            keyExtractor={r => String(r.id_reporte)}
-            contentContainerStyle={styles.list}
-            renderItem={({ item }) => {
-              const idLabel = `#${item.id_reporte} · ${formatRelative(item.created_at)}`;
-              if (item.id_entidad == null) {
+            <FlatList
+              data={reportesFiltrados}
+              keyExtractor={r => String(r.id_reporte)}
+              contentContainerStyle={styles.list}
+              renderItem={({ item }) => {
+                const idLabel = `#${item.id_reporte} · ${formatRelative(item.created_at)}`;
+                if (item.id_entidad == null) {
+                  return (
+                    <AndiReportCard
+                      variant="anchor"
+                      idLabel={idLabel}
+                      badge={
+                        <View style={styles.flagBadge}>
+                          <Feather name="flag" size={11} color={andiColors.n0} />
+                          <Text style={styles.flagBadgeText}>Sin entidad</Text>
+                        </View>
+                      }
+                      title={item.descripcion || 'Sin descripción'}
+                      meta={`${item.direccion || '—'} · ${item.usuario || '—'}`}
+                      severidad={item.severidad}
+                      note={item.tipo_incidente ?? undefined}
+                      primaryLabel="Triar ahora"
+                      onPress={() => abrirTriage(item)}
+                      onPrimaryPress={() => abrirTriage(item)}
+                      onSecondaryPress={() => abrirTriage(item)}
+                    />
+                  );
+                }
                 return (
                   <AndiReportCard
-                    variant="anchor"
                     idLabel={idLabel}
-                    badge={
-                      <View style={styles.flagBadge}>
-                        <Feather name="flag" size={11} color={andiColors.n0} />
-                        <Text style={styles.flagBadgeText}>Sin entidad</Text>
-                      </View>
-                    }
+                    badge={<AndiStatusBadge status={item.estado} />}
                     title={item.descripcion || 'Sin descripción'}
                     meta={`${item.direccion || '—'} · ${item.usuario || '—'}`}
                     severidad={item.severidad}
-                    note={item.tipo_incidente ?? undefined}
-                    primaryLabel="Triar ahora"
                     onPress={() => abrirTriage(item)}
-                    onPrimaryPress={() => abrirTriage(item)}
-                    onSecondaryPress={() => abrirTriage(item)}
+                    footerRight={
+                      item.entidad_sugerida ? (
+                        <Text style={styles.suggestedText}>→ {item.entidad_sugerida}</Text>
+                      ) : null
+                    }
                   />
                 );
-              }
-              return (
-                <AndiReportCard
-                  idLabel={idLabel}
-                  badge={<AndiStatusBadge status={item.estado} />}
-                  title={item.descripcion || 'Sin descripción'}
-                  meta={`${item.direccion || '—'} · ${item.usuario || '—'}`}
-                  severidad={item.severidad}
-                  onPress={() => abrirTriage(item)}
-                  footerRight={
-                    item.entidad_sugerida ? (
-                      <Text style={styles.suggestedText}>→ {item.entidad_sugerida}</Text>
-                    ) : null
-                  }
-                />
-              );
-            }}
-            ItemSeparatorComponent={() => <View style={{ height: andiSpace[2] }} />}
-          />
-        )}
-      </AndiBody>
+              }}
+              ItemSeparatorComponent={() => <View style={{ height: andiSpace[2] }} />}
+            />
+          )}
+        </AndiBody>
 
-      <TriageSheet
-        visible={sheetVisible}
-        reporte={reporteSeleccionado}
-        estadosDisponibles={estadosDisponibles}
-        entidades={entidades}
-        onClose={() => setSheetVisible(false)}
-        onSaved={handleSaved}
-      />
-    </View>
+        <TriageSheet
+          visible={sheetVisible}
+          reporte={reporteSeleccionado}
+          estadosDisponibles={estadosDisponibles}
+          entidades={entidades}
+          onClose={() => setSheetVisible(false)}
+          onSaved={handleSaved}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary800 },
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: andiSpace[2],

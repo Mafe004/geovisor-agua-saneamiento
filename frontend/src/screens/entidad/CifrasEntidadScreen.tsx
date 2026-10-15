@@ -1,5 +1,6 @@
 import React, { useState, useContext, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { reportesAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
@@ -57,77 +58,79 @@ export default function CifrasEntidadScreen() {
   const maxMes = Math.max(1, ...porMes.map(m => m.total));
 
   return (
-    <View style={styles.container}>
-      <AndiHeader
-        title="Cifras"
-        subtitle={`Solo ${entidadNombre || 'tu entidad'} · últimos 6 meses`}
-      />
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <AndiHeader
+          title="Cifras"
+          subtitle={`Solo ${entidadNombre || 'tu entidad'} · últimos 6 meses`}
+        />
 
-      <AndiBody>
-        {loading ? (
-          <View style={styles.center}><ActivityIndicator size="large" color={andiColors.primary} /></View>
-        ) : (
-          <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}>
-            <View style={styles.contentWrap}>
-            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Por estado</Text>
-            <View style={{ gap: andiSpace[2] }}>
-              {['PENDIENTE', 'EN_REVISION', 'EN_PROCESO', 'RESUELTO'].map(nombre => {
-                const row = porEstado.find(e => e.estado === nombre);
-                const total = row?.total ?? 0;
-                const pct = Math.round((total / maxEstado) * 100);
-                const color = andiStatusPill[nombre]?.bd ?? andiColors.outline;
-                return (
-                  <View key={nombre} style={styles.barRow}>
-                    <Text style={[andiType.caption, styles.barLabel]}>{andiStatusPill[nombre]?.label ?? nombre}</Text>
-                    <View style={styles.barTrack}>
-                      <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
+        <AndiBody>
+          {loading ? (
+            <View style={styles.center}><ActivityIndicator size="large" color={andiColors.primary} /></View>
+          ) : (
+            <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}>
+              <View style={styles.contentWrap}>
+              <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Por estado</Text>
+              <View style={{ gap: andiSpace[2] }}>
+                {['PENDIENTE', 'EN_REVISION', 'EN_PROCESO', 'RESUELTO'].map(nombre => {
+                  const row = porEstado.find(e => e.estado === nombre);
+                  const total = row?.total ?? 0;
+                  const pct = Math.round((total / maxEstado) * 100);
+                  const color = andiStatusPill[nombre]?.bd ?? andiColors.outline;
+                  return (
+                    <View key={nombre} style={styles.barRow}>
+                      <Text style={[andiType.caption, styles.barLabel]}>{andiStatusPill[nombre]?.label ?? nombre}</Text>
+                      <View style={styles.barTrack}>
+                        <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
+                      </View>
+                      <Text style={styles.barCount}>{total}</Text>
                     </View>
-                    <Text style={styles.barCount}>{total}</Text>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
 
-            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Por severidad</Text>
-            <View style={styles.severidadRow}>
-              {['BAJA', 'MEDIA', 'ALTA'].map(nombre => {
-                const row = porSeveridad.find(s => s.severidad === nombre);
-                return (
-                  <View key={nombre} style={styles.severidadCard}>
-                    <View style={styles.severidadHeader}>
-                      <View style={[styles.dot10, { backgroundColor: andiSeverityColor[nombre] }]} />
-                      <Text style={[andiType.overline, styles.severidadLabel]}>{cap(nombre)}</Text>
+              <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Por severidad</Text>
+              <View style={styles.severidadRow}>
+                {['BAJA', 'MEDIA', 'ALTA'].map(nombre => {
+                  const row = porSeveridad.find(s => s.severidad === nombre);
+                  return (
+                    <View key={nombre} style={styles.severidadCard}>
+                      <View style={styles.severidadHeader}>
+                        <View style={[styles.dot10, { backgroundColor: andiSeverityColor[nombre] }]} />
+                        <Text style={[andiType.overline, styles.severidadLabel]}>{cap(nombre)}</Text>
+                      </View>
+                      <Text style={andiType.display}>{row?.total ?? 0}</Text>
                     </View>
-                    <Text style={andiType.display}>{row?.total ?? 0}</Text>
+                  );
+                })}
+              </View>
+
+              <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Por mes</Text>
+              <View style={styles.mesChart}>
+                {porMes.map((m, i) => (
+                  <View key={i} style={styles.mesCol}>
+                    <View style={[
+                      styles.mesBar,
+                      {
+                        height: `${Math.max(6, Math.round((m.total / maxMes) * 100))}%`,
+                        backgroundColor: interpolatePrimary(m.total / maxMes),
+                      },
+                    ]} />
+                    <Text style={[andiType.overline, styles.mesLabel]}>{mesLabel(m.mes)}</Text>
                   </View>
-                );
-              })}
-            </View>
+                ))}
+              </View>
 
-            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Por mes</Text>
-            <View style={styles.mesChart}>
-              {porMes.map((m, i) => (
-                <View key={i} style={styles.mesCol}>
-                  <View style={[
-                    styles.mesBar,
-                    {
-                      height: `${Math.max(6, Math.round((m.total / maxMes) * 100))}%`,
-                      backgroundColor: interpolatePrimary(m.total / maxMes),
-                    },
-                  ]} />
-                  <Text style={[andiType.overline, styles.mesLabel]}>{mesLabel(m.mes)}</Text>
-                </View>
-              ))}
-            </View>
-
-            <Text style={[andiType.caption, styles.footerNote]}>
-              Todo sale de /reportes/estadisticas, ya filtrado por tu entidad en el servidor.
-            </Text>
-            </View>
-          </ScrollView>
-        )}
-      </AndiBody>
-    </View>
+              <Text style={[andiType.caption, styles.footerNote]}>
+                Todo sale de /reportes/estadisticas, ya filtrado por tu entidad en el servidor.
+              </Text>
+              </View>
+            </ScrollView>
+          )}
+        </AndiBody>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -138,6 +141,8 @@ function interpolatePrimary(t: number) {
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary800 },
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingHorizontal: andiSpace[5], paddingTop: andiSpace[5], paddingBottom: andiSpace[8] },

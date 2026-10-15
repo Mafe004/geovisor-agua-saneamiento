@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
@@ -51,76 +52,80 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.hero}>
-            <Feather name="key" size={48} color={andiColors.surface} />
-            <Text style={styles.appName}>Recuperar acceso</Text>
-            <Text style={styles.tagline}>Te enviaremos un enlace para restablecer tu contraseña</Text>
-          </View>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.hero}>
+              <Feather name="key" size={48} color={andiColors.surface} />
+              <Text style={styles.appName}>Recuperar acceso</Text>
+              <Text style={styles.tagline}>Te enviaremos un enlace para restablecer tu contraseña</Text>
+            </View>
 
-          <View style={styles.card}>
-            {sent ? (
-              <View style={styles.successBanner}>
-                <Feather name="check-circle" size={16} color={andiColors.success600} />
-                <Text style={styles.successText}>Si el correo existe, recibirás un enlace en breve.</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
-                <View style={styles.inputWrap}>
-                  <Feather name="mail" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="tu@correo.com"
-                    placeholderTextColor={andiColors.onSurfaceVariant}
-                    value={correo}
-                    onChangeText={setCorreo}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
+            <View style={styles.card}>
+              {sent ? (
+                <View style={styles.successBanner}>
+                  <Feather name="check-circle" size={16} color={andiColors.success600} />
+                  <Text style={styles.successText}>Si el correo existe, recibirás un enlace en breve.</Text>
                 </View>
-
-                {errorMsg && (
-                  <View style={styles.errorBanner}>
-                    <Feather name="alert-triangle" size={16} color={andiColors.error600} />
-                    <Text style={styles.errorText}>{errorMsg}</Text>
+              ) : (
+                <>
+                  <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
+                  <View style={styles.inputWrap}>
+                    <Feather name="mail" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="tu@correo.com"
+                      placeholderTextColor={andiColors.onSurfaceVariant}
+                      value={correo}
+                      onChangeText={setCorreo}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
                   </View>
-                )}
 
-                <TouchableOpacity
-                  style={[styles.btn, loading && styles.btnDisabled]}
-                  onPress={handleSubmit}
-                  disabled={loading}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                    {loading
-                      ? <ActivityIndicator color={andiColors.surface} />
-                      : <Text style={styles.btnText}>Enviar enlace</Text>
-                    }
-                  </LinearGradient>
-                </TouchableOpacity>
-              </>
-            )}
+                  {errorMsg && (
+                    <View style={styles.errorBanner}>
+                      <Feather name="alert-triangle" size={16} color={andiColors.error600} />
+                      <Text style={styles.errorText}>{errorMsg}</Text>
+                    </View>
+                  )}
 
-            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
-              <Text style={styles.linkText}>Volver a la entrada</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+                  <TouchableOpacity
+                    style={[styles.btn, loading && styles.btnDisabled]}
+                    onPress={handleSubmit}
+                    disabled={loading}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                      {loading
+                        ? <ActivityIndicator color={andiColors.surface} />
+                        : <Text style={styles.btnText}>Enviar enlace</Text>
+                      }
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              <TouchableOpacity style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
+                <Text style={styles.linkText}>Volver a la entrada</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   screen: { flex: 1, backgroundColor: andiColors.primary900 },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' },

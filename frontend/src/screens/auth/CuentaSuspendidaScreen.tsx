@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -15,40 +16,44 @@ export default function CuentaSuspendidaScreen({ navigation, route }: Props) {
   const message = route.params?.message ?? 'Tu cuenta no está activa en este momento.';
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.top}>
-        <Feather name="slash" size={64} color={andiColors.error400} />
-        <Text style={styles.title}>No pudimos entrar</Text>
-        <Text style={styles.subtitle}>{message}</Text>
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>SUSPENDIDO</Text>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <View style={styles.top}>
+          <Feather name="slash" size={64} color={andiColors.error400} />
+          <Text style={styles.title}>No pudimos entrar</Text>
+          <Text style={styles.subtitle}>{message}</Text>
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>SUSPENDIDO</Text>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.btn}
+            onPress={() => Linking.openURL('mailto:admin@geovisor.com')}
+            activeOpacity={0.85}
+          >
+            <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <Text style={styles.btnText}>Escribir al administrador</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkRow}
+            onPress={() => navigation.replace('Login')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.linkText}>Volver a la entrada</Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-      <View style={styles.card}>
-        <TouchableOpacity
-          style={styles.btn}
-          onPress={() => Linking.openURL('mailto:admin@geovisor.com')}
-          activeOpacity={0.85}
-        >
-          <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-            <Text style={styles.btnText}>Escribir al administrador</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => navigation.replace('Login')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.linkText}>Volver a la entrada</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   screen: { flex: 1, backgroundColor: andiColors.primary900, justifyContent: 'space-between' },
   top: { alignItems: 'center', paddingTop: '30%', paddingHorizontal: andiSpace[6] },
   title: { ...r.scaleType(andiType.headingLg), color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },

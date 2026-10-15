@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
   ActivityIndicator, type KeyboardTypeOptions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
@@ -623,20 +624,24 @@ export default function RegisterScreen(props: Props) {
   else content = <CiudadanoFlow {...props} />;
 
   return (
-    <View style={styles.screen}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} keyboardShouldPersistTaps="handled">
-          <View style={{ width: '100%', maxWidth: r.maxContentWidth(560) }}>
-            <Header id_rol={id_rol} onBack={() => navigation.goBack()} />
-            <View style={styles.card}>{content}</View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} keyboardShouldPersistTaps="handled">
+            <View style={{ width: '100%', maxWidth: r.maxContentWidth(560) }}>
+              <Header id_rol={id_rol} onBack={() => navigation.goBack()} />
+              <View style={styles.card}>{content}</View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   screen: { flex: 1, backgroundColor: andiColors.primary900 },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, padding: andiSpace[6] },

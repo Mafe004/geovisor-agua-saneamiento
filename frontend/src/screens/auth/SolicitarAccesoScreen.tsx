@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
@@ -71,135 +72,139 @@ export default function SolicitarAccesoScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-            <Feather name="arrow-left" size={22} color={andiColors.surface} />
-          </TouchableOpacity>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+              <Feather name="arrow-left" size={22} color={andiColors.surface} />
+            </TouchableOpacity>
 
-          <View style={styles.hero}>
-            <Feather name="shield" size={48} color={andiColors.surface} />
-            <Text style={styles.appName}>Solicitar acceso</Text>
-            <Text style={styles.tagline}>
-              Cuéntanos quién eres y por qué necesitas una cuenta de Administrador. Un
-              administrador existente revisará tu solicitud.
-            </Text>
-          </View>
+            <View style={styles.hero}>
+              <Feather name="shield" size={48} color={andiColors.surface} />
+              <Text style={styles.appName}>Solicitar acceso</Text>
+              <Text style={styles.tagline}>
+                Cuéntanos quién eres y por qué necesitas una cuenta de Administrador. Un
+                administrador existente revisará tu solicitud.
+              </Text>
+            </View>
 
-          <View style={styles.card}>
-            {sent ? (
-              <View style={styles.successState}>
-                <Feather name="check-circle" size={40} color={andiColors.success600} />
-                <Text style={styles.successTitle}>Solicitud recibida</Text>
-                <Text style={styles.successBody}>
-                  Tu solicitud fue recibida. Te contactaremos al correo indicado si es aprobada.
-                </Text>
-                <TouchableOpacity
-                  style={styles.btn}
-                  activeOpacity={0.85}
-                  onPress={() => navigation.navigate('Login')}
-                >
-                  <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                    <Text style={styles.btnText}>Volver a la entrada</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.label}>NOMBRE COMPLETO</Text>
-                <View style={styles.inputWrap}>
-                  <Feather name="user" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="María García"
-                    placeholderTextColor={andiColors.onSurfaceVariant}
-                    value={nombre}
-                    onChangeText={setNombre}
-                    autoCapitalize="words"
-                  />
+            <View style={styles.card}>
+              {sent ? (
+                <View style={styles.successState}>
+                  <Feather name="check-circle" size={40} color={andiColors.success600} />
+                  <Text style={styles.successTitle}>Solicitud recibida</Text>
+                  <Text style={styles.successBody}>
+                    Tu solicitud fue recibida. Te contactaremos al correo indicado si es aprobada.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.btn}
+                    activeOpacity={0.85}
+                    onPress={() => navigation.navigate('Login')}
+                  >
+                    <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                      <Text style={styles.btnText}>Volver a la entrada</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
+              ) : (
+                <>
+                  <Text style={styles.label}>NOMBRE COMPLETO</Text>
+                  <View style={styles.inputWrap}>
+                    <Feather name="user" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="María García"
+                      placeholderTextColor={andiColors.onSurfaceVariant}
+                      value={nombre}
+                      onChangeText={setNombre}
+                      autoCapitalize="words"
+                    />
+                  </View>
 
-                <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
-                <View style={styles.inputWrap}>
-                  <Feather name="mail" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="tu@correo.com"
-                    placeholderTextColor={andiColors.onSurfaceVariant}
-                    value={correo}
-                    onChangeText={setCorreo}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
+                  <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
+                  <View style={styles.inputWrap}>
+                    <Feather name="mail" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="tu@correo.com"
+                      placeholderTextColor={andiColors.onSurfaceVariant}
+                      value={correo}
+                      onChangeText={setCorreo}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
 
-                {emailDuplicado && (
-                  <View style={[styles.errorBanner, styles.errorBannerOrange]}>
-                    <Feather name="alert-triangle" size={16} color={andiColors.warning600} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.errorTextOrange}>Este correo ya tiene una cuenta registrada.</Text>
-                      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                        <Text style={styles.duplicateLinkText}>Ir a iniciar sesión</Text>
-                      </TouchableOpacity>
+                  {emailDuplicado && (
+                    <View style={[styles.errorBanner, styles.errorBannerOrange]}>
+                      <Feather name="alert-triangle" size={16} color={andiColors.warning600} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.errorTextOrange}>Este correo ya tiene una cuenta registrada.</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                          <Text style={styles.duplicateLinkText}>Ir a iniciar sesión</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
+                  )}
+
+                  <Text style={styles.label}>MOTIVO</Text>
+                  <View style={styles.textareaWrap}>
+                    <TextInput
+                      style={styles.textarea}
+                      placeholder="Explica por qué necesitas acceso de Administrador (mínimo 20 caracteres)"
+                      placeholderTextColor={andiColors.onSurfaceVariant}
+                      value={motivo}
+                      onChangeText={setMotivo}
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                    />
                   </View>
-                )}
+                  <Text style={styles.charCount}>{motivo.trim().length}/{MOTIVO_MIN} mín.</Text>
 
-                <Text style={styles.label}>MOTIVO</Text>
-                <View style={styles.textareaWrap}>
-                  <TextInput
-                    style={styles.textarea}
-                    placeholder="Explica por qué necesitas acceso de Administrador (mínimo 20 caracteres)"
-                    placeholderTextColor={andiColors.onSurfaceVariant}
-                    value={motivo}
-                    onChangeText={setMotivo}
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                  />
-                </View>
-                <Text style={styles.charCount}>{motivo.trim().length}/{MOTIVO_MIN} mín.</Text>
+                  {errorMsg && (
+                    <View style={styles.errorBanner}>
+                      <Feather name="alert-triangle" size={16} color={andiColors.error600} />
+                      <Text style={styles.errorText}>{errorMsg}</Text>
+                    </View>
+                  )}
 
-                {errorMsg && (
-                  <View style={styles.errorBanner}>
-                    <Feather name="alert-triangle" size={16} color={andiColors.error600} />
-                    <Text style={styles.errorText}>{errorMsg}</Text>
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  style={[styles.btn, loading && styles.btnDisabled]}
-                  onPress={handleSubmit}
-                  disabled={loading}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                    {loading
-                      ? <ActivityIndicator color={andiColors.surface} />
-                      : <Text style={styles.btnText}>Enviar solicitud</Text>
-                    }
-                  </LinearGradient>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+                  <TouchableOpacity
+                    style={[styles.btn, loading && styles.btnDisabled]}
+                    onPress={handleSubmit}
+                    disabled={loading}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                      {loading
+                        ? <ActivityIndicator color={andiColors.surface} />
+                        : <Text style={styles.btnText}>Enviar solicitud</Text>
+                      }
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   screen: { flex: 1, backgroundColor: andiColors.primary900 },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' },
-  backBtn: { position: 'absolute', top: andiSpace[10], left: andiSpace[6], padding: andiSpace[2], zIndex: 1 },
+  backBtn: { position: 'absolute', top: andiSpace[4], left: andiSpace[6], padding: andiSpace[2], zIndex: 1 },
   hero: { alignItems: 'center', paddingTop: '20%', paddingBottom: andiSpace[8], paddingHorizontal: andiSpace[6] },
   appName: { ...r.scaleType(andiType.headingLg), color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },
   tagline: { ...r.scaleType(andiType.bodySm), color: andiColors.primary200, marginTop: andiSpace[2], textAlign: 'center' },

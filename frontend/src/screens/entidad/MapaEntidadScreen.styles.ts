@@ -3,6 +3,8 @@ import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
 import type { Responsive } from '../../theme/responsive';
 
 export const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary800 },
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   body: { padding: 0 },
   map: { flex: 1 },

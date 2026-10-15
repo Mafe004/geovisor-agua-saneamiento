@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity,
   Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
 import { infraestructuraAPI } from '../../api/services';
@@ -72,59 +73,61 @@ export default function InfraestructuraScreen() {
   }));
 
   return (
-    <View style={styles.container}>
-      <AndiHeader
-        title="Infraestructura"
-        subtitle={`${items.length} puntos${fuentes.length ? ` · fuentes ${fuentes.join(', ')}` : ''}`}
-        rightElement={<AndiHeaderIconButton icon="plus" background={andiColors.accent500} onPress={() => setFormVisible(true)} />}
-      />
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <AndiHeader
+          title="Infraestructura"
+          subtitle={`${items.length} puntos${fuentes.length ? ` · fuentes ${fuentes.join(', ')}` : ''}`}
+          rightElement={<AndiHeaderIconButton icon="plus" background={andiColors.accent500} onPress={() => setFormVisible(true)} />}
+        />
 
-      <AndiBody>
-        {items[0] && (
-          <MapaWebView
-            style={styles.map}
-            latitude={items[0].latitud}
-            longitude={items[0].longitud}
-            zoom={13}
-            markers={markers}
-            interactive={false}
-            showCenterPin={false}
-          />
-        )}
+        <AndiBody>
+          {items[0] && (
+            <MapaWebView
+              style={styles.map}
+              latitude={items[0].latitud}
+              longitude={items[0].longitud}
+              zoom={13}
+              markers={markers}
+              interactive={false}
+              showCenterPin={false}
+            />
+          )}
 
-        <View style={styles.chipsRow}>
-          <AndiChip label="Todas" variant={filtroTipo === null ? 'solid' : 'outline'} onPress={() => setFiltroTipo(null)} />
-          {TIPOS.map(t => (
-            <AndiChip key={t} label={cap(t)} variant={filtroTipo === t ? 'solid' : 'outline'} onPress={() => setFiltroTipo(t)} />
-          ))}
-        </View>
+          <View style={styles.chipsRow}>
+            <AndiChip label="Todas" variant={filtroTipo === null ? 'solid' : 'outline'} onPress={() => setFiltroTipo(null)} />
+            {TIPOS.map(t => (
+              <AndiChip key={t} label={cap(t)} variant={filtroTipo === t ? 'solid' : 'outline'} onPress={() => setFiltroTipo(t)} />
+            ))}
+          </View>
 
-        {!loading && itemsFiltrados.length === 0 ? (
-          <AndiEmptyState
-            icon="map-pin"
-            title="Sin infraestructura registrada"
-            body="Agrega el primer punto con el botón de arriba."
-          />
-        ) : (
-          <FlatList
-            data={itemsFiltrados}
-            keyExtractor={i => String(i.id_infraestructura)}
-            contentContainerStyle={styles.list}
-            renderItem={({ item }) => <InfraCard item={item} />}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} colors={[andiColors.primary]} />
-            }
-            ItemSeparatorComponent={() => <View style={{ height: andiSpace[2] }} />}
-          />
-        )}
-      </AndiBody>
+          {!loading && itemsFiltrados.length === 0 ? (
+            <AndiEmptyState
+              icon="map-pin"
+              title="Sin infraestructura registrada"
+              body="Agrega el primer punto con el botón de arriba."
+            />
+          ) : (
+            <FlatList
+              data={itemsFiltrados}
+              keyExtractor={i => String(i.id_infraestructura)}
+              contentContainerStyle={styles.list}
+              renderItem={({ item }) => <InfraCard item={item} />}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} colors={[andiColors.primary]} />
+              }
+              ItemSeparatorComponent={() => <View style={{ height: andiSpace[2] }} />}
+            />
+          )}
+        </AndiBody>
 
-      <InfraestructuraForm
-        visible={formVisible}
-        onClose={() => setFormVisible(false)}
-        onCreated={() => { setFormVisible(false); load(true); }}
-      />
-    </View>
+        <InfraestructuraForm
+          visible={formVisible}
+          onClose={() => setFormVisible(false)}
+          onCreated={() => { setFormVisible(false); load(true); }}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -280,6 +283,8 @@ function InfraestructuraForm({
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary800 },
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   map: { height: 230, marginHorizontal: 0 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2], paddingHorizontal: andiSpace[5], paddingVertical: andiSpace[3] },

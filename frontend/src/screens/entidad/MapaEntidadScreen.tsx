@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useContext, useMemo } from 'react';
 import { View, Text, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -59,21 +60,23 @@ export default function MapaEntidadScreen({ navigation }: Props) {
 
   if (!user?.id_entidad) {
     return (
-      <View style={styles.container}>
-        <AndiHeader title="Mapa" />
-        <AndiBody>
-          <AndiErrorState
-            icon="alert-triangle"
-            title="Tu cuenta no tiene entidad"
-            body="Tu usuario es de tipo Entidad pero no está vinculado a ninguna, así que no hay reportes que ubicar en el mapa."
-            code="403 · usuario ENTIDAD sin id_entidad"
-            ctaLabel="Escribir al administrador"
-            ctaVariant="outline"
-            iconBg={andiColors.errorContainer}
-            iconFg={andiColors.onErrorContainer}
-          />
-        </AndiBody>
-      </View>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <View style={styles.container}>
+          <AndiHeader title="Mapa" />
+          <AndiBody>
+            <AndiErrorState
+              icon="alert-triangle"
+              title="Tu cuenta no tiene entidad"
+              body="Tu usuario es de tipo Entidad pero no está vinculado a ninguna, así que no hay reportes que ubicar en el mapa."
+              code="403 · usuario ENTIDAD sin id_entidad"
+              ctaLabel="Escribir al administrador"
+              ctaVariant="outline"
+              iconBg={andiColors.errorContainer}
+              iconFg={andiColors.onErrorContainer}
+            />
+          </AndiBody>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -106,40 +109,42 @@ export default function MapaEntidadScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      <AndiHeader title="Mapa" overline={`${puntos.length} reporte${puntos.length === 1 ? '' : 's'}`} />
-      <AndiBody style={styles.body}>
-        <View style={styles.legendRow}>
-          {LEGEND.map(l => (
-            <View key={l.estado} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: l.color }]} />
-              <Text style={styles.legendText}>{l.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={andiColors.primary} />
-          </View>
-        ) : (
-          <View style={styles.map}>
-            <MapaWebView
-              style={styles.map}
-              markers={markers}
-              zoom={13}
-              interactive
-              showCenterPin={false}
-              onMarkerPress={handleMarkerPress}
-            />
-            {cargandoDetalle != null && (
-              <View style={styles.detailLoadingOverlay}>
-                <ActivityIndicator size="small" color={andiColors.primary} />
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <AndiHeader title="Mapa" overline={`${puntos.length} reporte${puntos.length === 1 ? '' : 's'}`} />
+        <AndiBody style={styles.body}>
+          <View style={styles.legendRow}>
+            {LEGEND.map(l => (
+              <View key={l.estado} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: l.color }]} />
+                <Text style={styles.legendText}>{l.label}</Text>
               </View>
-            )}
+            ))}
           </View>
-        )}
-      </AndiBody>
-    </View>
+
+          {loading ? (
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={andiColors.primary} />
+            </View>
+          ) : (
+            <View style={styles.map}>
+              <MapaWebView
+                style={styles.map}
+                markers={markers}
+                zoom={13}
+                interactive
+                showCenterPin={false}
+                onMarkerPress={handleMarkerPress}
+              />
+              {cargandoDetalle != null && (
+                <View style={styles.detailLoadingOverlay}>
+                  <ActivityIndicator size="small" color={andiColors.primary} />
+                </View>
+              )}
+            </View>
+          )}
+        </AndiBody>
+      </View>
+    </SafeAreaView>
   );
 }

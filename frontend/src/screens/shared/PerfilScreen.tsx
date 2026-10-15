@@ -4,6 +4,7 @@ import {
   Alert, TextInput, ActivityIndicator, KeyboardAvoidingView,
   Platform, Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
@@ -142,198 +143,200 @@ export default function PerfilScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.contentWrap}>
+    <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: gradColors[0] }]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.contentWrap}>
 
-        {/* ── HERO ── */}
-        <LinearGradient colors={gradColors} style={styles.hero}>
-          <View style={styles.avatarRing}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
+          {/* ── HERO ── */}
+          <LinearGradient colors={gradColors} style={styles.hero}>
+            <View style={styles.avatarRing}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
             </View>
-          </View>
-          <Text style={styles.heroName}>{user.nombre_completo || '—'}</Text>
-          <View style={styles.rolPill}>
-            <Text style={styles.rolPillText}>{ROL_LABEL[user.id_rol] || 'Usuario'}</Text>
-          </View>
-          <Text style={styles.heroEmail}>{user.correo}</Text>
-        </LinearGradient>
+            <Text style={styles.heroName}>{user.nombre_completo || '—'}</Text>
+            <View style={styles.rolPill}>
+              <Text style={styles.rolPillText}>{ROL_LABEL[user.id_rol] || 'Usuario'}</Text>
+            </View>
+            <Text style={styles.heroEmail}>{user.correo}</Text>
+          </LinearGradient>
 
-        {/* ── ACCIONES RÁPIDAS ── */}
-        <View style={styles.quickRow}>
-          <QuickAction
-            styles={styles}
-            icon="✏️"
-            label={editMode ? 'Cancelar' : 'Editar perfil'}
-            color={editMode ? '#6B7280' : '#1565C0'}
-            onPress={editMode ? handleCancelEdit : () => setEditMode(true)}
-          />
-          <QuickAction
-            styles={styles}
-            icon="🔑"
-            label="Contraseña"
-            color="#7C3AED"
-            onPress={() => setPassModal(true)}
-          />
-          <QuickAction
-            styles={styles}
-            icon="🚪"
-            label="Salir"
-            color="#DC2626"
-            onPress={handleLogout}
-          />
-        </View>
-
-        {/* ── EDITAR DATOS ── */}
-        {editMode && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>✏️ Editar información</Text>
-
-            <Text style={styles.fieldLabel}>Nombre completo</Text>
-            <TextInput
-              style={styles.input}
-              value={nombre}
-              onChangeText={setNombre}
-              placeholder="Tu nombre completo"
-              placeholderTextColor="#9CA3AF"
+          {/* ── ACCIONES RÁPIDAS ── */}
+          <View style={styles.quickRow}>
+            <QuickAction
+              styles={styles}
+              icon="✏️"
+              label={editMode ? 'Cancelar' : 'Editar perfil'}
+              color={editMode ? '#6B7280' : '#1565C0'}
+              onPress={editMode ? handleCancelEdit : () => setEditMode(true)}
             />
-
-            <Text style={styles.fieldLabel}>Teléfono (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              value={telefono}
-              onChangeText={setTelefono}
-              placeholder="Ej: 3001234567"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="phone-pad"
+            <QuickAction
+              styles={styles}
+              icon="🔑"
+              label="Contraseña"
+              color="#7C3AED"
+              onPress={() => setPassModal(true)}
             />
-
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.saveBtnGrad}>
-                {saving
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.saveBtnText}>Guardar cambios</Text>
-                }
-              </LinearGradient>
-            </TouchableOpacity>
+            <QuickAction
+              styles={styles}
+              icon="🚪"
+              label="Salir"
+              color="#DC2626"
+              onPress={handleLogout}
+            />
           </View>
-        )}
 
-        {/* ── INFO DE CUENTA ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>👤 Información de cuenta</Text>
-          <InfoRow styles={styles} icon="✉️" label="Correo" value={user.correo} />
-          <InfoRow styles={styles} icon="📱" label="Teléfono" value={user.telefono || 'No registrado'} />
-          <InfoRow styles={styles} icon="🎭" label="Rol" value={ROL_LABEL[user.id_rol] || '—'} />
-          <InfoRow
-            styles={styles}
-            icon="🟢"
-            label="Estado"
-            value={user.id_estado_cuenta === 1 ? 'Activo' : 'Inactivo'}
-            valueColor={user.id_estado_cuenta === 1 ? '#10B981' : '#EF4444'}
-          />
-        </View>
+          {/* ── EDITAR DATOS ── */}
+          {editMode && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>✏️ Editar información</Text>
 
-        {/* ── APP INFO ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>💧 Sobre la app</Text>
-          <InfoRow styles={styles} icon="🏗️" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
-          <InfoRow styles={styles} icon="🎓" label="Proyecto" value="Tesis de grado · 2026" />
-          <InfoRow styles={styles} icon="📍" label="Municipio" value="Cundinamarca" />
-        </View>
-
-        {/* ── CERRAR SESIÓN ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-          <View style={styles.logoutInner}>
-            <Text style={styles.logoutIcon}>🚪</Text>
-            <Text style={styles.logoutText}>Cerrar sesión</Text>
-          </View>
-        </TouchableOpacity>
-
-        <Text style={styles.version}>v1.0.0 · GeoVisor 2025</Text>
-      </View>
-      </ScrollView>
-
-      {/* ── MODAL CAMBIAR CONTRASEÑA ── */}
-      <Modal visible={passModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>🔑 Cambiar contraseña</Text>
-                <TouchableOpacity onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
-                  <Text style={styles.modalClose}>✕</Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.fieldLabel}>Contraseña actual</Text>
-              <View style={styles.passWrap}>
-                <TextInput
-                  style={styles.passInput}
-                  value={passActual}
-                  onChangeText={setPassActual}
-                  secureTextEntry={!showActual}
-                  placeholder="••••••••"
-                  placeholderTextColor="#9CA3AF"
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity onPress={() => setShowActual(p => !p)} style={styles.eyeBtn}>
-                  <Text>{showActual ? '🙈' : '👁️'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.fieldLabel}>Nueva contraseña</Text>
-              <View style={styles.passWrap}>
-                <TextInput
-                  style={styles.passInput}
-                  value={passNueva}
-                  onChangeText={setPassNueva}
-                  secureTextEntry={!showNueva}
-                  placeholder="Mínimo 6 caracteres"
-                  placeholderTextColor="#9CA3AF"
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity onPress={() => setShowNueva(p => !p)} style={styles.eyeBtn}>
-                  <Text>{showNueva ? '🙈' : '👁️'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.fieldLabel}>Confirmar nueva contraseña</Text>
+              <Text style={styles.fieldLabel}>Nombre completo</Text>
               <TextInput
-                style={[styles.input, passConfirm && passNueva !== passConfirm && styles.inputError]}
-                value={passConfirm}
-                onChangeText={setPassConfirm}
-                secureTextEntry
-                placeholder="Repite la nueva contraseña"
+                style={styles.input}
+                value={nombre}
+                onChangeText={setNombre}
+                placeholder="Tu nombre completo"
                 placeholderTextColor="#9CA3AF"
-                autoCapitalize="none"
               />
-              {passConfirm && passNueva !== passConfirm && (
-                <Text style={styles.errorText}>Las contraseñas no coinciden</Text>
-              )}
+
+              <Text style={styles.fieldLabel}>Teléfono (opcional)</Text>
+              <TextInput
+                style={styles.input}
+                value={telefono}
+                onChangeText={setTelefono}
+                placeholder="Ej: 3001234567"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+              />
 
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 20 }, savingPass && { opacity: 0.6 }]}
-                onPress={handleChangePass}
-                disabled={savingPass}
+                style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                onPress={handleSave}
+                disabled={saving}
               >
-                <LinearGradient colors={['#7C3AED', '#A78BFA']} style={styles.saveBtnGrad}>
-                  {savingPass
+                <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.saveBtnGrad}>
+                  {saving
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.saveBtnText}>Cambiar contraseña</Text>
+                    : <Text style={styles.saveBtnText}>Guardar cambios</Text>
                   }
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
+          )}
+
+          {/* ── INFO DE CUENTA ── */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>👤 Información de cuenta</Text>
+            <InfoRow styles={styles} icon="✉️" label="Correo" value={user.correo} />
+            <InfoRow styles={styles} icon="📱" label="Teléfono" value={user.telefono || 'No registrado'} />
+            <InfoRow styles={styles} icon="🎭" label="Rol" value={ROL_LABEL[user.id_rol] || '—'} />
+            <InfoRow
+              styles={styles}
+              icon="🟢"
+              label="Estado"
+              value={user.id_estado_cuenta === 1 ? 'Activo' : 'Inactivo'}
+              valueColor={user.id_estado_cuenta === 1 ? '#10B981' : '#EF4444'}
+            />
+          </View>
+
+          {/* ── APP INFO ── */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>💧 Sobre la app</Text>
+            <InfoRow styles={styles} icon="🏗️" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
+            <InfoRow styles={styles} icon="🎓" label="Proyecto" value="Tesis de grado · 2026" />
+            <InfoRow styles={styles} icon="📍" label="Municipio" value="Cundinamarca" />
+          </View>
+
+          {/* ── CERRAR SESIÓN ── */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+            <View style={styles.logoutInner}>
+              <Text style={styles.logoutIcon}>🚪</Text>
+              <Text style={styles.logoutText}>Cerrar sesión</Text>
+            </View>
+          </TouchableOpacity>
+
+          <Text style={styles.version}>v1.0.0 · GeoVisor 2025</Text>
         </View>
-      </Modal>
-    </KeyboardAvoidingView>
+        </ScrollView>
+
+        {/* ── MODAL CAMBIAR CONTRASEÑA ── */}
+        <Modal visible={passModal} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }}>
+              <View style={styles.modalCard}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>🔑 Cambiar contraseña</Text>
+                  <TouchableOpacity onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
+                    <Text style={styles.modalClose}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.fieldLabel}>Contraseña actual</Text>
+                <View style={styles.passWrap}>
+                  <TextInput
+                    style={styles.passInput}
+                    value={passActual}
+                    onChangeText={setPassActual}
+                    secureTextEntry={!showActual}
+                    placeholder="••••••••"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity onPress={() => setShowActual(p => !p)} style={styles.eyeBtn}>
+                    <Text>{showActual ? '🙈' : '👁️'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.fieldLabel}>Nueva contraseña</Text>
+                <View style={styles.passWrap}>
+                  <TextInput
+                    style={styles.passInput}
+                    value={passNueva}
+                    onChangeText={setPassNueva}
+                    secureTextEntry={!showNueva}
+                    placeholder="Mínimo 6 caracteres"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity onPress={() => setShowNueva(p => !p)} style={styles.eyeBtn}>
+                    <Text>{showNueva ? '🙈' : '👁️'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.fieldLabel}>Confirmar nueva contraseña</Text>
+                <TextInput
+                  style={[styles.input, passConfirm && passNueva !== passConfirm && styles.inputError]}
+                  value={passConfirm}
+                  onChangeText={setPassConfirm}
+                  secureTextEntry
+                  placeholder="Repite la nueva contraseña"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="none"
+                />
+                {passConfirm && passNueva !== passConfirm && (
+                  <Text style={styles.errorText}>Las contraseñas no coinciden</Text>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.saveBtn, { marginTop: 20 }, savingPass && { opacity: 0.6 }]}
+                  onPress={handleChangePass}
+                  disabled={savingPass}
+                >
+                  <LinearGradient colors={['#7C3AED', '#A78BFA']} style={styles.saveBtnGrad}>
+                    {savingPass
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={styles.saveBtnText}>Cambiar contraseña</Text>
+                    }
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -382,13 +385,14 @@ function InfoRow({
 
 /* ── Estilos ── */
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  safeArea: { flex: 1 }, // backgroundColor = gradColors[0], ver el render
   container:   { flex: 1, backgroundColor: '#F0F4F8' },
   scroll:      { paddingBottom: 40, alignItems: 'center' },
   contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
 
   // Hero
   hero: {
-    paddingTop: 56, paddingBottom: 32,
+    paddingTop: 24, paddingBottom: 32,
     alignItems: 'center', paddingHorizontal: 24,
   },
   avatarRing: {

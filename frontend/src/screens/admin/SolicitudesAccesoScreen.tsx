@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, Modal, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -131,190 +132,194 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-            <Feather name="arrow-left" size={22} color={andiColors.surface} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Solicitudes de acceso</Text>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{solicitudes.length}</Text>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+              <Feather name="arrow-left" size={22} color={andiColors.surface} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Solicitudes de acceso</Text>
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>{solicitudes.length}</Text>
+            </View>
           </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
 
-      {actionError && (
-        <View style={styles.errorBanner}>
-          <Feather name="alert-triangle" size={16} color={andiColors.error600} />
-          <Text style={styles.errorBannerText}>{actionError}</Text>
-          <TouchableOpacity onPress={() => setActionError(null)}>
-            <Feather name="x" size={16} color={andiColors.error600} />
-          </TouchableOpacity>
-        </View>
-      )}
+        {actionError && (
+          <View style={styles.errorBanner}>
+            <Feather name="alert-triangle" size={16} color={andiColors.error600} />
+            <Text style={styles.errorBannerText}>{actionError}</Text>
+            <TouchableOpacity onPress={() => setActionError(null)}>
+              <Feather name="x" size={16} color={andiColors.error600} />
+            </TouchableOpacity>
+          </View>
+        )}
 
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={andiColors.primary600} />
-        </View>
-      ) : loadError ? (
-        <View style={styles.loadingWrap}>
-          <Feather name="alert-triangle" size={40} color={andiColors.error600} />
-          <Text style={styles.loadErrorText}>{loadError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => load()} activeOpacity={0.8}>
-            <Text style={styles.retryBtnText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={solicitudes}
-          keyExtractor={s => String(s.id)}
-          contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} colors={[andiColors.primary600]} />
-          }
-          renderItem={({ item }) => {
-            const chip = ESTADO_CHIP[item.estado] ?? ESTADO_CHIP_DEFAULT;
-            const isExpanded = expandedIds.has(item.id);
-            const motivoEsLargo = item.motivo.length > 90;
-            const isActioning = actioningId === item.id;
-            return (
-              <View style={styles.card}>
-                <View style={styles.cardTopRow}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{initials(item.nombre_completo)}</Text>
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={andiColors.primary600} />
+          </View>
+        ) : loadError ? (
+          <View style={styles.loadingWrap}>
+            <Feather name="alert-triangle" size={40} color={andiColors.error600} />
+            <Text style={styles.loadErrorText}>{loadError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => load()} activeOpacity={0.8}>
+              <Text style={styles.retryBtnText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={solicitudes}
+            keyExtractor={s => String(s.id)}
+            contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} colors={[andiColors.primary600]} />
+            }
+            renderItem={({ item }) => {
+              const chip = ESTADO_CHIP[item.estado] ?? ESTADO_CHIP_DEFAULT;
+              const isExpanded = expandedIds.has(item.id);
+              const motivoEsLargo = item.motivo.length > 90;
+              const isActioning = actioningId === item.id;
+              return (
+                <View style={styles.card}>
+                  <View style={styles.cardTopRow}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{initials(item.nombre_completo)}</Text>
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardName} numberOfLines={1}>{item.nombre_completo}</Text>
+                      <Text style={styles.cardEmail} numberOfLines={1}>{item.correo}</Text>
+                    </View>
+                    <View style={[styles.stateChip, { backgroundColor: chip.bg }]}>
+                      <Text style={[styles.stateChipText, { color: chip.fg }]}>{chip.label}</Text>
+                    </View>
                   </View>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.cardName} numberOfLines={1}>{item.nombre_completo}</Text>
-                    <Text style={styles.cardEmail} numberOfLines={1}>{item.correo}</Text>
-                  </View>
-                  <View style={[styles.stateChip, { backgroundColor: chip.bg }]}>
-                    <Text style={[styles.stateChipText, { color: chip.fg }]}>{chip.label}</Text>
-                  </View>
-                </View>
 
-                <TouchableOpacity
-                  activeOpacity={motivoEsLargo ? 0.7 : 1}
-                  onPress={() => motivoEsLargo && toggleExpanded(item.id)}
-                >
-                  <Text style={styles.cardMotivo} numberOfLines={isExpanded ? undefined : 2}>
-                    {item.motivo}
-                  </Text>
-                  {motivoEsLargo && (
-                    <Text style={styles.expandLink}>{isExpanded ? 'Ver menos' : 'Ver más'}</Text>
-                  )}
-                </TouchableOpacity>
-
-                <View style={styles.cardMetaRow}>
-                  <Feather name="clock" size={12} color={andiColors.onSurfaceVariant} />
-                  <Text style={styles.cardMetaText}>{formatFecha(item.creado_en)}</Text>
-                </View>
-                {item.revisado_por_nombre && (
-                  <View style={styles.cardMetaRow}>
-                    <Feather name="user-check" size={12} color={andiColors.onSurfaceVariant} />
-                    <Text style={styles.cardMetaText}>
-                      Revisada por {item.revisado_por_nombre}
-                      {item.revisado_en ? ` · ${formatFecha(item.revisado_en)}` : ''}
+                  <TouchableOpacity
+                    activeOpacity={motivoEsLargo ? 0.7 : 1}
+                    onPress={() => motivoEsLargo && toggleExpanded(item.id)}
+                  >
+                    <Text style={styles.cardMotivo} numberOfLines={isExpanded ? undefined : 2}>
+                      {item.motivo}
                     </Text>
-                  </View>
-                )}
+                    {motivoEsLargo && (
+                      <Text style={styles.expandLink}>{isExpanded ? 'Ver menos' : 'Ver más'}</Text>
+                    )}
+                  </TouchableOpacity>
 
-                {item.estado === 'PENDIENTE' && (
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity
-                      style={[styles.rejectBtn, isActioning && styles.btnDisabled]}
-                      onPress={() => setRechazarTarget(item)}
-                      disabled={isActioning}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.rejectBtnText}>Rechazar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.approveBtn, isActioning && styles.btnDisabled]}
-                      onPress={() => handleAprobar(item)}
-                      disabled={isActioning}
-                      activeOpacity={0.8}
-                    >
-                      {isActioning
-                        ? <ActivityIndicator size="small" color={andiColors.surface} />
-                        : <Text style={styles.approveBtnText}>Aprobar</Text>}
-                    </TouchableOpacity>
+                  <View style={styles.cardMetaRow}>
+                    <Feather name="clock" size={12} color={andiColors.onSurfaceVariant} />
+                    <Text style={styles.cardMetaText}>{formatFecha(item.creado_en)}</Text>
                   </View>
-                )}
+                  {item.revisado_por_nombre && (
+                    <View style={styles.cardMetaRow}>
+                      <Feather name="user-check" size={12} color={andiColors.onSurfaceVariant} />
+                      <Text style={styles.cardMetaText}>
+                        Revisada por {item.revisado_por_nombre}
+                        {item.revisado_en ? ` · ${formatFecha(item.revisado_en)}` : ''}
+                      </Text>
+                    </View>
+                  )}
+
+                  {item.estado === 'PENDIENTE' && (
+                    <View style={styles.cardActions}>
+                      <TouchableOpacity
+                        style={[styles.rejectBtn, isActioning && styles.btnDisabled]}
+                        onPress={() => setRechazarTarget(item)}
+                        disabled={isActioning}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.rejectBtnText}>Rechazar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.approveBtn, isActioning && styles.btnDisabled]}
+                        onPress={() => handleAprobar(item)}
+                        disabled={isActioning}
+                        activeOpacity={0.8}
+                      >
+                        {isActioning
+                          ? <ActivityIndicator size="small" color={andiColors.surface} />
+                          : <Text style={styles.approveBtnText}>Aprobar</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Feather name="inbox" size={48} color={andiColors.onSurfaceVariant} />
+                <Text style={styles.emptyStateText}>No hay solicitudes de acceso pendientes</Text>
               </View>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Feather name="inbox" size={48} color={andiColors.onSurfaceVariant} />
-              <Text style={styles.emptyStateText}>No hay solicitudes de acceso pendientes</Text>
-            </View>
-          }
-        />
-      )}
+            }
+          />
+        )}
 
-      {/* Confirmación de rechazo -- Modal, no Alert.alert (no dispara diálogo nativo bloqueante). */}
-      <Modal visible={rechazarTarget !== null} transparent animationType="fade" onRequestClose={() => setRechazarTarget(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
-            <Text style={styles.modalTitle}>¿Rechazar solicitud?</Text>
-            <Text style={styles.modalMessage}>
-              ¿Rechazar la solicitud de {rechazarTarget?.nombre_completo}?
-            </Text>
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRechazarTarget(null)}>
-                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+        {/* Confirmación de rechazo -- Modal, no Alert.alert (no dispara diálogo nativo bloqueante). */}
+        <Modal visible={rechazarTarget !== null} transparent animationType="fade" onRequestClose={() => setRechazarTarget(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
+              <Text style={styles.modalTitle}>¿Rechazar solicitud?</Text>
+              <Text style={styles.modalMessage}>
+                ¿Rechazar la solicitud de {rechazarTarget?.nombre_completo}?
+              </Text>
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRechazarTarget(null)}>
+                  <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalRejectBtn} onPress={handleRechazarConfirmado}>
+                  <Text style={styles.modalRejectBtnText}>Rechazar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Token de invitación tras aprobar. */}
+        <Modal
+          visible={tokenModal !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTokenModal(null)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
+              <Feather name="check-circle" size={32} color={andiColors.success600} style={{ alignSelf: 'center' }} />
+              <Text style={[styles.modalTitle, { textAlign: 'center', marginTop: andiSpace[2] }]}>
+                Solicitud aprobada
+              </Text>
+              <Text style={[styles.modalMessage, { textAlign: 'center' }]}>
+                Comparte este código con el solicitante:
+              </Text>
+              <Text style={styles.tokenText}>{tokenModal?.token}</Text>
+              <Text style={styles.notaText}>{tokenModal?.nota}</Text>
+
+              <TouchableOpacity style={styles.copyBtn} onPress={handleCopiar} activeOpacity={0.8}>
+                <Feather name={copied ? 'check' : 'copy'} size={16} color={andiColors.primary600} />
+                <Text style={styles.copyBtnText}>{copied ? 'Copiado' : 'Copiar código'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalRejectBtn} onPress={handleRechazarConfirmado}>
-                <Text style={styles.modalRejectBtnText}>Rechazar</Text>
+
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => { setTokenModal(null); load(true); }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalCloseBtnText}>Cerrar</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
-
-      {/* Token de invitación tras aprobar. */}
-      <Modal
-        visible={tokenModal !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setTokenModal(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
-            <Feather name="check-circle" size={32} color={andiColors.success600} style={{ alignSelf: 'center' }} />
-            <Text style={[styles.modalTitle, { textAlign: 'center', marginTop: andiSpace[2] }]}>
-              Solicitud aprobada
-            </Text>
-            <Text style={[styles.modalMessage, { textAlign: 'center' }]}>
-              Comparte este código con el solicitante:
-            </Text>
-            <Text style={styles.tokenText}>{tokenModal?.token}</Text>
-            <Text style={styles.notaText}>{tokenModal?.nota}</Text>
-
-            <TouchableOpacity style={styles.copyBtn} onPress={handleCopiar} activeOpacity={0.8}>
-              <Feather name={copied ? 'check' : 'copy'} size={16} color={andiColors.primary600} />
-              <Text style={styles.copyBtnText}>{copied ? 'Copiado' : 'Copiar código'}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalCloseBtn}
-              onPress={() => { setTokenModal(null); load(true); }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalCloseBtnText}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
-  header: { paddingTop: andiSpace[10], paddingBottom: andiSpace[4], paddingHorizontal: andiSpace[4] },
+  header: { paddingTop: andiSpace[4], paddingBottom: andiSpace[4], paddingHorizontal: andiSpace[4] },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2] },
   backBtn: { padding: andiSpace[1] },
   headerTitle: { flex: 1, ...andiType.headingMd, color: andiColors.surface },

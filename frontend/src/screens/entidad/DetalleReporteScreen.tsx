@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
@@ -211,97 +212,99 @@ function ClassicDetalleView({
     : [];
 
   return (
-    <View style={styles.container}>
-      <GradientHeader
-        title={`Reporte #${reporte.id_reporte}`}
-        subtitle="Detalle del reporte"
-        onBack={onBack}
-      />
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <GradientHeader
+          title={`Reporte #${reporte.id_reporte}`}
+          subtitle="Detalle del reporte"
+          onBack={onBack}
+        />
 
-      <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} nestedScrollEnabled>
-        <View style={styles.contentWrap}>
-        <View style={styles.badgeRow}>
-          <StatusBadge status={reporte.estado} type="status" size="lg" />
-          <StatusBadge status={reporte.severidad} type="severity" size="lg" />
-        </View>
+        <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} nestedScrollEnabled>
+          <View style={styles.contentWrap}>
+          <View style={styles.badgeRow}>
+            <StatusBadge status={reporte.estado} type="status" size="lg" />
+            <StatusBadge status={reporte.severidad} type="severity" size="lg" />
+          </View>
 
-        <Section title="📝 Descripción" styles={styles}>
-          <Text style={styles.description}>{reporte.descripcion || '—'}</Text>
-        </Section>
-
-        <Section title="ℹ️ Detalles" styles={styles}>
-          <DetailRow styles={styles} label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
-          <DetailRow styles={styles} label="Dirección" value={reporte.direccion || 'No especificada'} />
-          <DetailRow styles={styles} label="Reportado por" value={reporte.usuario || '—'} />
-          <DetailRow styles={styles} label="Fecha reporte" value={formatDate(reporte.created_at)} />
-        </Section>
-
-        {hasCoords && (
-          <Section title="📍 Ubicación" styles={styles}>
-            <MapaWebView
-              style={styles.map}
-              latitude={parseFloat(String(reporte.latitud))}
-              longitude={parseFloat(String(reporte.longitud))}
-              zoom={15}
-              markers={mapaMarkers}
-              showCenterPin={false}
-              interactive={false}
-            />
-            <Text style={styles.coordText}>
-              {parseFloat(String(reporte.latitud)).toFixed(5)}, {parseFloat(String(reporte.longitud)).toFixed(5)}
-            </Text>
+          <Section title="📝 Descripción" styles={styles}>
+            <Text style={styles.description}>{reporte.descripcion || '—'}</Text>
           </Section>
-        )}
 
-        {siasarDetalle && (
-          <Section title="📊 Diagnóstico oficial de la zona (SIASAR)" styles={styles}>
-            <SiasarComunidadInfo data={siasarDetalle} />
+          <Section title="ℹ️ Detalles" styles={styles}>
+            <DetailRow styles={styles} label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
+            <DetailRow styles={styles} label="Dirección" value={reporte.direccion || 'No especificada'} />
+            <DetailRow styles={styles} label="Reportado por" value={reporte.usuario || '—'} />
+            <DetailRow styles={styles} label="Fecha reporte" value={formatDate(reporte.created_at)} />
           </Section>
-        )}
 
-        {canChangeStatus && (
-          <Section title="🔄 Cambiar Estado" styles={styles}>
-            <EstadoChips
-              estados={estadosDisponibles}
-              selectedId={idEstadoNuevo}
-              currentNombre={reporte.estado}
-              onSelect={setIdEstadoNuevo}
-            />
+          {hasCoords && (
+            <Section title="📍 Ubicación" styles={styles}>
+              <MapaWebView
+                style={styles.map}
+                latitude={parseFloat(String(reporte.latitud))}
+                longitude={parseFloat(String(reporte.longitud))}
+                zoom={15}
+                markers={mapaMarkers}
+                showCenterPin={false}
+                interactive={false}
+              />
+              <Text style={styles.coordText}>
+                {parseFloat(String(reporte.latitud)).toFixed(5)}, {parseFloat(String(reporte.longitud)).toFixed(5)}
+              </Text>
+            </Section>
+          )}
 
-            <Text style={styles.commentLabel}>Comentario (opcional)</Text>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Ej: Se verificó el problema en campo…"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-              value={comentario}
-              onChangeText={setComentario}
-              textAlignVertical="top"
-            />
+          {siasarDetalle && (
+            <Section title="📊 Diagnóstico oficial de la zona (SIASAR)" styles={styles}>
+              <SiasarComunidadInfo data={siasarDetalle} />
+            </Section>
+          )}
 
-            <TouchableOpacity
-              style={[styles.updateBtn, updating && styles.updateBtnDisabled]}
-              onPress={handleUpdateEstado}
-              disabled={updating}
-            >
-              <LinearGradient
-                colors={['#1565C0', '#00ACC1']}
-                style={styles.updateBtnGrad}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+          {canChangeStatus && (
+            <Section title="🔄 Cambiar Estado" styles={styles}>
+              <EstadoChips
+                estados={estadosDisponibles}
+                selectedId={idEstadoNuevo}
+                currentNombre={reporte.estado}
+                onSelect={setIdEstadoNuevo}
+              />
+
+              <Text style={styles.commentLabel}>Comentario (opcional)</Text>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Ej: Se verificó el problema en campo…"
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={3}
+                value={comentario}
+                onChangeText={setComentario}
+                textAlignVertical="top"
+              />
+
+              <TouchableOpacity
+                style={[styles.updateBtn, updating && styles.updateBtnDisabled]}
+                onPress={handleUpdateEstado}
+                disabled={updating}
               >
-                {updating
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.updateBtnText}>Guardar cambio</Text>
-                }
-              </LinearGradient>
-            </TouchableOpacity>
-          </Section>
-        )}
-        </View>
-      </ScrollView>
-    </View>
+                <LinearGradient
+                  colors={['#1565C0', '#00ACC1']}
+                  style={styles.updateBtnGrad}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {updating
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.updateBtnText}>Guardar cambio</Text>
+                  }
+                </LinearGradient>
+              </TouchableOpacity>
+            </Section>
+          )}
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -382,164 +385,168 @@ function EntidadCierreView({
 
   if (recibo) {
     return (
-      <View style={andiStyles.container}>
-        <AndiHeader kicker={`#${reporte.id_reporte}`} title="Reporte resuelto" />
-        <ScrollView contentContainerStyle={[andiStyles.scroll, { alignItems: 'center' }]}>
-          <View style={andiStyles.contentWrap}>
-          <View style={andiStyles.reciboIconWrap}>
-            <Feather name="check-circle" size={56} color={andiColors.success} />
-          </View>
-          <View style={andiStyles.reciboRow}>
-            <View style={andiStyles.reciboEstadoPill}>
-              <Text style={andiStyles.reciboEstadoPillText}>{estadoLabel(recibo.estadoAnterior)}</Text>
+      <SafeAreaView edges={['top']} style={andiStyles.safeArea}>
+        <View style={andiStyles.container}>
+          <AndiHeader kicker={`#${reporte.id_reporte}`} title="Reporte resuelto" />
+          <ScrollView contentContainerStyle={[andiStyles.scroll, { alignItems: 'center' }]}>
+            <View style={andiStyles.contentWrap}>
+            <View style={andiStyles.reciboIconWrap}>
+              <Feather name="check-circle" size={56} color={andiColors.success} />
             </View>
-            <Feather name="arrow-right" size={16} color={andiColors.onSurfaceVariant} />
-            <View style={[andiStyles.reciboEstadoPill, { backgroundColor: andiColors.stResBg }]}>
-              <Text style={[andiStyles.reciboEstadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
+            <View style={andiStyles.reciboRow}>
+              <View style={andiStyles.reciboEstadoPill}>
+                <Text style={andiStyles.reciboEstadoPillText}>{estadoLabel(recibo.estadoAnterior)}</Text>
+              </View>
+              <Feather name="arrow-right" size={16} color={andiColors.onSurfaceVariant} />
+              <View style={[andiStyles.reciboEstadoPill, { backgroundColor: andiColors.stResBg }]}>
+                <Text style={[andiStyles.reciboEstadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
+              </View>
             </View>
-          </View>
-          {recibo.duracion && (
-            <Text style={[andiType.body, andiStyles.reciboDuracion]}>Tiempo de atención: {recibo.duracion}</Text>
-          )}
-          <View style={andiStyles.section}>
-            <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
-            <Text style={[andiType.body, andiStyles.reciboComentario]}>&quot;{recibo.comentario}&quot;</Text>
-          </View>
-          <TouchableOpacity style={[andiStyles.saveBtn, andiElevation[2]]} onPress={onBack}>
-            <Text style={andiStyles.saveBtnText}>Listo</Text>
-          </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </View>
+            {recibo.duracion && (
+              <Text style={[andiType.body, andiStyles.reciboDuracion]}>Tiempo de atención: {recibo.duracion}</Text>
+            )}
+            <View style={andiStyles.section}>
+              <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
+              <Text style={[andiType.body, andiStyles.reciboComentario]}>&quot;{recibo.comentario}&quot;</Text>
+            </View>
+            <TouchableOpacity style={[andiStyles.saveBtn, andiElevation[2]]} onPress={onBack}>
+              <Text style={andiStyles.saveBtnText}>Listo</Text>
+            </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={andiStyles.container}>
-      <AndiHeader onBack={onBack} kicker={`#${reporte.id_reporte}`} title={reporte.descripcion || 'Reporte'} />
+    <SafeAreaView edges={['top']} style={andiStyles.safeArea}>
+      <View style={andiStyles.container}>
+        <AndiHeader onBack={onBack} kicker={`#${reporte.id_reporte}`} title={reporte.descripcion || 'Reporte'} />
 
-      <ScrollView contentContainerStyle={[andiStyles.scroll, { alignItems: 'center' }]} nestedScrollEnabled>
-        <View style={andiStyles.contentWrap}>
-        {hasCoords ? (
-          <MapaWebView
-            style={andiStyles.map}
-            latitude={parseFloat(String(reporte.latitud))}
-            longitude={parseFloat(String(reporte.longitud))}
-            zoom={15}
-            markers={mapaMarkers}
-            showCenterPin={false}
-            interactive={false}
-          />
-        ) : (
-          <View style={andiStyles.noCoordsCard}>
-            <Feather name="map-pin" size={18} color={andiColors.onSurfaceVariant} />
-            <Text style={[andiType.body, andiStyles.noCoordsText]}>
-              Este reporte no tiene coordenadas registradas.
-              {reporte.direccion ? ` Dirección informada: ${reporte.direccion}.` : ''}
+        <ScrollView contentContainerStyle={[andiStyles.scroll, { alignItems: 'center' }]} nestedScrollEnabled>
+          <View style={andiStyles.contentWrap}>
+          {hasCoords ? (
+            <MapaWebView
+              style={andiStyles.map}
+              latitude={parseFloat(String(reporte.latitud))}
+              longitude={parseFloat(String(reporte.longitud))}
+              zoom={15}
+              markers={mapaMarkers}
+              showCenterPin={false}
+              interactive={false}
+            />
+          ) : (
+            <View style={andiStyles.noCoordsCard}>
+              <Feather name="map-pin" size={18} color={andiColors.onSurfaceVariant} />
+              <Text style={[andiType.body, andiStyles.noCoordsText]}>
+                Este reporte no tiene coordenadas registradas.
+                {reporte.direccion ? ` Dirección informada: ${reporte.direccion}.` : ''}
+              </Text>
+            </View>
+          )}
+          <Text style={[andiType.body, andiStyles.description]}>{reporte.descripcion}</Text>
+
+          {siasarDetalle && (
+            <View style={andiStyles.siasarCard}>
+              <Text style={[andiType.label, andiStyles.siasarCardTitle]}>Diagnóstico oficial de la zona (SIASAR)</Text>
+              <SiasarComunidadInfo data={siasarDetalle} />
+            </View>
+          )}
+
+          <View style={andiStyles.section}>
+            <Text style={[andiType.overline, andiStyles.sectionLabel]}>Historial de este reporte</Text>
+            {cargandoHistorial ? (
+              <ActivityIndicator size="small" color={andiColors.primary} style={andiStyles.historialLoading} />
+            ) : historial.length === 0 ? (
+              <Text style={[andiType.caption, andiStyles.caption]}>Sin cambios registrados todavía.</Text>
+            ) : (
+              historial.map(h => (
+                <View key={h.id_historial} style={andiStyles.historialRow}>
+                  <Text style={[andiType.caption, andiStyles.historialTransition]}>
+                    {estadoLabel(h.estado_anterior)} → <Text style={andiStyles.historialTransitionStrong}>{estadoLabel(h.estado_nuevo)}</Text>
+                    {'  ·  '}{h.usuario_accion} · {formatDate(h.fecha_cambio)}
+                  </Text>
+                  {h.comentario && <Text style={[andiType.caption, andiStyles.historialComment]}>&quot;{h.comentario}&quot;</Text>}
+                </View>
+              ))
+            )}
+          </View>
+
+          <View style={andiStyles.titleBlock}>
+            <Text style={andiType.section}>Cerrar el reporte</Text>
+            <Text style={[andiType.caption, andiStyles.caption]}>
+              {reporte.usuario ?? 'El ciudadano'} recibe un aviso con lo que escribas.
             </Text>
           </View>
-        )}
-        <Text style={[andiType.body, andiStyles.description]}>{reporte.descripcion}</Text>
 
-        {siasarDetalle && (
-          <View style={andiStyles.siasarCard}>
-            <Text style={[andiType.label, andiStyles.siasarCardTitle]}>Diagnóstico oficial de la zona (SIASAR)</Text>
-            <SiasarComunidadInfo data={siasarDetalle} />
+          <View style={andiStyles.section}>
+            <Text style={[andiType.overline, andiStyles.sectionLabel]}>Estado</Text>
+            <View style={andiStyles.estadoRow}>
+              <TouchableOpacity
+                style={[andiStyles.estadoPill, { backgroundColor: andiColors.stProBg, borderColor: andiColors.stProBd, borderWidth: !resolviendo ? 2 : 1 }]}
+                onPress={() => setResolviendo(false)}
+              >
+                <Feather name="refresh-cw" size={13} color={andiColors.stProFg} />
+                <Text style={[andiStyles.estadoPillText, { color: andiColors.stProFg }]}>Sigue en proceso</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[andiStyles.estadoPill, { backgroundColor: andiColors.stResBg, borderColor: andiColors.stResBd, borderWidth: resolviendo ? 2 : 1 }]}
+                onPress={() => setResolviendo(true)}
+              >
+                <Feather name="check" size={13} color={andiColors.stResFg} />
+                <Text style={[andiStyles.estadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        )}
 
-        <View style={andiStyles.section}>
-          <Text style={[andiType.overline, andiStyles.sectionLabel]}>Historial de este reporte</Text>
-          {cargandoHistorial ? (
-            <ActivityIndicator size="small" color={andiColors.primary} style={andiStyles.historialLoading} />
-          ) : historial.length === 0 ? (
-            <Text style={[andiType.caption, andiStyles.caption]}>Sin cambios registrados todavía.</Text>
-          ) : (
-            historial.map(h => (
-              <View key={h.id_historial} style={andiStyles.historialRow}>
-                <Text style={[andiType.caption, andiStyles.historialTransition]}>
-                  {estadoLabel(h.estado_anterior)} → <Text style={andiStyles.historialTransitionStrong}>{estadoLabel(h.estado_nuevo)}</Text>
-                  {'  ·  '}{h.usuario_accion} · {formatDate(h.fecha_cambio)}
-                </Text>
-                {h.comentario && <Text style={[andiType.caption, andiStyles.historialComment]}>&quot;{h.comentario}&quot;</Text>}
-              </View>
-            ))
+          <View style={andiStyles.section}>
+            <View style={andiStyles.sectionLabelRow}>
+              <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
+              {resolviendo && <Text style={[andiType.caption, andiStyles.requiredTag]}>Obligatorio al resolver</Text>}
+            </View>
+            <TextInput
+              style={andiStyles.textarea}
+              placeholder="Ej: Se tomó muestra y se purgó la red del sector…"
+              placeholderTextColor={andiColors.onSurfaceVariant}
+              multiline
+              numberOfLines={4}
+              value={comentario}
+              onChangeText={setComentario}
+              textAlignVertical="top"
+            />
+            <Text style={[andiType.caption, andiStyles.helperText]}>
+              Sin esta frase el ciudadano solo ve la palabra &quot;Resuelto&quot;, que es exactamente lo que hace que deje de reportar.
+            </Text>
+          </View>
+
+          <View style={andiStyles.photoRow}>
+            <View style={andiStyles.photoIcon}>
+              <Feather name="camera" size={16} color={andiColors.onSurfaceVariant} />
+            </View>
+            <Text style={[andiType.caption, andiStyles.photoText]}>Foto del arreglo · opcional</Text>
+          </View>
+
+          {errorMsg && (
+            <View style={andiStyles.errorBanner}>
+              <Feather name="alert-circle" size={16} color={andiColors.onErrorContainer} />
+              <Text style={[andiType.caption, andiStyles.errorBannerText]}>{errorMsg}</Text>
+            </View>
           )}
-        </View>
 
-        <View style={andiStyles.titleBlock}>
-          <Text style={andiType.section}>Cerrar el reporte</Text>
-          <Text style={[andiType.caption, andiStyles.caption]}>
-            {reporte.usuario ?? 'El ciudadano'} recibe un aviso con lo que escribas.
-          </Text>
-        </View>
-
-        <View style={andiStyles.section}>
-          <Text style={[andiType.overline, andiStyles.sectionLabel]}>Estado</Text>
-          <View style={andiStyles.estadoRow}>
-            <TouchableOpacity
-              style={[andiStyles.estadoPill, { backgroundColor: andiColors.stProBg, borderColor: andiColors.stProBd, borderWidth: !resolviendo ? 2 : 1 }]}
-              onPress={() => setResolviendo(false)}
-            >
-              <Feather name="refresh-cw" size={13} color={andiColors.stProFg} />
-              <Text style={[andiStyles.estadoPillText, { color: andiColors.stProFg }]}>Sigue en proceso</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[andiStyles.estadoPill, { backgroundColor: andiColors.stResBg, borderColor: andiColors.stResBd, borderWidth: resolviendo ? 2 : 1 }]}
-              onPress={() => setResolviendo(true)}
-            >
-              <Feather name="check" size={13} color={andiColors.stResFg} />
-              <Text style={[andiStyles.estadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[andiStyles.saveBtn, andiElevation[2], saving && andiStyles.saveBtnDisabled]}
+            onPress={handleGuardar}
+            disabled={saving}
+          >
+            {saving
+              ? <ActivityIndicator color={andiColors.n0} />
+              : <Text style={andiStyles.saveBtnText}>{errorMsg ? 'Reintentar' : (resolviendo ? 'Marcar como resuelto' : 'Guardar cambio')}</Text>}
+          </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={andiStyles.section}>
-          <View style={andiStyles.sectionLabelRow}>
-            <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
-            {resolviendo && <Text style={[andiType.caption, andiStyles.requiredTag]}>Obligatorio al resolver</Text>}
-          </View>
-          <TextInput
-            style={andiStyles.textarea}
-            placeholder="Ej: Se tomó muestra y se purgó la red del sector…"
-            placeholderTextColor={andiColors.onSurfaceVariant}
-            multiline
-            numberOfLines={4}
-            value={comentario}
-            onChangeText={setComentario}
-            textAlignVertical="top"
-          />
-          <Text style={[andiType.caption, andiStyles.helperText]}>
-            Sin esta frase el ciudadano solo ve la palabra &quot;Resuelto&quot;, que es exactamente lo que hace que deje de reportar.
-          </Text>
-        </View>
-
-        <View style={andiStyles.photoRow}>
-          <View style={andiStyles.photoIcon}>
-            <Feather name="camera" size={16} color={andiColors.onSurfaceVariant} />
-          </View>
-          <Text style={[andiType.caption, andiStyles.photoText]}>Foto del arreglo · opcional</Text>
-        </View>
-
-        {errorMsg && (
-          <View style={andiStyles.errorBanner}>
-            <Feather name="alert-circle" size={16} color={andiColors.onErrorContainer} />
-            <Text style={[andiType.caption, andiStyles.errorBannerText]}>{errorMsg}</Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[andiStyles.saveBtn, andiElevation[2], saving && andiStyles.saveBtnDisabled]}
-          onPress={handleGuardar}
-          disabled={saving}
-        >
-          {saving
-            ? <ActivityIndicator color={andiColors.n0} />
-            : <Text style={andiStyles.saveBtnText}>{errorMsg ? 'Reintentar' : (resolviendo ? 'Marcar como resuelto' : 'Guardar cambio')}</Text>}
-        </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -568,6 +575,8 @@ function DetailRow({ label, value, styles }: { label: string; value: string; sty
 /* ── Estilos: vista clásica ── */
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: '#1565C0' },
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   emptyText: { fontSize: r.scaleFont(15), color: '#6B7280', textAlign: 'center' },
@@ -611,6 +620,8 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 /* ── Estilos: vista Andi (Entidad) ── */
 
 const makeAndiStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary800 },
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   scroll: { padding: andiSpace[5], paddingBottom: andiSpace[8], backgroundColor: andiColors.surface },
   contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },

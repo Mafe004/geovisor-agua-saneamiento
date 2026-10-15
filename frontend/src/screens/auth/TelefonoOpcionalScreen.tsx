@@ -1,5 +1,6 @@
 import React, { useContext, useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -48,58 +49,62 @@ export default function TelefonoOpcionalScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.contentWrap}>
-      <View style={styles.hero}>
-        <Feather name="phone" size={64} color={andiColors.primary600} />
-        <Text style={styles.title}>¿Añades tu teléfono?</Text>
-        <Text style={styles.subtitle}>Opcional — te avisaremos por SMS sobre tus reportes.</Text>
-      </View>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <View style={styles.contentWrap}>
+        <View style={styles.hero}>
+          <Feather name="phone" size={64} color={andiColors.primary600} />
+          <Text style={styles.title}>¿Añades tu teléfono?</Text>
+          <Text style={styles.subtitle}>Opcional — te avisaremos por SMS sobre tus reportes.</Text>
+        </View>
 
-      <View style={styles.infoTable}>
-        {INFO_ROWS.map((row, i) => (
-          <View key={i} style={styles.infoRow}>
-            <Feather name={row.icon} size={18} color={andiColors.primary600} />
-            <Text style={styles.infoText}>{row.text}</Text>
-          </View>
-        ))}
-      </View>
+        <View style={styles.infoTable}>
+          {INFO_ROWS.map((row, i) => (
+            <View key={i} style={styles.infoRow}>
+              <Feather name={row.icon} size={18} color={andiColors.primary600} />
+              <Text style={styles.infoText}>{row.text}</Text>
+            </View>
+          ))}
+        </View>
 
-      <Text style={styles.label}>TELÉFONO</Text>
-      <View style={styles.inputWrap}>
-        <Text style={styles.prefix}>+57</Text>
-        <View style={styles.prefixDivider} />
-        <TextInput
-          style={styles.input}
-          placeholder="300 0000000"
-          placeholderTextColor={andiColors.onSurfaceVariant}
-          value={telefono}
-          onChangeText={setTelefono}
-          keyboardType="phone-pad"
-        />
-      </View>
+        <Text style={styles.label}>TELÉFONO</Text>
+        <View style={styles.inputWrap}>
+          <Text style={styles.prefix}>+57</Text>
+          <View style={styles.prefixDivider} />
+          <TextInput
+            style={styles.input}
+            placeholder="300 0000000"
+            placeholderTextColor={andiColors.onSurfaceVariant}
+            value={telefono}
+            onChangeText={setTelefono}
+            keyboardType="phone-pad"
+          />
+        </View>
 
-      <View style={styles.btnRow}>
-        <TouchableOpacity style={styles.outlineBtn} onPress={handleAhoraNo} disabled={loading} activeOpacity={0.85}>
-          <Text style={styles.outlineBtnText}>Ahora no</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.primaryBtn, (!telefono.trim() || loading) && styles.btnDisabled]}
-          onPress={handleGuardar}
-          disabled={!telefono.trim() || loading}
-          activeOpacity={0.85}
-        >
-          <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.primaryBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-            {loading ? <ActivityIndicator color={andiColors.surface} /> : <Text style={styles.primaryBtnText}>Guardar teléfono</Text>}
-          </LinearGradient>
-        </TouchableOpacity>
+        <View style={styles.btnRow}>
+          <TouchableOpacity style={styles.outlineBtn} onPress={handleAhoraNo} disabled={loading} activeOpacity={0.85}>
+            <Text style={styles.outlineBtnText}>Ahora no</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.primaryBtn, (!telefono.trim() || loading) && styles.btnDisabled]}
+            onPress={handleGuardar}
+            disabled={!telefono.trim() || loading}
+            activeOpacity={0.85}
+          >
+            <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.primaryBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              {loading ? <ActivityIndicator color={andiColors.surface} /> : <Text style={styles.primaryBtnText}>Guardar teléfono</Text>}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+        </View>
       </View>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.surface },
   screen: { flex: 1, backgroundColor: andiColors.surface, padding: andiSpace[6], alignItems: 'center' },
   contentWrap: { width: '100%', maxWidth: r.maxContentWidth(480) },
   hero: { alignItems: 'center', marginTop: andiSpace[10] },

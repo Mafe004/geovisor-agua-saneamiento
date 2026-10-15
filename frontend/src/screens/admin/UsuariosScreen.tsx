@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
   RefreshControl, Modal, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -171,185 +172,189 @@ export default function UsuariosScreen({ route }: Props) {
     : `¿Confirmas suspender ${selectedNames.length} cuentas?`;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Usuarios</Text>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{usuarios.length}</Text>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Usuarios</Text>
+            <View style={styles.headerBadge}>
+              <Text style={styles.headerBadgeText}>{usuarios.length}</Text>
+            </View>
           </View>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
 
-      <View style={styles.filterRow}>
-        {FILTERS.map(f => {
-          const active = filter === f.key;
-          return (
-            <TouchableOpacity
-              key={f.key}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setFilter(f.key)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={andiColors.primary600} />
-        </View>
-      ) : (
-        <FlatList
-          data={usuariosFiltrados}
-          keyExtractor={u => String(u.id_usuario)}
-          contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadUsuarios(true); }} colors={[andiColors.primary600]} />
-          }
-          renderItem={({ item }) => {
-            const chip = ESTADO_CHIP[item.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;
-            const isSelected = selected.has(item.id_usuario);
+        <View style={styles.filterRow}>
+          {FILTERS.map(f => {
+            const active = filter === f.key;
             return (
               <TouchableOpacity
-                style={styles.row}
-                activeOpacity={0.7}
-                onLongPress={() => toggleSelect(item.id_usuario)}
-                onPress={() => {
-                  if (selectionMode) { toggleSelect(item.id_usuario); return; }
-                  if (item.estado_cuenta === 'PENDIENTE') setPendingActionUser(item);
-                }}
+                key={f.key}
+                style={[styles.chip, active && styles.chipActive]}
+                onPress={() => setFilter(f.key)}
+                activeOpacity={0.8}
               >
-                {selectionMode && (
-                  <Feather
-                    name={isSelected ? 'check-square' : 'square'}
-                    size={20}
-                    color={isSelected ? andiColors.primary600 : andiColors.onSurfaceVariant}
-                    style={styles.checkbox}
-                  />
-                )}
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initials(item.nombre_completo)}</Text>
-                </View>
-                <View style={styles.rowInfo}>
-                  <Text style={styles.rowName} numberOfLines={1}>{item.nombre_completo}</Text>
-                  <Text style={styles.rowEmail} numberOfLines={1}>{item.correo}</Text>
-                </View>
-                <View style={[styles.stateChip, { backgroundColor: chip.bg }]}>
-                  <Text style={[styles.stateChipText, { color: chip.fg }]}>{chip.label}</Text>
-                </View>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
               </TouchableOpacity>
             );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Feather name="users" size={48} color={andiColors.onSurfaceVariant} />
-              <Text style={styles.emptyStateText}>No hay usuarios en esta categoría</Text>
-            </View>
-          }
-        />
-      )}
-
-      {selectionMode && (
-        <View style={styles.batchBar}>
-          <Text style={styles.batchBarText}>{selected.size} seleccionados</Text>
-          <View style={styles.batchBarBtns}>
-            <TouchableOpacity style={styles.batchBtnPrimary} onPress={handleActivar} disabled={applying}>
-              <Text style={styles.batchBtnPrimaryText}>Activar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.batchBtnDestructive} onPress={() => setConfirmVisible(true)} disabled={applying}>
-              <Text style={styles.batchBtnDestructiveText}>Suspender</Text>
-            </TouchableOpacity>
-          </View>
+          })}
         </View>
-      )}
 
-      <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
-            <Text style={styles.modalTitle}>¿Suspender cuenta?</Text>
-            <Text style={styles.modalMessage}>{confirmMessage}</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Motivo (obligatorio)"
-              placeholderTextColor={andiColors.onSurfaceVariant}
-              value={motivo}
-              onChangeText={setMotivo}
-              multiline
-            />
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => { setConfirmVisible(false); setMotivo(''); }}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalSuspendBtn, !motivo.trim() && styles.btnDisabled]}
-                onPress={handleSuspenderConfirmado}
-                disabled={!motivo.trim()}
-              >
-                <Text style={styles.modalSuspendBtnText}>Suspender</Text>
-              </TouchableOpacity>
-            </View>
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={andiColors.primary600} />
           </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={pendingActionUser !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPendingActionUser(null)}
-      >
-        <TouchableOpacity
-          style={styles.sheetBackdrop}
-          activeOpacity={1}
-          onPress={() => setPendingActionUser(null)}
-        >
-          <TouchableOpacity style={[styles.sheetCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]} activeOpacity={1} onPress={() => {}}>
-            <View style={styles.sheetHandle} />
-            {pendingActionUser && (
-              <>
-                <View style={styles.sheetHeader}>
+        ) : (
+          <FlatList
+            data={usuariosFiltrados}
+            keyExtractor={u => String(u.id_usuario)}
+            contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadUsuarios(true); }} colors={[andiColors.primary600]} />
+            }
+            renderItem={({ item }) => {
+              const chip = ESTADO_CHIP[item.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;
+              const isSelected = selected.has(item.id_usuario);
+              return (
+                <TouchableOpacity
+                  style={styles.row}
+                  activeOpacity={0.7}
+                  onLongPress={() => toggleSelect(item.id_usuario)}
+                  onPress={() => {
+                    if (selectionMode) { toggleSelect(item.id_usuario); return; }
+                    if (item.estado_cuenta === 'PENDIENTE') setPendingActionUser(item);
+                  }}
+                >
+                  {selectionMode && (
+                    <Feather
+                      name={isSelected ? 'check-square' : 'square'}
+                      size={20}
+                      color={isSelected ? andiColors.primary600 : andiColors.onSurfaceVariant}
+                      style={styles.checkbox}
+                    />
+                  )}
                   <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{initials(pendingActionUser.nombre_completo)}</Text>
+                    <Text style={styles.avatarText}>{initials(item.nombre_completo)}</Text>
                   </View>
                   <View style={styles.rowInfo}>
-                    <Text style={styles.rowName} numberOfLines={1}>{pendingActionUser.nombre_completo}</Text>
-                    <Text style={styles.rowEmail} numberOfLines={1}>{pendingActionUser.correo}</Text>
+                    <Text style={styles.rowName} numberOfLines={1}>{item.nombre_completo}</Text>
+                    <Text style={styles.rowEmail} numberOfLines={1}>{item.correo}</Text>
                   </View>
-                </View>
-                <Text style={styles.sheetMessage}>
-                  Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.
-                </Text>
-                <TouchableOpacity
-                  style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
-                  onPress={handleActivarPendiente}
-                  disabled={activatingPendiente}
-                >
-                  <Text style={styles.batchBtnPrimaryText}>{activatingPendiente ? 'Activando…' : 'Activar'}</Text>
+                  <View style={[styles.stateChip, { backgroundColor: chip.bg }]}>
+                    <Text style={[styles.stateChipText, { color: chip.fg }]}>{chip.label}</Text>
+                  </View>
                 </TouchableOpacity>
-              </>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Feather name="users" size={48} color={andiColors.onSurfaceVariant} />
+                <Text style={styles.emptyStateText}>No hay usuarios en esta categoría</Text>
+              </View>
+            }
+          />
+        )}
 
-      {undoVisible && (
-        <TouchableOpacity style={styles.undoToast} onPress={handleDeshacer} activeOpacity={0.85}>
-          <Text style={styles.undoText}>Acción aplicada · Deshacer</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+        {selectionMode && (
+          <View style={styles.batchBar}>
+            <Text style={styles.batchBarText}>{selected.size} seleccionados</Text>
+            <View style={styles.batchBarBtns}>
+              <TouchableOpacity style={styles.batchBtnPrimary} onPress={handleActivar} disabled={applying}>
+                <Text style={styles.batchBtnPrimaryText}>Activar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.batchBtnDestructive} onPress={() => setConfirmVisible(true)} disabled={applying}>
+                <Text style={styles.batchBtnDestructiveText}>Suspender</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <Modal visible={confirmVisible} transparent animationType="fade" onRequestClose={() => setConfirmVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
+              <Text style={styles.modalTitle}>¿Suspender cuenta?</Text>
+              <Text style={styles.modalMessage}>{confirmMessage}</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Motivo (obligatorio)"
+                placeholderTextColor={andiColors.onSurfaceVariant}
+                value={motivo}
+                onChangeText={setMotivo}
+                multiline
+              />
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => { setConfirmVisible(false); setMotivo(''); }}
+                >
+                  <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalSuspendBtn, !motivo.trim() && styles.btnDisabled]}
+                  onPress={handleSuspenderConfirmado}
+                  disabled={!motivo.trim()}
+                >
+                  <Text style={styles.modalSuspendBtnText}>Suspender</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={pendingActionUser !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setPendingActionUser(null)}
+        >
+          <TouchableOpacity
+            style={styles.sheetBackdrop}
+            activeOpacity={1}
+            onPress={() => setPendingActionUser(null)}
+          >
+            <TouchableOpacity style={[styles.sheetCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]} activeOpacity={1} onPress={() => {}}>
+              <View style={styles.sheetHandle} />
+              {pendingActionUser && (
+                <>
+                  <View style={styles.sheetHeader}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{initials(pendingActionUser.nombre_completo)}</Text>
+                    </View>
+                    <View style={styles.rowInfo}>
+                      <Text style={styles.rowName} numberOfLines={1}>{pendingActionUser.nombre_completo}</Text>
+                      <Text style={styles.rowEmail} numberOfLines={1}>{pendingActionUser.correo}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.sheetMessage}>
+                    Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
+                    onPress={handleActivarPendiente}
+                    disabled={activatingPendiente}
+                  >
+                    <Text style={styles.batchBtnPrimaryText}>{activatingPendiente ? 'Activando…' : 'Activar'}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
+
+        {undoVisible && (
+          <TouchableOpacity style={styles.undoToast} onPress={handleDeshacer} activeOpacity={0.85}>
+            <Text style={styles.undoText}>Acción aplicada · Deshacer</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
-  header: { height: 160, paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4] },
+  header: { height: 136, paddingTop: andiSpace[4], paddingHorizontal: andiSpace[4] },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2] },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface },
   headerBadge: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: andiRadius.full, paddingHorizontal: andiSpace[3], paddingVertical: 2 },

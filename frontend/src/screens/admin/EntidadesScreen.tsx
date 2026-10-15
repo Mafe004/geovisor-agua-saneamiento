@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch,
   ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { entidadesAPI } from '../../api/services';
@@ -76,105 +77,109 @@ export default function EntidadesScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Entidades</Text>
-          <TouchableOpacity style={styles.newBtn} activeOpacity={0.85} onPress={() => { /* TODO: navigate to CreateEntidadScreen */ }}>
-            <Feather name="plus" size={16} color={andiColors.surface} />
-            <Text style={styles.newBtnText}>Nueva entidad</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Entidades</Text>
+            <TouchableOpacity style={styles.newBtn} activeOpacity={0.85} onPress={() => { /* TODO: navigate to CreateEntidadScreen */ }}>
+              <Feather name="plus" size={16} color={andiColors.surface} />
+              <Text style={styles.newBtnText}>Nueva entidad</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
 
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={andiColors.primary600} />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadEntidades(true); }} colors={[andiColors.primary600]} />
-          }
-        >
-        <View style={{ width: '100%', maxWidth: r.maxContentWidth(700) }}>
-          {entidades.length === 1 && (
-            <View style={styles.infoNote}>
-              <Feather name="info" size={16} color={andiColors.warning700} />
-              <Text style={styles.infoNoteText}>Solo hay una entidad registrada. Considera añadir más.</Text>
-            </View>
-          )}
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={andiColors.primary600} />
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadEntidades(true); }} colors={[andiColors.primary600]} />
+            }
+          >
+          <View style={{ width: '100%', maxWidth: r.maxContentWidth(700) }}>
+            {entidades.length === 1 && (
+              <View style={styles.infoNote}>
+                <Feather name="info" size={16} color={andiColors.warning700} />
+                <Text style={styles.infoNoteText}>Solo hay una entidad registrada. Considera añadir más.</Text>
+              </View>
+            )}
 
-          {entidades.map(entidad => {
-            const chip = ESTADO_CHIP[entidad.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;
-            const ops = operadores[entidad.id_entidad] ?? [];
-            const shown = ops.slice(0, MAX_CHIPS);
-            const extra = ops.length - shown.length;
-            const activo = entidad.estado_cuenta === 'ACTIVO';
+            {entidades.map(entidad => {
+              const chip = ESTADO_CHIP[entidad.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;
+              const ops = operadores[entidad.id_entidad] ?? [];
+              const shown = ops.slice(0, MAX_CHIPS);
+              const extra = ops.length - shown.length;
+              const activo = entidad.estado_cuenta === 'ACTIVO';
 
-            return (
-              <View key={entidad.id_entidad} style={styles.card}>
-                <View style={styles.cardTopRow}>
-                  <View style={styles.avatar}>
-                    <Feather name="briefcase" size={24} color={andiColors.primary600} />
-                  </View>
-                  <View style={styles.cardInfo}>
-                    <Text style={styles.entidadName} numberOfLines={1}>{entidad.nombre_entidad}</Text>
-                    <Text style={styles.entidadType} numberOfLines={1}>{entidad.correo_institucional}</Text>
-                    <View style={styles.opsRow}>
-                      {shown.map(op => (
-                        <View key={op.id_usuario} style={styles.opChip}>
-                          <Text style={styles.opChipText} numberOfLines={1}>{op.nombre_completo}</Text>
-                        </View>
-                      ))}
-                      {extra > 0 && (
-                        <View style={styles.opChip}>
-                          <Text style={styles.opChipText}>+{extra} más</Text>
-                        </View>
+              return (
+                <View key={entidad.id_entidad} style={styles.card}>
+                  <View style={styles.cardTopRow}>
+                    <View style={styles.avatar}>
+                      <Feather name="briefcase" size={24} color={andiColors.primary600} />
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.entidadName} numberOfLines={1}>{entidad.nombre_entidad}</Text>
+                      <Text style={styles.entidadType} numberOfLines={1}>{entidad.correo_institucional}</Text>
+                      <View style={styles.opsRow}>
+                        {shown.map(op => (
+                          <View key={op.id_usuario} style={styles.opChip}>
+                            <Text style={styles.opChipText} numberOfLines={1}>{op.nombre_completo}</Text>
+                          </View>
+                        ))}
+                        {extra > 0 && (
+                          <View style={styles.opChip}>
+                            <Text style={styles.opChipText}>+{extra} más</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.cardRight}>
+                      <View style={[styles.stateChip, { backgroundColor: chip.bg }]}>
+                        <Text style={[styles.stateChipText, { color: chip.fg }]}>{chip.label}</Text>
+                      </View>
+                      {togglingId === entidad.id_entidad ? (
+                        <ActivityIndicator size="small" color={andiColors.primary600} style={styles.switchLoading} />
+                      ) : (
+                        <Switch
+                          value={activo}
+                          onValueChange={() => handleToggle(entidad)}
+                          trackColor={{ false: andiColors.outline, true: andiColors.primary300 }}
+                          thumbColor={activo ? andiColors.primary600 : andiColors.n0}
+                        />
                       )}
                     </View>
                   </View>
-                  <View style={styles.cardRight}>
-                    <View style={[styles.stateChip, { backgroundColor: chip.bg }]}>
-                      <Text style={[styles.stateChipText, { color: chip.fg }]}>{chip.label}</Text>
-                    </View>
-                    {togglingId === entidad.id_entidad ? (
-                      <ActivityIndicator size="small" color={andiColors.primary600} style={styles.switchLoading} />
-                    ) : (
-                      <Switch
-                        value={activo}
-                        onValueChange={() => handleToggle(entidad)}
-                        trackColor={{ false: andiColors.outline, true: andiColors.primary300 }}
-                        thumbColor={activo ? andiColors.primary600 : andiColors.n0}
-                      />
-                    )}
-                  </View>
+
+                  <TouchableOpacity style={styles.linkBtn} activeOpacity={0.85} onPress={() => { /* TODO: open modal LinkUserModal */ }}>
+                    <Text style={styles.linkBtnText}>Vincular usuario</Text>
+                  </TouchableOpacity>
                 </View>
+              );
+            })}
 
-                <TouchableOpacity style={styles.linkBtn} activeOpacity={0.85} onPress={() => { /* TODO: open modal LinkUserModal */ }}>
-                  <Text style={styles.linkBtnText}>Vincular usuario</Text>
-                </TouchableOpacity>
+            {entidades.length === 0 && (
+              <View style={styles.emptyState}>
+                <Feather name="briefcase" size={48} color={andiColors.onSurfaceVariant} />
+                <Text style={styles.emptyStateText}>No hay entidades registradas</Text>
               </View>
-            );
-          })}
-
-          {entidades.length === 0 && (
-            <View style={styles.emptyState}>
-              <Feather name="briefcase" size={48} color={andiColors.onSurfaceVariant} />
-              <Text style={styles.emptyStateText}>No hay entidades registradas</Text>
-            </View>
-          )}
-        </View>
-        </ScrollView>
-      )}
-    </View>
+            )}
+          </View>
+          </ScrollView>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
-  header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
+  header: { paddingTop: andiSpace[4], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface },
   newBtn: {

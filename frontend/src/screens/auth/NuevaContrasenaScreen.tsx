@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
@@ -101,119 +102,127 @@ export default function NuevaContrasenaScreen({ navigation, route }: Props) {
 
   if (status === 'tokenError') {
     return (
-      <View style={styles.screen}>
-        <View style={styles.top}>
-          <Feather name="slash" size={64} color={andiColors.error400} />
-          <Text style={styles.title}>Enlace no válido</Text>
-          <Text style={styles.subtitle}>El enlace expiró o ya fue usado. Solicita uno nuevo</Text>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <View style={styles.screen}>
+          <View style={styles.top}>
+            <Feather name="slash" size={64} color={andiColors.error400} />
+            <Text style={styles.title}>Enlace no válido</Text>
+            <Text style={styles.subtitle}>El enlace expiró o ya fue usado. Solicita uno nuevo</Text>
+          </View>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => navigation.replace('ForgotPassword')}
+              activeOpacity={0.85}
+            >
+              <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                <Text style={styles.btnText}>Solicitar un nuevo enlace</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
+              <Text style={styles.linkText}>Volver a la entrada</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.card}>
-          <TouchableOpacity
-            style={styles.btn}
-            onPress={() => navigation.replace('ForgotPassword')}
-            activeOpacity={0.85}
-          >
-            <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-              <Text style={styles.btnText}>Solicitar un nuevo enlace</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
-            <Text style={styles.linkText}>Volver a la entrada</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (status === 'success') {
     return (
-      <View style={styles.screen}>
-        <View style={styles.top}>
-          <Feather name="check-circle" size={64} color={andiColors.success400} />
-          <Text style={styles.title}>¡Listo!</Text>
-          <Text style={styles.subtitle}>Contraseña actualizada, ya puedes iniciar sesión.</Text>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <View style={styles.screen}>
+          <View style={styles.top}>
+            <Feather name="check-circle" size={64} color={andiColors.success400} />
+            <Text style={styles.title}>¡Listo!</Text>
+            <Text style={styles.subtitle}>Contraseña actualizada, ya puedes iniciar sesión.</Text>
+          </View>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.screen}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.hero}>
-            <Feather name="lock" size={48} color={andiColors.surface} />
-            <Text style={styles.appName}>Nueva contraseña</Text>
-            <Text style={styles.tagline}>Elige una contraseña segura para tu cuenta</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.label}>NUEVA CONTRASEÑA</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="lock" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, styles.inputPassword]}
-                placeholder="Mínimo 8 caracteres"
-                placeholderTextColor={andiColors.onSurfaceVariant}
-                value={nuevaPassword}
-                onChangeText={setNuevaPassword}
-                secureTextEntry={!showNueva}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowNueva(p => !p)} style={styles.eyeBtn}>
-                <Feather name={showNueva ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
-              </TouchableOpacity>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.hero}>
+              <Feather name="lock" size={48} color={andiColors.surface} />
+              <Text style={styles.appName}>Nueva contraseña</Text>
+              <Text style={styles.tagline}>Elige una contraseña segura para tu cuenta</Text>
             </View>
 
-            <Text style={[styles.label, styles.labelSpaced]}>CONFIRMAR CONTRASEÑA</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="lock" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, styles.inputPassword]}
-                placeholder="Repite la contraseña"
-                placeholderTextColor={andiColors.onSurfaceVariant}
-                value={confirmar}
-                onChangeText={setConfirmar}
-                secureTextEntry={!showConfirmar}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowConfirmar(p => !p)} style={styles.eyeBtn}>
-                <Feather name={showConfirmar ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
-              </TouchableOpacity>
-            </View>
-
-            {errorMsg && (
-              <View style={styles.errorBanner}>
-                <Feather name="alert-triangle" size={16} color={andiColors.error600} />
-                <Text style={styles.errorText}>{errorMsg}</Text>
+            <View style={styles.card}>
+              <Text style={styles.label}>NUEVA CONTRASEÑA</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="lock" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, styles.inputPassword]}
+                  placeholder="Mínimo 8 caracteres"
+                  placeholderTextColor={andiColors.onSurfaceVariant}
+                  value={nuevaPassword}
+                  onChangeText={setNuevaPassword}
+                  secureTextEntry={!showNueva}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={() => setShowNueva(p => !p)} style={styles.eyeBtn}>
+                  <Feather name={showNueva ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
-            )}
 
-            <TouchableOpacity
-              style={[styles.btn, styles.submitBtn, loading && styles.btnDisabled]}
-              onPress={handleSubmit}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                {loading
-                  ? <ActivityIndicator color={andiColors.surface} />
-                  : <Text style={styles.btnText}>Guardar contraseña</Text>
-                }
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+              <Text style={[styles.label, styles.labelSpaced]}>CONFIRMAR CONTRASEÑA</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="lock" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, styles.inputPassword]}
+                  placeholder="Repite la contraseña"
+                  placeholderTextColor={andiColors.onSurfaceVariant}
+                  value={confirmar}
+                  onChangeText={setConfirmar}
+                  secureTextEntry={!showConfirmar}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={() => setShowConfirmar(p => !p)} style={styles.eyeBtn}>
+                  <Feather name={showConfirmar ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+
+              {errorMsg && (
+                <View style={styles.errorBanner}>
+                  <Feather name="alert-triangle" size={16} color={andiColors.error600} />
+                  <Text style={styles.errorText}>{errorMsg}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.btn, styles.submitBtn, loading && styles.btnDisabled]}
+                onPress={handleSubmit}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  {loading
+                    ? <ActivityIndicator color={andiColors.surface} />
+                    : <Text style={styles.btnText}>Guardar contraseña</Text>
+                  }
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   screen: { flex: 1, backgroundColor: andiColors.primary900, alignItems: 'center' },
   flex: { flex: 1, width: '100%' },
   scroll: { flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' },

@@ -3,6 +3,7 @@ import {
   View, Text, FlatList, StyleSheet,
   RefreshControl, TextInput, TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -76,91 +77,95 @@ export default function TodosReportesScreen({ navigation }: Props) {
     : reportes;
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
-        <Text style={styles.headerTitle}>📋 Todos los Reportes</Text>
-        <Text style={styles.headerSub}>{reportesFiltrados.length} resultados</Text>
-        {/* Buscador */}
-        <View style={styles.searchWrap}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por ID o descripción…"
-            placeholderTextColor="rgba(255,255,255,0.6)"
-            value={busqueda}
-            onChangeText={setBusqueda}
-          />
-          {busqueda ? (
-            <TouchableOpacity onPress={() => setBusqueda('')}>
-              <Text style={styles.clearIcon}>✕</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </LinearGradient>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
+          <Text style={styles.headerTitle}>📋 Todos los Reportes</Text>
+          <Text style={styles.headerSub}>{reportesFiltrados.length} resultados</Text>
+          {/* Buscador */}
+          <View style={styles.searchWrap}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar por ID o descripción…"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              value={busqueda}
+              onChangeText={setBusqueda}
+            />
+            {busqueda ? (
+              <TouchableOpacity onPress={() => setBusqueda('')}>
+                <Text style={styles.clearIcon}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </LinearGradient>
 
-      {/* Filtros de estado */}
-      <View style={styles.filterScroll}>
-        <TouchableOpacity
-          style={[styles.filterChip, idEstado === null && styles.filterChipActive]}
-          onPress={() => setIdEstado(null)}
-        >
-          <Text style={[styles.filterText, idEstado === null && styles.filterTextActive]}>
-            Todos
-          </Text>
-        </TouchableOpacity>
-        {estadosDisponibles.map(e => (
+        {/* Filtros de estado */}
+        <View style={styles.filterScroll}>
           <TouchableOpacity
-            key={e.id_estado}
-            style={[styles.filterChip, idEstado === e.id_estado && styles.filterChipActive]}
-            onPress={() => setIdEstado(e.id_estado)}
+            style={[styles.filterChip, idEstado === null && styles.filterChipActive]}
+            onPress={() => setIdEstado(null)}
           >
-            <Text style={[styles.filterText, idEstado === e.id_estado && styles.filterTextActive]}>
-              {e.nombre.replace(/_/g, ' ')}
+            <Text style={[styles.filterText, idEstado === null && styles.filterTextActive]}>
+              Todos
             </Text>
           </TouchableOpacity>
-        ))}
-      </View>
+          {estadosDisponibles.map(e => (
+            <TouchableOpacity
+              key={e.id_estado}
+              style={[styles.filterChip, idEstado === e.id_estado && styles.filterChipActive]}
+              onPress={() => setIdEstado(e.id_estado)}
+            >
+              <Text style={[styles.filterText, idEstado === e.id_estado && styles.filterTextActive]}>
+                {e.nombre.replace(/_/g, ' ')}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      <FlatList
-        data={reportesFiltrados}
-        keyExtractor={r => String(r.id_reporte)}
-        renderItem={({ item }) => (
-          <ReportCard
-            reporte={item}
-            onPress={r => navigation.navigate('DetalleReporte', { reporte: r })}
-          />
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); loadReportes(true); }}
-            colors={['#1565C0']}
-          />
-        }
-        contentContainerStyle={[styles.listContent, reportesFiltrados.length === 0 && styles.emptyContainer]}
-        ListEmptyComponent={
-          loading ? null : error ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>⚠️</Text>
-              <Text style={styles.emptyTitle}>No se pudieron cargar los reportes</Text>
-              <Text style={styles.emptyText}>Desliza hacia abajo para reintentar.</Text>
-            </View>
-          ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>📭</Text>
-              <Text style={styles.emptyTitle}>Sin resultados</Text>
-              <Text style={styles.emptyText}>No hay reportes con el filtro seleccionado.</Text>
-            </View>
-          )
-        }
-      />
-    </View>
+        <FlatList
+          data={reportesFiltrados}
+          keyExtractor={r => String(r.id_reporte)}
+          renderItem={({ item }) => (
+            <ReportCard
+              reporte={item}
+              onPress={r => navigation.navigate('DetalleReporte', { reporte: r })}
+            />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); loadReportes(true); }}
+              colors={['#1565C0']}
+            />
+          }
+          contentContainerStyle={[styles.listContent, reportesFiltrados.length === 0 && styles.emptyContainer]}
+          ListEmptyComponent={
+            loading ? null : error ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>⚠️</Text>
+                <Text style={styles.emptyTitle}>No se pudieron cargar los reportes</Text>
+                <Text style={styles.emptyText}>Desliza hacia abajo para reintentar.</Text>
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>📭</Text>
+                <Text style={styles.emptyTitle}>Sin resultados</Text>
+                <Text style={styles.emptyText}>No hay reportes con el filtro seleccionado.</Text>
+              </View>
+            )
+          }
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: '#1565C0' },
   container: { flex: 1, backgroundColor: '#F3F4F6' },
-  header: { paddingTop: 48, paddingBottom: 12, paddingHorizontal: 16 },
+  header: { paddingTop: 16, paddingBottom: 12, paddingHorizontal: 16 },
   headerTitle: { color: '#fff', fontSize: r.scaleFont(20), fontWeight: '700' },
   headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: r.scaleFont(12), marginTop: 2, marginBottom: 10 },
   searchWrap: {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -72,116 +73,120 @@ export default function AdminPerfilScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-            <Feather name="arrow-left" size={22} color={andiColors.surface} />
-          </TouchableOpacity>
-          <View style={styles.heroCenter}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials(user?.nombre_completo ?? 'A')}</Text>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+              <Feather name="arrow-left" size={22} color={andiColors.surface} />
+            </TouchableOpacity>
+            <View style={styles.heroCenter}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials(user?.nombre_completo ?? 'A')}</Text>
+              </View>
+              <Text style={styles.name}>{user?.nombre_completo ?? 'Administrador'}</Text>
+              <Text style={styles.roleLabel}>ADMINISTRADOR</Text>
             </View>
-            <Text style={styles.name}>{user?.nombre_completo ?? 'Administrador'}</Text>
-            <Text style={styles.roleLabel}>ADMINISTRADOR</Text>
-          </View>
-        </LinearGradient>
+          </LinearGradient>
 
-        <View style={[styles.body, { width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }]}>
-          {isOnlyAdmin && (
-            <View style={styles.warningBanner}>
-              <Feather name="alert-triangle" size={18} color={andiColors.error600} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.warningText}>Eres el único administrador activo.</Text>
-                <TouchableOpacity
-                  style={styles.inviteBtn}
-                  activeOpacity={0.85}
-                  onPress={() => { /* TODO: connect endpoint — POST /auth/invitaciones doesn't exist yet; would show the generated code in a modal */ }}
-                >
-                  <Text style={styles.inviteBtnText}>Invitar a un segundo admin</Text>
+          <View style={[styles.body, { width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }]}>
+            {isOnlyAdmin && (
+              <View style={styles.warningBanner}>
+                <Feather name="alert-triangle" size={18} color={andiColors.error600} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.warningText}>Eres el único administrador activo.</Text>
+                  <TouchableOpacity
+                    style={styles.inviteBtn}
+                    activeOpacity={0.85}
+                    onPress={() => { /* TODO: connect endpoint — POST /auth/invitaciones doesn't exist yet; would show the generated code in a modal */ }}
+                  >
+                    <Text style={styles.inviteBtnText}>Invitar a un segundo admin</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.statRow}>
+              <View style={styles.statTile}>
+                <Feather name="activity" size={20} color={andiColors.primary600} />
+                {misAcciones === null
+                  ? <ActivityIndicator size="small" color={andiColors.primary600} style={styles.statLoading} />
+                  : <Text style={styles.statNum}>{misAcciones} ACCIONES TUYAS</Text>}
+              </View>
+              <View style={styles.statTile}>
+                <Feather name="mail" size={20} color={andiColors.primary600} />
+                <Text style={styles.statNum}>{invitacionesVivas} INVITACIONES VIVAS</Text>
+              </View>
+            </View>
+
+            <View style={styles.sectionList}>
+              <TouchableOpacity
+                style={styles.sectionRow}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('SolicitudesAcceso')}
+              >
+                <Feather name="inbox" size={18} color={andiColors.onSurface} />
+                <Text style={styles.sectionRowLabel}>Solicitudes de acceso</Text>
+                <View style={styles.newBadge}>
+                  <Text style={styles.newBadgeText}>Nuevo</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: InvitacionesScreen */ }}>
+                <Feather name="mail" size={18} color={andiColors.onSurface} />
+                <Text style={styles.sectionRowLabel}>Mis invitaciones</Text>
+                <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: MisAccionesScreen */ }}>
+                <Feather name="activity" size={18} color={andiColors.onSurface} />
+                <Text style={styles.sectionRowLabel}>Mis acciones</Text>
+                <View style={{ flex: 1 }} />
+                <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: DatosPersonalesScreen */ }}>
+                <Feather name="user" size={18} color={andiColors.onSurface} />
+                <Text style={styles.sectionRowLabel}>Datos personales</Text>
+                <View style={{ flex: 1 }} />
+                <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85} onPress={() => setLogoutConfirmVisible(true)}>
+              <Feather name="log-out" size={18} color={andiColors.error600} />
+              <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <Modal visible={logoutConfirmVisible} transparent animationType="fade" onRequestClose={() => setLogoutConfirmVisible(false)}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
+              <Text style={styles.modalTitle}>¿Cerrar sesión?</Text>
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setLogoutConfirmVisible(false)}>
+                  <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalSalirBtn} onPress={handleLogout}>
+                  <Text style={styles.modalSalirBtnText}>Salir</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          )}
-
-          <View style={styles.statRow}>
-            <View style={styles.statTile}>
-              <Feather name="activity" size={20} color={andiColors.primary600} />
-              {misAcciones === null
-                ? <ActivityIndicator size="small" color={andiColors.primary600} style={styles.statLoading} />
-                : <Text style={styles.statNum}>{misAcciones} ACCIONES TUYAS</Text>}
-            </View>
-            <View style={styles.statTile}>
-              <Feather name="mail" size={20} color={andiColors.primary600} />
-              <Text style={styles.statNum}>{invitacionesVivas} INVITACIONES VIVAS</Text>
-            </View>
           </View>
-
-          <View style={styles.sectionList}>
-            <TouchableOpacity
-              style={styles.sectionRow}
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate('SolicitudesAcceso')}
-            >
-              <Feather name="inbox" size={18} color={andiColors.onSurface} />
-              <Text style={styles.sectionRowLabel}>Solicitudes de acceso</Text>
-              <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>Nuevo</Text>
-              </View>
-              <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: InvitacionesScreen */ }}>
-              <Feather name="mail" size={18} color={andiColors.onSurface} />
-              <Text style={styles.sectionRowLabel}>Mis invitaciones</Text>
-              <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: MisAccionesScreen */ }}>
-              <Feather name="activity" size={18} color={andiColors.onSurface} />
-              <Text style={styles.sectionRowLabel}>Mis acciones</Text>
-              <View style={{ flex: 1 }} />
-              <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={() => { /* TODO: DatosPersonalesScreen */ }}>
-              <Feather name="user" size={18} color={andiColors.onSurface} />
-              <Text style={styles.sectionRowLabel}>Datos personales</Text>
-              <View style={{ flex: 1 }} />
-              <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85} onPress={() => setLogoutConfirmVisible(true)}>
-            <Feather name="log-out" size={18} color={andiColors.error600} />
-            <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      <Modal visible={logoutConfirmVisible} transparent animationType="fade" onRequestClose={() => setLogoutConfirmVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
-            <Text style={styles.modalTitle}>¿Cerrar sesión?</Text>
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setLogoutConfirmVisible(false)}>
-                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSalirBtn} onPress={handleLogout}>
-                <Text style={styles.modalSalirBtnText}>Salir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   screen: { flex: 1, backgroundColor: andiColors.surfaceMid },
   scroll: { flexGrow: 1 },
-  header: { height: 200, paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4] },
+  header: { height: 176, paddingTop: andiSpace[4], paddingHorizontal: andiSpace[4] },
   backBtn: { alignSelf: 'flex-start', padding: andiSpace[1] },
   heroCenter: { alignItems: 'center', marginTop: andiSpace[1] },
   avatar: {

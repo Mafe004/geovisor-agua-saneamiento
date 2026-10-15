@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { historialAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
@@ -74,79 +75,83 @@ export default function HistorialScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <AndiHeader
-        title="Historial"
-        headerExtra={
-          <View style={styles.weekStatRow}>
-            <Text style={[andiType.displayLg, styles.weekNum]}>{cambiosEstaSemana}</Text>
-            <Text style={[andiType.body, styles.weekLabel]}>cambios esta semana</Text>
-          </View>
-        }
-      />
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <AndiHeader
+          title="Historial"
+          headerExtra={
+            <View style={styles.weekStatRow}>
+              <Text style={[andiType.displayLg, styles.weekNum]}>{cambiosEstaSemana}</Text>
+              <Text style={[andiType.body, styles.weekLabel]}>cambios esta semana</Text>
+            </View>
+          }
+        />
 
-      <AndiBody>
-        {loading ? (
-          <View style={styles.center}><ActivityIndicator size="large" color={andiColors.primary} /></View>
-        ) : error ? (
-          <View style={styles.center}>
-            <Text style={[andiType.section, styles.emptyTitle]}>No se pudo cargar el historial</Text>
-            <Text style={[andiType.body, styles.emptyText]}>Verifica tu conexión e intenta de nuevo.</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={loadHistorial}>
-              <Text style={styles.retryText}>Reintentar</Text>
-            </TouchableOpacity>
-          </View>
-        ) : historial.length === 0 ? (
-          <View style={styles.center}>
-            <Text style={[andiType.section, styles.emptyTitle]}>Sin historial</Text>
-            <Text style={[andiType.body, styles.emptyText]}>No hay cambios registrados aún.</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={flatRows}
-            keyExtractor={(row, i) => row.type === 'day' ? `day-${row.label}-${i}` : `entry-${row.entry.id_historial}`}
-            contentContainerStyle={styles.list}
-            renderItem={({ item: row }) => {
-              if (row.type === 'day') {
-                return <Text style={[andiType.overline, andiOverlineDecor, styles.dayLabel]}>{row.label}</Text>;
-              }
-              const { entry, isLastInGroup } = row;
-              const dotColor = andiStatusPill[entry.estado_nuevo]?.bd ?? andiColors.outline;
-              const esTuyo = entry.id_usuario_accion === user?.id_usuario;
-              return (
-                <View style={styles.entryRow}>
-                  <View style={styles.timelineCol}>
-                    <View style={[styles.timelineDot, { backgroundColor: dotColor }]} />
-                    {!isLastInGroup && <View style={styles.timelineLine} />}
-                  </View>
-                  <View style={styles.entryContent}>
-                    <View style={styles.entryHeaderRow}>
-                      <Text style={styles.entryId}>#{entry.id_reporte}</Text>
-                      <Text style={[andiType.caption, styles.entryTransition]}>
-                        {estadoLabel(entry.estado_anterior)} → <Text style={styles.entryTransitionStrong}>{estadoLabel(entry.estado_nuevo)}</Text>
-                      </Text>
-                      {esTuyo && (
-                        <View style={styles.tuTag}><Text style={styles.tuTagText}>Tú</Text></View>
-                      )}
+        <AndiBody>
+          {loading ? (
+            <View style={styles.center}><ActivityIndicator size="large" color={andiColors.primary} /></View>
+          ) : error ? (
+            <View style={styles.center}>
+              <Text style={[andiType.section, styles.emptyTitle]}>No se pudo cargar el historial</Text>
+              <Text style={[andiType.body, styles.emptyText]}>Verifica tu conexión e intenta de nuevo.</Text>
+              <TouchableOpacity style={styles.retryBtn} onPress={loadHistorial}>
+                <Text style={styles.retryText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : historial.length === 0 ? (
+            <View style={styles.center}>
+              <Text style={[andiType.section, styles.emptyTitle]}>Sin historial</Text>
+              <Text style={[andiType.body, styles.emptyText]}>No hay cambios registrados aún.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={flatRows}
+              keyExtractor={(row, i) => row.type === 'day' ? `day-${row.label}-${i}` : `entry-${row.entry.id_historial}`}
+              contentContainerStyle={styles.list}
+              renderItem={({ item: row }) => {
+                if (row.type === 'day') {
+                  return <Text style={[andiType.overline, andiOverlineDecor, styles.dayLabel]}>{row.label}</Text>;
+                }
+                const { entry, isLastInGroup } = row;
+                const dotColor = andiStatusPill[entry.estado_nuevo]?.bd ?? andiColors.outline;
+                const esTuyo = entry.id_usuario_accion === user?.id_usuario;
+                return (
+                  <View style={styles.entryRow}>
+                    <View style={styles.timelineCol}>
+                      <View style={[styles.timelineDot, { backgroundColor: dotColor }]} />
+                      {!isLastInGroup && <View style={styles.timelineLine} />}
                     </View>
-                    {entry.comentario && (
-                      <Text style={[andiType.body, styles.entryComment]}>&quot;{entry.comentario}&quot;</Text>
-                    )}
-                    <Text style={[andiType.caption, styles.entryMeta]}>
-                      {entry.usuario_accion} · {entry.rol_usuario_accion} · {formatTime(entry.fecha_cambio)}
-                    </Text>
+                    <View style={styles.entryContent}>
+                      <View style={styles.entryHeaderRow}>
+                        <Text style={styles.entryId}>#{entry.id_reporte}</Text>
+                        <Text style={[andiType.caption, styles.entryTransition]}>
+                          {estadoLabel(entry.estado_anterior)} → <Text style={styles.entryTransitionStrong}>{estadoLabel(entry.estado_nuevo)}</Text>
+                        </Text>
+                        {esTuyo && (
+                          <View style={styles.tuTag}><Text style={styles.tuTagText}>Tú</Text></View>
+                        )}
+                      </View>
+                      {entry.comentario && (
+                        <Text style={[andiType.body, styles.entryComment]}>&quot;{entry.comentario}&quot;</Text>
+                      )}
+                      <Text style={[andiType.caption, styles.entryMeta]}>
+                        {entry.usuario_accion} · {entry.rol_usuario_accion} · {formatTime(entry.fecha_cambio)}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              );
-            }}
-          />
-        )}
-      </AndiBody>
-    </View>
+                );
+              }}
+            />
+          )}
+        </AndiBody>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary800 },
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   weekStatRow: {
     flexDirection: 'row', alignItems: 'baseline', gap: andiSpace[2],

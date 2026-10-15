@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
   ScrollView, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
@@ -76,132 +77,136 @@ export default function LoginScreen({ navigation, route }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.screen}>
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          {/* Hero */}
-          <View style={styles.hero}>
-            <Text style={styles.logo}>💧</Text>
-            <Text style={styles.appName}>Andi</Text>
-            <Text style={styles.tagline}>Agua y saneamiento · Cundinamarca</Text>
-          </View>
-
-          {/* Card */}
-          <View style={styles.card}>
-            {/* Correo */}
-            <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="mail" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="tu@correo.com"
-                placeholderTextColor={andiColors.onSurfaceVariant}
-                value={correo}
-                onChangeText={setCorreo}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Hero */}
+            <View style={styles.hero}>
+              <Text style={styles.logo}>💧</Text>
+              <Text style={styles.appName}>Andi</Text>
+              <Text style={styles.tagline}>Agua y saneamiento · Cundinamarca</Text>
             </View>
 
-            {/* Contraseña */}
-            <Text style={[styles.label, styles.labelSpaced]}>CONTRASEÑA</Text>
-            <View style={styles.inputWrap}>
-              <Feather name="lock" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, styles.inputPassword]}
-                placeholder="••••••••"
-                placeholderTextColor={andiColors.onSurfaceVariant}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPass}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
-                <Feather name={showPass ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
+            {/* Card */}
+            <View style={styles.card}>
+              {/* Correo */}
+              <Text style={styles.label}>CORREO ELECTRÓNICO</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="mail" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="tu@correo.com"
+                  placeholderTextColor={andiColors.onSurfaceVariant}
+                  value={correo}
+                  onChangeText={setCorreo}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+
+              {/* Contraseña */}
+              <Text style={[styles.label, styles.labelSpaced]}>CONTRASEÑA</Text>
+              <View style={styles.inputWrap}>
+                <Feather name="lock" size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, styles.inputPassword]}
+                  placeholder="••••••••"
+                  placeholderTextColor={andiColors.onSurfaceVariant}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPass}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
+                  <Feather name={showPass ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Olvidé mi contraseña */}
+              <TouchableOpacity
+                style={styles.forgotRow}
+                onPress={() => navigation.navigate('ForgotPassword')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+              </TouchableOpacity>
+
+              {/* Éxito inline (viene de RegisterScreen) */}
+              {successMsg && (
+                <View style={styles.successBanner}>
+                  <Feather name="check-circle" size={16} color={andiColors.success600} />
+                  <Text style={styles.successText}>{successMsg}</Text>
+                </View>
+              )}
+
+              {/* Error inline */}
+              {errorMsg && (
+                <View style={styles.errorBanner}>
+                  <Feather name="alert-triangle" size={16} color={andiColors.error600} />
+                  <Text style={styles.errorText}>{errorMsg}</Text>
+                </View>
+              )}
+
+              {/* Entrar */}
+              <TouchableOpacity
+                style={[styles.btn, loading && styles.btnDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  {loading
+                    ? <ActivityIndicator color={andiColors.surface} />
+                    : <Text style={styles.btnText}>Entrar</Text>
+                  }
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Separador */}
+              <View style={styles.separatorRow}>
+                <View style={styles.separatorLine} />
+                <Text style={styles.separatorText}>o</Text>
+                <View style={styles.separatorLine} />
+              </View>
+
+              {/* Crear cuenta de ciudadano */}
+              <TouchableOpacity
+                style={styles.outlineBtn}
+                onPress={() => navigation.navigate('Register', { id_rol: 1 })}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.outlineBtnText}>Crear cuenta de ciudadano</Text>
+              </TouchableOpacity>
+
+              {/* Código de invitación */}
+              <TouchableOpacity
+                style={styles.invitacionRow}
+                onPress={() => navigation.navigate('Invitacion')}
+                activeOpacity={0.7}
+              >
+                <Feather name="key" size={16} color={andiColors.primary600} />
+                <Text style={styles.invitacionText}>Tengo un código de invitación</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Olvidé mi contraseña */}
-            <TouchableOpacity
-              style={styles.forgotRow}
-              onPress={() => navigation.navigate('ForgotPassword')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
-            </TouchableOpacity>
-
-            {/* Éxito inline (viene de RegisterScreen) */}
-            {successMsg && (
-              <View style={styles.successBanner}>
-                <Feather name="check-circle" size={16} color={andiColors.success600} />
-                <Text style={styles.successText}>{successMsg}</Text>
-              </View>
-            )}
-
-            {/* Error inline */}
-            {errorMsg && (
-              <View style={styles.errorBanner}>
-                <Feather name="alert-triangle" size={16} color={andiColors.error600} />
-                <Text style={styles.errorText}>{errorMsg}</Text>
-              </View>
-            )}
-
-            {/* Entrar */}
-            <TouchableOpacity
-              style={[styles.btn, loading && styles.btnDisabled]}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                {loading
-                  ? <ActivityIndicator color={andiColors.surface} />
-                  : <Text style={styles.btnText}>Entrar</Text>
-                }
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Separador */}
-            <View style={styles.separatorRow}>
-              <View style={styles.separatorLine} />
-              <Text style={styles.separatorText}>o</Text>
-              <View style={styles.separatorLine} />
-            </View>
-
-            {/* Crear cuenta de ciudadano */}
-            <TouchableOpacity
-              style={styles.outlineBtn}
-              onPress={() => navigation.navigate('Register', { id_rol: 1 })}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.outlineBtnText}>Crear cuenta de ciudadano</Text>
-            </TouchableOpacity>
-
-            {/* Código de invitación */}
-            <TouchableOpacity
-              style={styles.invitacionRow}
-              onPress={() => navigation.navigate('Invitacion')}
-              activeOpacity={0.7}
-            >
-              <Feather name="key" size={16} color={andiColors.primary600} />
-              <Text style={styles.invitacionText}>Tengo un código de invitación</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
+  // Fondo = color del header: la franja bajo la Dynamic Island/notch queda del mismo tono.
+  safeArea: { flex: 1, backgroundColor: andiColors.primary900 },
   screen: { flex: 1, backgroundColor: andiColors.primary900 },
   flex: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' },

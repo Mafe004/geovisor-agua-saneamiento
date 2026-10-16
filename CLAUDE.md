@@ -88,9 +88,11 @@ npx expo lint            # eslint (eslint-config-expo, flat config in eslint.con
 npx expo lint -- --fix
 ```
 
+If `expo start` hangs at "Starting project" with no Metro output, it's stuck on Expo's online version check — `npx expo start --offline` gets past it.
+
 **Before writing Expo-related code**, note `AGENTS.md` in this directory instructs: *"Expo HAS CHANGED — read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code."* This project pins Expo ~54; don't rely on older/newer Expo API assumptions from training data.
 
-**Backend URL is hardcoded for LAN dev**, not env-driven: edit `DEV_IP` in `src/api/client.js` to your machine's LAN IP (phone can't reach `localhost`). This is the #1 source of `ERR_CONNECTION_TIMED_OUT` during dev.
+**Backend URL is hardcoded for LAN dev**, not env-driven: edit `DEV_IP` in `src/api/client.ts` to your machine's LAN IP (phone can't reach `localhost`). This is the #1 source of `ERR_CONNECTION_TIMED_OUT` during dev.
 
 **`react`/`react-dom` version overrides live in the root `package.json`**, not `frontend/package.json` — npm workspaces ignore a workspace-level `overrides` field, so if `react-native-web`'s peer-dependency resolution ever needs adjusting again, edit the root file.
 
@@ -101,15 +103,15 @@ Feature-organization is **by user role**, mirroring the backend's role model —
 ```
 frontend/src/
 ├── api/
-│   ├── client.js      ← axios instance: baseURL from DEV_IP, JWT request interceptor (reads AsyncStorage 'token'), 401 response interceptor (clears session)
-│   └── services.js    ← per-domain API functions (authAPI, reportesAPI, usuariosAPI, ...)
-├── context/AuthContext.js  ← global auth state (user, token, login/logout); validates stored token via /auth/me on boot
-├── navigation/AppNavigator.js ← root switch: Loading → Auth stack → role-specific tab navigator, keyed on user.id_rol (1 Ciudadano, 2 Entidad, 3 Moderador, 4 Administrador)
+│   ├── client.ts      ← axios instance: baseURL from DEV_IP, JWT request interceptor (reads AsyncStorage 'token'), 401 response interceptor (clears session)
+│   └── services.ts    ← per-domain API functions (authAPI, reportesAPI, usuariosAPI, ...)
+├── context/AuthContext.tsx ← global auth state (user, token, login/logout); validates stored token via /auth/me on boot
+├── navigation/AppNavigator.tsx ← root switch: Loading → Auth stack → role-specific tab navigator, keyed on user.id_rol (1 Ciudadano, 2 Entidad, 3 Moderador, 4 Administrador)
 ├── components/         ← cross-role reusable UI (GradientHeader, MapaWebView, ReportCard, StatCard, StatusBadge, LoadingScreen)
 ├── screens/{auth,ciudadano,entidad,moderador,admin,shared}/  ← screens live under their role's folder; shared/PerfilScreen is used by every role
-└── theme/colors.js     ← design tokens (blue→teal gradient, per-status colors)
+└── theme/colors.ts      ← design tokens (blue→teal gradient, per-status colors)
 ```
 
-Adding a screen/feature for one role should not touch other roles' folders — that's the point of the structure. `AppNavigator.js` is the single place that wires `id_rol` → which tab navigator + shared stack screens (e.g. `DetalleReporteScreen`) mount. Every screen imported in `AppNavigator.js` needs an actual `<Tab.Screen>`/`<Stack.Screen>` entry to be reachable — nothing renders it automatically just because the file exists and is imported.
+Adding a screen/feature for one role should not touch other roles' folders — that's the point of the structure. `AppNavigator.tsx` is the single place that wires `id_rol` → which tab navigator + shared stack screens (e.g. `DetalleReporteScreen`) mount. Every screen imported in `AppNavigator.tsx` needs an actual `<Tab.Screen>`/`<Stack.Screen>` entry to be reachable — nothing renders it automatically just because the file exists and is imported.
 
-The map (`MapaWebView.js`) is Leaflet/OpenStreetMap rendered inside a `react-native-webview`, not a native map view — Google Maps is only used if an API key is configured in `app.json` (optional).
+The map (`MapaWebView.tsx`, with a `.web.tsx` variant) is Leaflet/OpenStreetMap rendered inside a `react-native-webview`, not a native map view — Google Maps is only used if an API key is configured in `app.json` (optional).

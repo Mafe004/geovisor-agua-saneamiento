@@ -1,3 +1,6 @@
 node_modules/
 .turbo/
 .env
+
+# Expo/Metro cache (created at repo root since Metro runs from the monorepo root)
+.expo/

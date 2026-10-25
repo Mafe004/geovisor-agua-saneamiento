@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -12,6 +12,7 @@ import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { StatusChip, SeverityChip } from '../../components/ciudadano/Chip';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
+import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import type {
   ReporteMapaPunto, MunicipioSiasar, ComunidadMapa, SistemaMapa,
@@ -46,6 +47,7 @@ type SiasarSeleccion =
 
 export default function MapaScreen({ navigation }: Props) {
   const [pines, setPines] = useState<ReporteMapaPunto[]>([]);
+  const { showDialog, dialog } = useAndiDialog();
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [query, setQuery] = useState('');
@@ -149,7 +151,7 @@ export default function MapaScreen({ navigation }: Props) {
       navigation.navigate('DetalleReporte', { reporte: res.data });
       setSelectedPin(null);
     } catch (_) {
-      Alert.alert('Error', 'No se pudo cargar el detalle del reporte.');
+      showDialog('Error', 'No se pudo cargar el detalle del reporte.', { tone: 'error' });
     }
   };
 
@@ -162,7 +164,7 @@ export default function MapaScreen({ navigation }: Props) {
         const res = await siasarAPI.comunidad(Number(id.slice(4)));
         setSelectedSiasar({ tipo: 'comunidad', data: res.data });
       } catch (_) {
-        Alert.alert('Error', 'No se pudo cargar el diagnóstico de esta vereda.');
+        showDialog('Error', 'No se pudo cargar el diagnóstico de esta vereda.', { tone: 'error' });
       } finally {
         setCargandoDetalleSiasar(false);
       }
@@ -175,7 +177,7 @@ export default function MapaScreen({ navigation }: Props) {
         const res = await siasarAPI.sistema(Number(id.slice(4)));
         setSelectedSiasar({ tipo: 'sistema', data: res.data });
       } catch (_) {
-        Alert.alert('Error', 'No se pudo cargar el diagnóstico de este acueducto.');
+        showDialog('Error', 'No se pudo cargar el diagnóstico de este acueducto.', { tone: 'error' });
       } finally {
         setCargandoDetalleSiasar(false);
       }
@@ -365,7 +367,8 @@ export default function MapaScreen({ navigation }: Props) {
 
               {markers.length === 0 && (
                 <View pointerEvents="none" style={styles.emptyOverlay}>
-                  <MascotAndi size={90} />
+                  {/* Mascota oculta temporalmente (este estado también aparece cuando falla la carga). */}
+                  {/* <MascotAndi size={90} /> */}
                   <Text style={styles.emptyText}>Nada por aquí todavía</Text>
                 </View>
               )}
@@ -412,6 +415,7 @@ export default function MapaScreen({ navigation }: Props) {
           </ScrollView>
         )}
       </LiftSurface>
+      {dialog}
     </View>
   );
 }

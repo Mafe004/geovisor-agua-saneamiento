@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator, Image, Platform,
+  ScrollView, ActivityIndicator, Image, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, type CompositeNavigationProp, type RouteProp } from '@react-navigation/native';
@@ -14,6 +14,7 @@ import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SeverityPicker, { type SeveridadKey } from '../../components/ciudadano/SeverityPicker';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
+import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
@@ -84,6 +85,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
   // reintento la reutiliza en vez de subirla otra vez.
   const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [fotoSubida, setFotoSubida] = useState<string | null>(null);
+  const { showDialog, dialog } = useAndiDialog();
 
   useEffect(() => {
     catalogosAPI.tiposIncidente().then((r) => setTipos(r.data || [])).catch(() => {});
@@ -148,13 +150,13 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
           setLocLoading(false);
         },
         () => {
-          Alert.alert('Permiso denegado', 'Activa la ubicación o marca el punto arrastrando el mapa.');
+          showDialog('Permiso denegado', 'Activa la ubicación o marca el punto arrastrando el mapa.', { tone: 'warning' });
           setLocLoading(false);
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );
     } else {
-      Alert.alert('No disponible', 'No se pudo obtener tu ubicación. Marca el punto en el mapa.');
+      showDialog('No disponible', 'No se pudo obtener tu ubicación. Marca el punto en el mapa.', { tone: 'warning' });
       setLocLoading(false);
     }
   };
@@ -170,7 +172,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
   const tomarFoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.');
+      showDialog('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.', { tone: 'warning' });
       return;
     }
     elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
@@ -211,17 +213,17 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
 
   const handleSaveDraft = async () => {
     await persistDraft(!coordenadas ? 'Falta el sitio' : !idTipo ? 'Falta el tipo' : 'Incompleto');
-    Alert.alert('Guardado', 'Tu borrador quedó guardado en este teléfono.', [
+    showDialog('Guardado', 'Tu borrador quedó guardado en este teléfono.', { tone: 'success', buttons: [
       { text: 'OK', onPress: () => navigation.navigate('Reportes') },
-    ]);
+    ] });
   };
 
   const handleSubmit = async () => {
-    if (!descripcion.trim()) { Alert.alert('Requerido', 'Ingresa una descripción.'); return; }
-    if (!coordenadas) { Alert.alert('Requerido', 'Marca la ubicación del problema en el mapa.'); return; }
-    if (!idTipo) { Alert.alert('Requerido', 'Selecciona el tipo de incidente.'); return; }
+    if (!descripcion.trim()) { showDialog('Requerido', 'Ingresa una descripción.', { tone: 'warning' }); return; }
+    if (!coordenadas) { showDialog('Requerido', 'Marca la ubicación del problema en el mapa.', { tone: 'warning' }); return; }
+    if (!idTipo) { showDialog('Requerido', 'Selecciona el tipo de incidente.', { tone: 'warning' }); return; }
     const idSeveridad = idSeveridadNumerico();
-    if (!idSeveridad) { Alert.alert('Requerido', 'Selecciona la severidad.'); return; }
+    if (!idSeveridad) { showDialog('Requerido', 'Selecciona la severidad.', { tone: 'warning' }); return; }
 
     const payload: ReporteCreateRequest = {
       descripcion: descripcion.trim(),
@@ -245,10 +247,10 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
       setFotoSubida(imagenUrl);
     } catch (_) {
       setLoading(false);
-      Alert.alert('No se pudo subir la foto.', '¿Quieres reintentar o enviar el reporte sin foto?', [
+      showDialog('No se pudo subir la foto.', '¿Quieres reintentar o enviar el reporte sin foto?', { tone: 'error', buttons: [
         { text: 'Reintentar', onPress: () => { handleSubmit(); } },
         { text: 'Enviar sin foto', onPress: () => { crearReporte(payload); } },
-      ]);
+      ] });
       return;
     }
     await crearReporte({ ...payload, imagen_url: imagenUrl });
@@ -268,7 +270,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
       const status = axios.isAxiosError(e) ? e.response?.status : undefined;
       if (status === 400 || status === 422) {
         const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-        Alert.alert('Revisa los datos', msg || 'No se pudo enviar el reporte.');
+        showDialog('Revisa los datos', msg || 'No se pudo enviar el reporte.', { tone: 'warning' });
         return;
       }
       // Falla de red o del servidor (no de validación): no hay cola de
@@ -335,7 +337,8 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             message="No se perdió lo que escribiste: quedó guardado como borrador en este teléfono."
           />
           <View style={styles.mascotWrap}>
-            <MascotAndi size={170} />
+            {/* Mascota oculta temporalmente en estados de error/offline. */}
+            {/* <MascotAndi size={170} /> */}
             <Text style={styles.queuedHeadline}>Lo tengo guardado</Text>
             <Text style={styles.queuedSub}>
               Retómalo cuando quieras desde Mis Reportes y vuelve a enviarlo.
@@ -486,6 +489,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </ScrollView>
       </LiftSurface>
+      {dialog}
     </View>
   );
 }

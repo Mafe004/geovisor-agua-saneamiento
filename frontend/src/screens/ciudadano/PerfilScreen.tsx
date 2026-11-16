@@ -206,10 +206,10 @@ export default function PerfilScreen({ navigation }: Props) {
                 <Text style={styles.fieldLabel}>Ciudad (opcional)</Text>
                 <TextInput style={styles.input} value={ciudad || ''} onChangeText={setCiudad} placeholder="Ej: Zipaquirá" placeholderTextColor={ANDI_COLORS.n400} />
                 <View style={styles.editActions}>
-                  <TouchableOpacity style={styles.editCancelBtn} onPress={handleCancelEdit}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.editCancelBtn} onPress={handleCancelEdit}>
                     <Text style={styles.editCancelText}>Cancelar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
+                  <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
                     {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
                   </TouchableOpacity>
                 </View>
@@ -229,13 +229,13 @@ export default function PerfilScreen({ navigation }: Props) {
                   <Text style={styles.pendingTitle}>Borradores sin enviar</Text>
                   <Text style={styles.pendingMeta}>{drafts.length} borrador{drafts.length === 1 ? '' : 'es'} guardado{drafts.length === 1 ? '' : 's'}</Text>
                 </View>
-                <TouchableOpacity style={styles.pendingBtn} onPress={() => navigation.navigate('Reportes')}>
+                <TouchableOpacity accessibilityRole="button" style={styles.pendingBtn} onPress={() => navigation.navigate('Reportes')}>
                   <Text style={styles.pendingBtnText}>Ver</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+            <TouchableOpacity accessibilityRole="button" style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
               <Text style={styles.logoutText}>Cerrar sesión</Text>
             </TouchableOpacity>
 
@@ -251,7 +251,7 @@ export default function PerfilScreen({ navigation }: Props) {
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Cambiar contraseña</Text>
-                <TouchableOpacity onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
                   <Text style={styles.modalClose}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -259,13 +259,13 @@ export default function PerfilScreen({ navigation }: Props) {
               <Text style={styles.fieldLabel}>Contraseña actual</Text>
               <View style={styles.passWrap}>
                 <TextInput style={styles.passInput} value={passActual} onChangeText={setPassActual} secureTextEntry={!showActual} placeholder="••••••••" placeholderTextColor={ANDI_COLORS.n400} autoCapitalize="none" />
-                <TouchableOpacity onPress={() => setShowActual((p) => !p)} style={styles.eyeBtn}><Text>{showActual ? '🙈' : '👁️'}</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" onPress={() => setShowActual((p) => !p)} style={styles.eyeBtn}><Text>{showActual ? '🙈' : '👁️'}</Text></TouchableOpacity>
               </View>
 
               <Text style={styles.fieldLabel}>Nueva contraseña</Text>
               <View style={styles.passWrap}>
                 <TextInput style={styles.passInput} value={passNueva} onChangeText={setPassNueva} secureTextEntry={!showNueva} placeholder="Mínimo 6 caracteres" placeholderTextColor={ANDI_COLORS.n400} autoCapitalize="none" />
-                <TouchableOpacity onPress={() => setShowNueva((p) => !p)} style={styles.eyeBtn}><Text>{showNueva ? '🙈' : '👁️'}</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" onPress={() => setShowNueva((p) => !p)} style={styles.eyeBtn}><Text>{showNueva ? '🙈' : '👁️'}</Text></TouchableOpacity>
               </View>
 
               <Text style={styles.fieldLabel}>Confirmar nueva contraseña</Text>
@@ -280,7 +280,7 @@ export default function PerfilScreen({ navigation }: Props) {
               />
               {!!passConfirm && passNueva !== passConfirm && <Text style={styles.errorText}>Las contraseñas no coinciden</Text>}
 
-              <TouchableOpacity style={[styles.saveBtn, { marginTop: ANDI_SPACING.s5 }, savingPass && styles.disabled]} onPress={handleChangePass} disabled={savingPass}>
+              <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, { marginTop: ANDI_SPACING.s5 }, savingPass && styles.disabled]} onPress={handleChangePass} disabled={savingPass}>
                 {savingPass ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Cambiar contraseña</Text>}
               </TouchableOpacity>
             </View>
@@ -293,16 +293,16 @@ export default function PerfilScreen({ navigation }: Props) {
           <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Cerrar sesión</Text>
-              <TouchableOpacity onPress={() => setLogoutModal(false)}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setLogoutModal(false)}>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.modalMessage}>¿Seguro que quieres salir de tu cuenta?</Text>
             <View style={styles.editActions}>
-              <TouchableOpacity style={styles.editCancelBtn} onPress={() => setLogoutModal(false)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.editCancelBtn} onPress={() => setLogoutModal(false)}>
                 <Text style={styles.editCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.saveBtn, styles.logoutConfirmBtn]} onPress={confirmLogout}>
+              <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, styles.logoutConfirmBtn]} onPress={confirmLogout}>
                 <Text style={styles.saveBtnText}>Salir</Text>
               </TouchableOpacity>
             </View>
@@ -326,7 +326,7 @@ function StatBlock({ value, label, styles }: { value: number; label: string; sty
 
 function MenuRow({ icon, label, value, onPress, last, styles }: { icon: string; label: string; value?: string; onPress: () => void; last?: boolean; styles: PerfilStyles }) {
   return (
-    <TouchableOpacity style={[styles.menuRow, !last && styles.menuRowBorder]} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity accessibilityRole="button" style={[styles.menuRow, !last && styles.menuRowBorder]} onPress={onPress} activeOpacity={0.7}>
       <Text style={styles.menuIcon}>{icon}</Text>
       <Text style={styles.menuLabel}>{label}</Text>
       {!!value && <Text style={styles.menuValue}>{value}</Text>}

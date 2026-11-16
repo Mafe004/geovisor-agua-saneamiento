@@ -185,7 +185,7 @@ export default function UsuariosScreen({ route }: Props) {
         {FILTERS.map(f => {
           const active = filter === f.key;
           return (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={f.key}
               style={[styles.chip, active && styles.chipActive]}
               onPress={() => setFilter(f.key)}
@@ -213,7 +213,7 @@ export default function UsuariosScreen({ route }: Props) {
             const chip = ESTADO_CHIP[item.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;
             const isSelected = selected.has(item.id_usuario);
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.row}
                 activeOpacity={0.7}
                 onLongPress={() => toggleSelect(item.id_usuario)}
@@ -256,10 +256,10 @@ export default function UsuariosScreen({ route }: Props) {
         <View style={styles.batchBar}>
           <Text style={styles.batchBarText}>{selected.size} seleccionados</Text>
           <View style={styles.batchBarBtns}>
-            <TouchableOpacity style={styles.batchBtnPrimary} onPress={handleActivar} disabled={applying}>
+            <TouchableOpacity accessibilityRole="button" style={styles.batchBtnPrimary} onPress={handleActivar} disabled={applying}>
               <Text style={styles.batchBtnPrimaryText}>Activar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.batchBtnDestructive} onPress={() => setConfirmVisible(true)} disabled={applying}>
+            <TouchableOpacity accessibilityRole="button" style={styles.batchBtnDestructive} onPress={() => setConfirmVisible(true)} disabled={applying}>
               <Text style={styles.batchBtnDestructiveText}>Suspender</Text>
             </TouchableOpacity>
           </View>
@@ -280,13 +280,13 @@ export default function UsuariosScreen({ route }: Props) {
               multiline
             />
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.modalCancelBtn}
                 onPress={() => { setConfirmVisible(false); setMotivo(''); }}
               >
                 <Text style={styles.modalCancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalSuspendBtn, !motivo.trim() && styles.btnDisabled]}
                 onPress={handleSuspenderConfirmado}
                 disabled={!motivo.trim()}
@@ -304,12 +304,12 @@ export default function UsuariosScreen({ route }: Props) {
         animationType="slide"
         onRequestClose={() => setPendingActionUser(null)}
       >
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.sheetBackdrop}
           activeOpacity={1}
           onPress={() => setPendingActionUser(null)}
         >
-          <TouchableOpacity style={[styles.sheetCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]} activeOpacity={1} onPress={() => {}}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.sheetCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]} activeOpacity={1} onPress={() => {}}>
             <View style={styles.sheetHandle} />
             {pendingActionUser && (
               <>
@@ -325,7 +325,7 @@ export default function UsuariosScreen({ route }: Props) {
                 <Text style={styles.sheetMessage}>
                   Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.
                 </Text>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
                   onPress={handleActivarPendiente}
                   disabled={activatingPendiente}
@@ -339,7 +339,7 @@ export default function UsuariosScreen({ route }: Props) {
       </Modal>
 
       {undoVisible && (
-        <TouchableOpacity style={styles.undoToast} onPress={handleDeshacer} activeOpacity={0.85}>
+        <TouchableOpacity accessibilityRole="button" style={styles.undoToast} onPress={handleDeshacer} activeOpacity={0.85}>
           <Text style={styles.undoText}>Acción aplicada · Deshacer</Text>
         </TouchableOpacity>
       )}

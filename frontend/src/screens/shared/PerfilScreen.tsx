@@ -5,94 +5,93 @@ import {
   Platform, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import { usuariosAPI } from '../../api/services';
 import type { UserPublic } from '../../types/domain';
-import { useResponsive, type Responsive } from '../../theme/responsive';
+import { useResponsive, useScaledType } from '../../theme/responsive';
 import { useToast } from '../../components/andi/Toast';
-import { confirmAsync } from '../../utils/confirmDialog';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiSpace } from '../../theme/andi';
 
 // user (AuthContext) es UserPublic -- nunca trae `telefono` (ver
 // MIGRATION_FINDINGS.md). Se preserva el acceso con este tipo local en vez
 // de arreglarlo.
 type UserLegacy = UserPublic & { telefono?: string | null };
 
+// Pantalla compartida por Entidad y Moderador (ver AppNavigator.tsx) --
+// Ciudadano y Admin tienen cada uno su propia PerfilScreen ya en Andi.
 const ROL_LABEL: Record<number, string> = { 1: 'Ciudadano', 2: 'Entidad', 3: 'Moderador', 4: 'Administrador' };
-const ROL_COLOR: Record<number, readonly [string, string]> = {
-  1: ['#1565C0', '#00ACC1'],
-  2: ['#0E7490', '#06B6D4'],
-  3: ['#7C3AED', '#A78BFA'],
-  4: ['#B45309', '#F59E0B'],
-};
+
+function initials(nombre: string) {
+  const p = nombre.trim().split(/\s+/);
+  return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase() || '?';
+}
 
 export default function PerfilScreen() {
   const r = useResponsive();
-  const styles = useMemo(() => makeStyles(r), [r]);
+  const insets = useSafeAreaInsets();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const toast = useToast();
   const { user: userReal, logout, updateUser } = useContext(AuthContext);
   const user = userReal as UserLegacy | null;
 
-  // ── Editar datos ──
-  const [editMode, setEditMode]     = useState(false);
-  const [nombre, setNombre]         = useState(user?.nombre_completo || '');
-  const [telefono, setTelefono]     = useState(user?.telefono || '');
-  const [saving, setSaving]         = useState(false);
+  // ── Editar datos personales ──
+  const [datosModalVisible, setDatosModalVisible] = useState(false);
+  const [nombreEdit, setNombreEdit] = useState('');
+  const [telefonoEdit, setTelefonoEdit] = useState('');
+  const [savingDatos, setSavingDatos] = useState(false);
 
   // ── Cambiar contraseña ──
-  const [passModal, setPassModal]   = useState(false);
+  const [passModalVisible, setPassModalVisible] = useState(false);
   const [passActual, setPassActual] = useState('');
-  const [passNueva, setPassNueva]   = useState('');
+  const [passNueva, setPassNueva] = useState('');
   const [passConfirm, setPassConfirm] = useState('');
   const [showActual, setShowActual] = useState(false);
-  const [showNueva, setShowNueva]   = useState(false);
+  const [showNueva, setShowNueva] = useState(false);
   const [savingPass, setSavingPass] = useState(false);
+
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
   if (!user) return null;
 
-  const nombreCompleto = user.nombre_completo || '';
-  const partes   = nombreCompleto.trim().split(' ');
-  const initials = ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || '?';
-  // ROL_COLOR[1] siempre existe (clave fija del literal) -- el `!` es
-  // seguro, noUncheckedIndexedAccess solo no puede verlo a través del
-  // index signature (mismo caso que StatusBadge.tsx).
-  const gradColors = (ROL_COLOR[user.id_rol] || ROL_COLOR[1])!;
+  const abrirDatosModal = () => {
+    setNombreEdit(user.nombre_completo || '');
+    setTelefonoEdit(user.telefono || '');
+    setDatosModalVisible(true);
+  };
 
-  // ── Guardar datos de perfil ──
-  const handleSave = async () => {
-    if (!nombre.trim()) {
-      toast.warning('Requerido', 'El nombre no puede estar vacío.');
-      return;
-    }
+  const cerrarPassModal = () => {
+    setPassModalVisible(false);
+    setPassActual(''); setPassNueva(''); setPassConfirm('');
+  };
+
+  const handleGuardarDatos = async () => {
+    if (!nombreEdit.trim()) { toast.warning('Requerido', 'El nombre no puede estar vacío.'); return; }
     try {
-      setSaving(true);
+      setSavingDatos(true);
       await usuariosAPI.actualizarPerfil({
-        nombre_completo: nombre.trim(),
-        telefono: telefono.trim() || null,
+        nombre_completo: nombreEdit.trim(),
+        telefono: telefonoEdit.trim() || null,
       });
       // updateUser espera UserPublic (AuthContextValue) -- telefono no es
       // un campo real ahí (ver UserLegacy arriba). Se arma el objeto con
       // ese tipo ampliado localmente para no tocar el contrato de
       // AuthContext ni el valor que efectivamente se guarda en memoria.
-      const actualizado: UserLegacy = { ...user, nombre_completo: nombre.trim(), telefono: telefono.trim() || null };
+      const actualizado: UserLegacy = { ...user, nombre_completo: nombreEdit.trim(), telefono: telefonoEdit.trim() || null };
       updateUser(actualizado);
-      setEditMode(false);
+      setDatosModalVisible(false);
       toast.success('Actualizado', 'Tu perfil fue guardado correctamente.');
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
       toast.error('Error', msg || 'No se pudo actualizar el perfil.');
     } finally {
-      setSaving(false);
+      setSavingDatos(false);
     }
   };
 
-  const handleCancelEdit = () => {
-    setNombre(user.nombre_completo || '');
-    setTelefono(user.telefono || '');
-    setEditMode(false);
-  };
-
-  // ── Cambiar contraseña ──
   const handleChangePass = async () => {
     if (!passActual || !passNueva || !passConfirm) {
       toast.warning('Requerido', 'Completa todos los campos.');
@@ -108,12 +107,8 @@ export default function PerfilScreen() {
     }
     try {
       setSavingPass(true);
-      await usuariosAPI.cambiarPassword({
-        password_actual: passActual,
-        password_nueva:  passNueva,
-      });
-      setPassModal(false);
-      setPassActual(''); setPassNueva(''); setPassConfirm('');
+      await usuariosAPI.cambiarPassword({ password_actual: passActual, password_nueva: passNueva });
+      cerrarPassModal();
       toast.success('Contraseña cambiada', 'Tu contraseña fue actualizada correctamente.');
     } catch (e) {
       const msg = (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail)
@@ -125,141 +120,152 @@ export default function PerfilScreen() {
   };
 
   const handleLogout = async () => {
-    // Alert.alert con varios botones no tiene equivalente en react-native-web
-    // (window.alert no distingue botones, y ningún onPress se dispara
-    // nunca ahí) -- confirmAsync ya resuelve esto (window.confirm en web,
-    // Alert.alert normal en nativo).
-    const confirmado = await confirmAsync('Cerrar sesión', '¿Seguro que quieres salir de tu cuenta?');
-    if (confirmado) logout();
+    setLogoutConfirmVisible(false);
+    await logout();
+    // AppNavigator cambia a la pila de Login solo cuando user pasa a null
+    // (ver AuthContext) -- no hace falta navegar manualmente acá.
   };
 
-  return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.contentWrap}>
+  const passMismatch = passConfirm.length > 0 && passNueva !== passConfirm;
 
-        {/* ── HERO ── */}
-        <LinearGradient colors={gradColors} style={styles.hero}>
-          <View style={styles.avatarRing}>
+  return (
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <LinearGradient colors={['#042F34', '#0A6F78']} style={[styles.header, { paddingTop: insets.top + andiSpace[6] }]}>
+          <View style={styles.heroCenter}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
+              <Text style={styles.avatarText}>{initials(user.nombre_completo || '?')}</Text>
             </View>
+            <Text style={styles.name} numberOfLines={1}>{user.nombre_completo || '—'}</Text>
+            <Text style={styles.roleLabel}>{(ROL_LABEL[user.id_rol] || 'Usuario').toUpperCase()}</Text>
           </View>
-          <Text style={styles.heroName}>{user.nombre_completo || '—'}</Text>
-          <View style={styles.rolPill}>
-            <Text style={styles.rolPillText}>{ROL_LABEL[user.id_rol] || 'Usuario'}</Text>
-          </View>
-          <Text style={styles.heroEmail}>{user.correo}</Text>
         </LinearGradient>
 
-        {/* ── ACCIONES RÁPIDAS ── */}
-        <View style={styles.quickRow}>
-          <QuickAction
-            styles={styles}
-            icon="✏️"
-            label={editMode ? 'Cancelar' : 'Editar perfil'}
-            color={editMode ? '#6B7280' : '#1565C0'}
-            onPress={editMode ? handleCancelEdit : () => setEditMode(true)}
-          />
-          <QuickAction
-            styles={styles}
-            icon="🔑"
-            label="Contraseña"
-            color="#7C3AED"
-            onPress={() => setPassModal(true)}
-          />
-          <QuickAction
-            styles={styles}
-            icon="🚪"
-            label="Salir"
-            color="#DC2626"
-            onPress={handleLogout}
-          />
-        </View>
+        <View style={[styles.body, { width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }]}>
+          <View style={styles.sectionList}>
+            <TouchableOpacity accessibilityRole="button" style={styles.sectionRow} activeOpacity={0.8} onPress={abrirDatosModal}>
+              <Feather name="user" size={18} color={andiColors.onSurface} />
+              <Text style={styles.sectionRowLabel}>Datos personales</Text>
+              <View style={{ flex: 1 }} />
+              <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
+            </TouchableOpacity>
 
-        {/* ── EDITAR DATOS ── */}
-        {editMode && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>✏️ Editar información</Text>
-
-            <Text style={styles.fieldLabel}>Nombre completo</Text>
-            <TextInput
-              style={styles.input}
-              value={nombre}
-              onChangeText={setNombre}
-              placeholder="Tu nombre completo"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <Text style={styles.fieldLabel}>Teléfono (opcional)</Text>
-            <TextInput
-              style={styles.input}
-              value={telefono}
-              onChangeText={setTelefono}
-              placeholder="Ej: 3001234567"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="phone-pad"
-            />
-
-            <TouchableOpacity
-              style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.saveBtnGrad}>
-                {saving
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.saveBtnText}>Guardar cambios</Text>
-                }
-              </LinearGradient>
+            <TouchableOpacity accessibilityRole="button" style={styles.sectionRow} activeOpacity={0.8} onPress={() => setPassModalVisible(true)}>
+              <Feather name="lock" size={18} color={andiColors.onSurface} />
+              <Text style={styles.sectionRowLabel}>Cambiar contraseña</Text>
+              <View style={{ flex: 1 }} />
+              <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
             </TouchableOpacity>
           </View>
-        )}
 
-        {/* ── INFO DE CUENTA ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>👤 Información de cuenta</Text>
-          <InfoRow styles={styles} icon="✉️" label="Correo" value={user.correo} />
-          <InfoRow styles={styles} icon="📱" label="Teléfono" value={user.telefono || 'No registrado'} />
-          <InfoRow styles={styles} icon="🎭" label="Rol" value={ROL_LABEL[user.id_rol] || '—'} />
-          <InfoRow
-            styles={styles}
-            icon="🟢"
-            label="Estado"
-            value={user.id_estado_cuenta === 1 ? 'Activo' : 'Inactivo'}
-            valueColor={user.id_estado_cuenta === 1 ? '#10B981' : '#EF4444'}
-          />
-        </View>
-
-        {/* ── APP INFO ── */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>💧 Sobre la app</Text>
-          <InfoRow styles={styles} icon="🏗️" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
-          <InfoRow styles={styles} icon="🎓" label="Proyecto" value="Tesis de grado · 2025" />
-          <InfoRow styles={styles} icon="📍" label="Municipio" value="Cundinamarca" />
-        </View>
-
-        {/* ── CERRAR SESIÓN ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-          <View style={styles.logoutInner}>
-            <Text style={styles.logoutIcon}>🚪</Text>
-            <Text style={styles.logoutText}>Cerrar sesión</Text>
+          <Text style={styles.groupLabel}>Información de cuenta</Text>
+          <View style={styles.sectionList}>
+            <InfoRow styles={styles} icon="mail" label="Correo" value={user.correo} />
+            <InfoRow styles={styles} icon="phone" label="Teléfono" value={user.telefono || 'No registrado'} />
+            <InfoRow
+              styles={styles}
+              icon="check-circle"
+              label="Estado"
+              value={user.id_estado_cuenta === 1 ? 'Activo' : 'Inactivo'}
+              valueColor={user.id_estado_cuenta === 1 ? andiColors.success : andiColors.error}
+            />
           </View>
-        </TouchableOpacity>
 
-        <Text style={styles.version}>v1.0.0 · GeoVisor 2025</Text>
-      </View>
+          <Text style={styles.groupLabel}>Sobre la app</Text>
+          <View style={styles.sectionList}>
+            <InfoRow styles={styles} icon="droplet" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
+            <InfoRow styles={styles} icon="map-pin" label="Municipio" value="Zipaquirá, Cundinamarca" />
+          </View>
+
+          <TouchableOpacity accessibilityRole="button" style={styles.logoutBtn} activeOpacity={0.85} onPress={() => setLogoutConfirmVisible(true)}>
+            <Feather name="log-out" size={18} color={andiColors.error600} />
+            <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.version}>v1.0.0 · GeoVisor 2025</Text>
+        </View>
       </ScrollView>
 
-      {/* ── MODAL CAMBIAR CONTRASEÑA ── */}
-      <Modal visible={passModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>🔑 Cambiar contraseña</Text>
-                <TouchableOpacity onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
-                  <Text style={styles.modalClose}>✕</Text>
+      {/* ── Confirmar cierre de sesión ── */}
+      <Modal visible={logoutConfirmVisible} transparent animationType="fade" onRequestClose={() => setLogoutConfirmVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
+            <Text style={styles.modalTitle}>¿Cerrar sesión?</Text>
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity accessibilityRole="button" style={styles.modalCancelBtn} onPress={() => setLogoutConfirmVisible(false)}>
+                <Text style={styles.modalCancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" style={styles.modalSalirBtn} onPress={handleLogout}>
+                <Text style={styles.modalSalirBtnText}>Salir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Datos personales ── */}
+      <Modal visible={datosModalVisible} animationType="slide" transparent onRequestClose={() => setDatosModalVisible(false)}>
+        <View style={styles.sheetOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }}
+          >
+            <View style={styles.sheetCard}>
+              <View style={styles.sheetHeader}>
+                <Text style={styles.modalTitle}>Datos personales</Text>
+                <TouchableOpacity onPress={() => setDatosModalVisible(false)} accessibilityLabel="Cerrar" accessibilityRole="button" hitSlop={8}>
+                  <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.fieldLabel}>Nombre completo</Text>
+              <TextInput
+                style={styles.input}
+                value={nombreEdit}
+                onChangeText={setNombreEdit}
+                placeholder="Tu nombre completo"
+                placeholderTextColor={andiColors.n400}
+                autoCapitalize="words"
+              />
+
+              <Text style={styles.fieldLabel}>Teléfono (opcional)</Text>
+              <TextInput
+                style={styles.input}
+                value={telefonoEdit}
+                onChangeText={setTelefonoEdit}
+                placeholder="Ej: 3001234567"
+                placeholderTextColor={andiColors.n400}
+                keyboardType="phone-pad"
+              />
+
+              <TouchableOpacity
+                style={[styles.sheetPrimaryBtn, { marginTop: andiSpace[5] }]}
+                onPress={handleGuardarDatos}
+                disabled={savingDatos}
+                accessibilityRole="button"
+                accessibilityLabel="Guardar datos personales"
+              >
+                {savingDatos
+                  ? <ActivityIndicator size="small" color={andiColors.surface} />
+                  : <Text style={styles.sheetPrimaryBtnText}>Guardar</Text>}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* ── Cambiar contraseña ── */}
+      <Modal visible={passModalVisible} animationType="slide" transparent onRequestClose={cerrarPassModal}>
+        <View style={styles.sheetOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }}
+          >
+            <View style={styles.sheetCard}>
+              <View style={styles.sheetHeader}>
+                <Text style={styles.modalTitle}>Cambiar contraseña</Text>
+                <TouchableOpacity onPress={cerrarPassModal} accessibilityLabel="Cerrar" accessibilityRole="button" hitSlop={8}>
+                  <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
 
@@ -271,11 +277,17 @@ export default function PerfilScreen() {
                   onChangeText={setPassActual}
                   secureTextEntry={!showActual}
                   placeholder="••••••••"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={andiColors.n400}
                   autoCapitalize="none"
                 />
-                <TouchableOpacity onPress={() => setShowActual(p => !p)} style={styles.eyeBtn}>
-                  <Text>{showActual ? '🙈' : '👁️'}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowActual(p => !p)}
+                  style={styles.eyeBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={showActual ? 'Ocultar contraseña actual' : 'Mostrar contraseña actual'}
+                  hitSlop={8}
+                >
+                  <Feather name={showActual ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
 
@@ -287,45 +299,50 @@ export default function PerfilScreen() {
                   onChangeText={setPassNueva}
                   secureTextEntry={!showNueva}
                   placeholder="Mínimo 6 caracteres"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={andiColors.n400}
                   autoCapitalize="none"
                 />
-                <TouchableOpacity onPress={() => setShowNueva(p => !p)} style={styles.eyeBtn}>
-                  <Text>{showNueva ? '🙈' : '👁️'}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowNueva(p => !p)}
+                  style={styles.eyeBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={showNueva ? 'Ocultar nueva contraseña' : 'Mostrar nueva contraseña'}
+                  hitSlop={8}
+                >
+                  <Feather name={showNueva ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
 
               <Text style={styles.fieldLabel}>Confirmar nueva contraseña</Text>
               <TextInput
-                style={[styles.input, passConfirm && passNueva !== passConfirm && styles.inputError]}
+                style={[styles.input, passMismatch && styles.inputError]}
                 value={passConfirm}
                 onChangeText={setPassConfirm}
                 secureTextEntry
                 placeholder="Repite la nueva contraseña"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={andiColors.n400}
                 autoCapitalize="none"
               />
-              {passConfirm && passNueva !== passConfirm && (
+              {passMismatch && (
                 <Text style={styles.errorText}>Las contraseñas no coinciden</Text>
               )}
 
               <TouchableOpacity
-                style={[styles.saveBtn, { marginTop: 20 }, savingPass && { opacity: 0.6 }]}
+                style={[styles.sheetPrimaryBtn, { marginTop: andiSpace[5] }]}
                 onPress={handleChangePass}
                 disabled={savingPass}
+                accessibilityRole="button"
+                accessibilityLabel="Cambiar contraseña"
               >
-                <LinearGradient colors={['#7C3AED', '#A78BFA']} style={styles.saveBtnGrad}>
-                  {savingPass
-                    ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.saveBtnText}>Cambiar contraseña</Text>
-                  }
-                </LinearGradient>
+                {savingPass
+                  ? <ActivityIndicator size="small" color={andiColors.surface} />
+                  : <Text style={styles.sheetPrimaryBtnText}>Cambiar contraseña</Text>}
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -333,29 +350,12 @@ export default function PerfilScreen() {
 
 type PerfilStyles = ReturnType<typeof makeStyles>;
 
-function QuickAction({
-  icon, label, color, onPress, styles,
-}: {
-  icon: string;
-  label: string;
-  color: string;
-  onPress: () => void;
-  styles: PerfilStyles;
-}) {
-  return (
-    <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.75}>
-      <View style={[styles.quickIconWrap, { backgroundColor: color + '18' }]}>
-        <Text style={styles.quickIcon}>{icon}</Text>
-      </View>
-      <Text style={[styles.quickLabel, { color }]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
+/** Fila de solo lectura -- sin chevron ni TouchableOpacity: no es tappable,
+ * así que tampoco debe parecerlo (Ley 3). */
 function InfoRow({
   icon, label, value, valueColor, styles,
 }: {
-  icon: string;
+  icon: keyof typeof Feather.glyphMap;
   label: string;
   value: string;
   valueColor?: string;
@@ -363,8 +363,8 @@ function InfoRow({
 }) {
   return (
     <View style={styles.infoRow}>
-      <Text style={styles.infoIcon}>{icon}</Text>
-      <View style={styles.infoContent}>
+      <Feather name={icon} size={18} color={andiColors.onSurfaceVariant} />
+      <View style={{ flex: 1 }}>
         <Text style={styles.infoLabel}>{label}</Text>
         <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
       </View>
@@ -373,149 +373,88 @@ function InfoRow({
 }
 
 /* ── Estilos ── */
-const makeStyles = (r: Responsive) => StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#F0F4F8' },
-  scroll:      { paddingBottom: 40, alignItems: 'center' },
-  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
-
-  // Hero
-  hero: {
-    paddingTop: 56, paddingBottom: 32,
-    alignItems: 'center', paddingHorizontal: 24,
-  },
-  avatarRing: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 14, borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.5)',
-  },
+const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: andiColors.surfaceMid },
+  scroll: { flexGrow: 1 },
+  header: { paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[6] },
+  heroCenter: { alignItems: 'center' },
   avatar: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center',
+    width: 72, height: 72, borderRadius: andiRadius.full,
+    backgroundColor: andiColors.primary400, justifyContent: 'center', alignItems: 'center',
   },
-  avatarText:  { color: '#fff', fontSize: r.scaleFont(32), fontWeight: '800' },
-  heroName:    { color: '#fff', fontSize: r.scaleFont(22), fontWeight: '700', textAlign: 'center' },
-  rolPill: {
-    marginTop: 8, marginBottom: 6,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 14, paddingVertical: 4,
-    borderRadius: 20, borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
-  rolPillText: { color: '#fff', fontSize: r.scaleFont(13), fontWeight: '600' },
-  heroEmail:   { color: 'rgba(255,255,255,0.75)', fontSize: r.scaleFont(13), marginTop: 2 },
+  avatarText: { ...andiType.headingLg, color: andiColors.surface },
+  name: { ...andiType.headingMd, color: andiColors.surface, marginTop: andiSpace[3], textAlign: 'center' },
+  roleLabel: { ...andiType.labelSm, textTransform: 'uppercase', letterSpacing: 1.5, color: andiColors.primary200, marginTop: 2 },
 
-  // Acciones rápidas
-  quickRow: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    backgroundColor: '#fff', marginHorizontal: 16,
-    marginTop: -20, borderRadius: 20,
-    paddingVertical: 16, paddingHorizontal: 8,
-    elevation: 6,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 12,
-  },
-  quickAction: { alignItems: 'center', flex: 1 },
-  quickIconWrap: {
-    width: 48, height: 48, borderRadius: 16,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 6,
-  },
-  quickIcon:   { fontSize: 22 },
-  quickLabel:  { fontSize: r.scaleFont(11), fontWeight: '700' },
+  body: { padding: andiSpace[4] },
 
-  // Cards
-  card: {
-    backgroundColor: '#fff', borderRadius: 20,
-    marginHorizontal: 16, marginTop: 16,
-    paddingBottom: 8,
-    elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8,
-  },
-  cardTitle: {
-    fontSize: r.scaleFont(13), fontWeight: '700', color: '#6B7280',
-    textTransform: 'uppercase', letterSpacing: 0.6,
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  groupLabel: {
+    ...andiType.labelSm, textTransform: 'uppercase', letterSpacing: 0.6,
+    color: andiColors.onSurfaceVariant, marginTop: andiSpace[6], marginBottom: andiSpace[2],
   },
 
-  // Info rows
+  sectionList: { gap: andiSpace[2] },
+  sectionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[3],
+    backgroundColor: andiColors.surface, borderRadius: andiRadius.md,
+    paddingHorizontal: andiSpace[4], paddingVertical: andiSpace[3],
+  },
+  sectionRowLabel: { ...andiType.bodyLg, color: andiColors.onSurface },
+
   infoRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 13,
-    borderBottomWidth: 1, borderBottomColor: '#F9FAFB',
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[3],
+    backgroundColor: andiColors.surface, borderRadius: andiRadius.md,
+    paddingHorizontal: andiSpace[4], paddingVertical: andiSpace[3],
   },
-  infoIcon:    { fontSize: 18, width: 28, textAlign: 'center', marginRight: 10 },
-  infoContent: { flex: 1 },
-  infoLabel:   { fontSize: r.scaleFont(11), color: '#9CA3AF', marginBottom: 2, fontWeight: '500' },
-  infoValue:   { fontSize: r.scaleFont(14), color: '#1F2937', fontWeight: '600' },
+  infoLabel: { ...andiType.caption, color: andiColors.onSurfaceVariant },
+  infoValue: { ...andiType.bodyLg, color: andiColors.onSurface, marginTop: 1 },
 
-  // Editar campos
-  fieldLabel: {
-    fontSize: r.scaleFont(12), fontWeight: '700', color: '#374151',
-    marginBottom: 6, marginTop: 14,
-    paddingHorizontal: 16,
-  },
-  input: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#F9FAFB', paddingHorizontal: 14,
-    paddingVertical: 12, fontSize: r.scaleFont(16), color: '#1F2937',
-    marginHorizontal: 16,
-  },
-  inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
-  errorText:  { color: '#EF4444', fontSize: r.scaleFont(11), marginTop: 4, paddingHorizontal: 16 },
-
-  // Pass wrap
-  passWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#F9FAFB', marginHorizontal: 16,
-    paddingRight: 8,
-  },
-  passInput:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: r.scaleFont(16), color: '#1F2937' },
-  eyeBtn:     { padding: 6 },
-
-  // Botón guardar
-  saveBtn:     { marginHorizontal: 16, marginTop: 16, borderRadius: 14, overflow: 'hidden' },
-  saveBtnGrad: { height: 50, justifyContent: 'center', alignItems: 'center' },
-  saveBtnText: { color: '#fff', fontSize: r.scaleFont(15), fontWeight: '700' },
-
-  // Logout
   logoutBtn: {
-    marginHorizontal: 16, marginTop: 16,
-    backgroundColor: '#FEF2F2', borderRadius: 16,
-    borderWidth: 1.5, borderColor: '#FECACA',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: andiSpace[2],
+    marginTop: andiSpace[8], height: 52, borderRadius: andiRadius.full,
+    borderWidth: 1.5, borderColor: andiColors.error400,
   },
-  logoutInner: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 8,
-    paddingVertical: 16,
-  },
-  logoutIcon:  { fontSize: 20 },
-  logoutText:  { color: '#DC2626', fontSize: r.scaleFont(15), fontWeight: '700' },
+  logoutBtnText: { ...andiType.label, color: andiColors.error600 },
 
-  version: {
-    textAlign: 'center', color: '#9CA3AF',
-    fontSize: r.scaleFont(11), marginTop: 24, marginBottom: 8,
-  },
+  version: { ...andiType.caption, color: andiColors.onSurfaceVariant, textAlign: 'center', marginTop: andiSpace[5] },
 
-  // Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end', alignItems: 'center',
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'center', padding: andiSpace[6] },
+  modalCard: { backgroundColor: andiColors.surface, borderRadius: andiRadius.lg, padding: andiSpace[5] },
+  modalTitle: { ...andiType.headingMd, color: andiColors.onSurface },
+  modalBtnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[5] },
+  modalCancelBtn: {
+    flex: 1, height: 44, borderRadius: andiRadius.full, borderWidth: 1.5, borderColor: andiColors.outline,
+    justifyContent: 'center', alignItems: 'center',
   },
-  modalCard: {
-    backgroundColor: '#fff', borderTopLeftRadius: 28,
-    borderTopRightRadius: 28, padding: 24,
-    paddingBottom: 36, width: '100%',
+  modalCancelBtnText: { ...andiType.label, color: andiColors.onSurface },
+  modalSalirBtn: { flex: 1, height: 44, borderRadius: andiRadius.full, backgroundColor: andiColors.error600, justifyContent: 'center', alignItems: 'center' },
+  modalSalirBtnText: { ...andiType.label, color: andiColors.surface },
+
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end' },
+  sheetCard: {
+    backgroundColor: andiColors.surface, borderTopLeftRadius: andiRadius.xl, borderTopRightRadius: andiRadius.xl,
+    padding: andiSpace[5], paddingBottom: andiSpace[8],
   },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 16,
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: andiSpace[4] },
+  fieldLabel: { ...andiType.labelSm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3], marginBottom: andiSpace[1] },
+  input: {
+    minHeight: 48, borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
+    paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
   },
-  modalTitle:  { fontSize: r.scaleFont(18), fontWeight: '700', color: '#1F2937' },
-  modalClose:  { fontSize: 20, color: '#9CA3AF', padding: 4 },
+  inputError: { borderColor: andiColors.error },
+  errorText: { ...andiType.caption, color: andiColors.error, marginTop: andiSpace[1] },
+
+  passWrap: {
+    flexDirection: 'row', alignItems: 'center', minHeight: 48,
+    borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
+    paddingRight: andiSpace[2],
+  },
+  passInput: { flex: 1, minHeight: 48, paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface },
+  eyeBtn: { padding: andiSpace[2] },
+
+  sheetPrimaryBtn: {
+    minHeight: 48, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sheetPrimaryBtnText: { ...andiType.label, color: andiColors.surface },
 });

@@ -20,7 +20,7 @@ export default function SeverityPicker({ value, onChange }: SeverityPickerProps)
         const meta = SEVERITY_META[key]!;
         const selected = value === key;
         return (
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             key={key}
             style={[styles.option, selected && styles.optionSelected]}
             onPress={() => onChange(key)}

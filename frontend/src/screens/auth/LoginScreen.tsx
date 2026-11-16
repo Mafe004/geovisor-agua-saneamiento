@@ -124,13 +124,18 @@ export default function LoginScreen({ navigation, route }: Props) {
                 secureTextEntry={!showPass}
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onPress={() => setShowPass(p => !p)}
+                style={styles.eyeBtn}
+              >
                 <Feather name={showPass ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
 
             {/* Olvidé mi contraseña */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.forgotRow}
               onPress={() => navigation.navigate('ForgotPassword')}
               activeOpacity={0.7}
@@ -155,7 +160,7 @@ export default function LoginScreen({ navigation, route }: Props) {
             )}
 
             {/* Entrar */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.btn, loading && styles.btnDisabled]}
               onPress={handleLogin}
               disabled={loading}
@@ -177,7 +182,7 @@ export default function LoginScreen({ navigation, route }: Props) {
             </View>
 
             {/* Crear cuenta de ciudadano */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.outlineBtn}
               onPress={() => navigation.navigate('Register', { id_rol: 1 })}
               activeOpacity={0.85}
@@ -186,7 +191,7 @@ export default function LoginScreen({ navigation, route }: Props) {
             </TouchableOpacity>
 
             {/* Código de invitación */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.invitacionRow}
               onPress={() => navigation.navigate('Invitacion')}
               activeOpacity={0.7}

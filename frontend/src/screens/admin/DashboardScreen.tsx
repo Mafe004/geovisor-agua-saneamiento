@@ -141,7 +141,7 @@ export default function DashboardScreen() {
             <Text style={styles.greeting}>{greeting()}</Text>
             <Text style={styles.adminName}>{user?.nombre_completo ?? 'Administrador'}</Text>
           </View>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
             activeOpacity={0.8}
           >
@@ -184,7 +184,7 @@ export default function DashboardScreen() {
             </View>
             <Text style={styles.alertTitle}>Cuentas pendientes de activación</Text>
             <Text style={styles.alertDesc}>Revisa y activa las cuentas que están esperando aprobación.</Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.alertBtn}
               onPress={() => navigation.navigate('Usuarios', { filter: 'PENDIENTE' })}
               activeOpacity={0.8}

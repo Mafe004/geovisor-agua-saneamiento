@@ -78,7 +78,7 @@ export default function SolicitarAccesoScreen({ navigation }: Props) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
             <Feather name="arrow-left" size={22} color={andiColors.surface} />
           </TouchableOpacity>
 
@@ -99,7 +99,7 @@ export default function SolicitarAccesoScreen({ navigation }: Props) {
                 <Text style={styles.successBody}>
                   Tu solicitud fue recibida. Te contactaremos al correo indicado si es aprobada.
                 </Text>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.btn}
                   activeOpacity={0.85}
                   onPress={() => navigation.navigate('Login')}
@@ -144,7 +144,7 @@ export default function SolicitarAccesoScreen({ navigation }: Props) {
                     <Feather name="alert-triangle" size={16} color={andiColors.warning600} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.errorTextOrange}>Este correo ya tiene una cuenta registrada.</Text>
-                      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                      <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Login')}>
                         <Text style={styles.duplicateLinkText}>Ir a iniciar sesión</Text>
                       </TouchableOpacity>
                     </View>
@@ -173,7 +173,7 @@ export default function SolicitarAccesoScreen({ navigation }: Props) {
                   </View>
                 )}
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.btn, loading && styles.btnDisabled]}
                   onPress={handleSubmit}
                   disabled={loading}

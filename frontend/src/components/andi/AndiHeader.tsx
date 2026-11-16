@@ -85,10 +85,21 @@ export default function AndiHeader({
 
 /** Small circular icon button used in the header (search, back, +). */
 export function AndiHeaderIconButton({
-  icon, onPress, background = andiColors.primary700,
-}: { icon: keyof typeof Feather.glyphMap; onPress?: () => void; background?: string }) {
+  icon, onPress, background = andiColors.primary700, accessibilityLabel,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  onPress?: () => void;
+  background?: string;
+  /** Required in practice -- the icon alone tells a screen reader nothing. */
+  accessibilityLabel: string;
+}) {
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.circleBtn, { backgroundColor: background }]}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={[styles.circleBtn, { backgroundColor: background }]}
+    >
       <Feather name={icon} size={18} color={andiColors.n0} />
     </TouchableOpacity>
   );

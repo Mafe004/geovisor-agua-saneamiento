@@ -98,7 +98,7 @@ export default function AuditoriaScreen() {
         {FILTERS.map(f => {
           const active = filter === f.key;
           return (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={f.key}
               style={[styles.chip, active && styles.chipActive]}
               onPress={() => setFilter(f.key)}

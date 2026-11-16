@@ -77,7 +77,7 @@ export default function InfraestructuraScreen() {
       <AndiHeader
         title="Infraestructura"
         subtitle={`${items.length} puntos${fuentes.length ? ` · fuentes ${fuentes.join(', ')}` : ''}`}
-        rightElement={<AndiHeaderIconButton icon="plus" background={andiColors.accent500} onPress={() => setFormVisible(true)} />}
+        rightElement={<AndiHeaderIconButton icon="plus" background={andiColors.accent500} onPress={() => setFormVisible(true)} accessibilityLabel="Nueva infraestructura" />}
       />
 
       <AndiBody>
@@ -262,10 +262,10 @@ function InfraestructuraForm({
               )}
 
               <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => { reset(); onClose(); }}>
+                <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={() => { reset(); onClose(); }}>
                   <Text style={styles.cancelBtnText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.saveBtn, andiElevation[2], saving && styles.saveBtnDisabled]}
                   onPress={handleGuardar}
                   disabled={saving}

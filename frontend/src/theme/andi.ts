@@ -1,20 +1,26 @@
 /**
  * Design tokens for the "Andi" visual system — ported 1:1 from the
  * `[data-andi]` scope in the Claude Design canvas "Andi - Moderador.dc.html"
- * (project "Product scope and visual system"). Used only by the Moderador
- * and Entidad screens; every other role keeps the app's existing blue theme
- * (see theme/colors.ts) — the canvas itself only redesigns these two roles.
+ * (project "Product scope and visual system"). This is now the app's only
+ * design system — every role (Ciudadano, Entidad, Moderador, Admin, Auth)
+ * uses it; the old blue `theme/colors.ts` has been deleted.
  *
  * Values are copied verbatim from the canvas's CSS custom properties (light
  * theme only — the canvas also defines a dark variant, but the app has no
  * theme toggle today, so it's not wired here). Never hand-tune a value here
  * without checking it still matches the canvas.
  *
- * Scope update: Andi now also covers Auth (all roles) and Admin, per the
- * Andi-Administrador / Andi-Auth / Andi-AltaCuentasPorRol canvases — the
- * note below about Moderador/Entidad-only is historical, from before those
- * canvases existed. theme/colors.ts remains legacy/unused for those roles
- * going forward.
+ * `andiColors`/`andiSpace`/`andiRadius`/`andiElevation` below are the single
+ * source of truth for every value. The `ANDI_*` block further down
+ * (Ciudadano's own naming convention, ported from Ciudadano_V2_TS) used to
+ * be a hand-copied *second* literal with the same hex values — that let the
+ * two drift apart silently (e.g. `ANDI_SHADOWS.el3`/`el4` had slightly
+ * different shadowRadius/elevation than `andiElevation[3]`/`[4]`, nobody had
+ * noticed). It's now derived from the camelCase block instead, so there is
+ * exactly one place to change a value and both naming conventions see it.
+ * `ANDI_TYPE` is the one deliberate exception: Ciudadano's type scale is
+ * genuinely smaller/different from `andiType` (tuned for its own screens,
+ * not a copy of the same numbers), so it stays as its own literal.
  */
 import { Platform, type TextStyle } from 'react-native';
 
@@ -108,7 +114,6 @@ export const andiElevation = {
  * screen). Weights/sizes/line-heights below are copied exactly; only the
  * family is a system-font substitute. */
 export const andiFont = 'System';
-export const andiMono = 'monospace';
 
 type Type = Pick<TextStyle, 'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight' | 'letterSpacing' | 'textTransform'>;
 
@@ -175,101 +180,41 @@ export const andiSeverityColor: Record<string, string> = {
 // ─────────────────────────────────────────────────────────────────────────
 // Bloque "Andi" del rol Ciudadano (ported from Ciudadano_V2_TS's
 // theme/andi.ts). Convención SCREAMING_SNAKE_CASE deliberada: es la que ya
-// usan components/ciudadano/* y las pantallas de Ciudadano, y se mantiene
-// separada del bloque camelCase de arriba (Moderador/Entidad) en vez de
-// unificarse, para no arriesgar un cambio de valor que los afecte. Los
-// colores son los mismos que andiColors — solo cambia el nombre del export.
+// usan components/ciudadano/* y las pantallas de Ciudadano. Derivado del
+// bloque camelCase de arriba en vez de repetir los hex a mano (ver el
+// comentario de cabecera del archivo) -- solo cambia el nombre del export,
+// nunca el valor.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const ANDI_COLORS = {
-  primary50: '#E6F7F8',
-  primary100: '#C2EAEC',
-  primary200: '#8FD6DA',
-  primary300: '#56BFC5',
-  primary400: '#1FA5AD',
-  primary500: '#0E8B95',
-  primary600: '#0A6F78',
-  primary700: '#085862',
-  primary800: '#06434A',
-  primary900: '#042F34',
-
-  accent50: '#FDF2EC',
-  accent100: '#F8DDCC',
-  accent300: '#E8A075',
-  accent500: '#D2693A',
-  accent600: '#B0562C',
-  accent700: '#8C4322',
-
-  n0: '#FFFFFF',
-  n50: '#F7F9FA',
-  n100: '#EEF2F4',
-  n200: '#DEE5E8',
-  n300: '#C2CCD1',
-  n400: '#8E9CA3',
-  n500: '#5C6B72',
-  n600: '#3D4A50',
-  n700: '#2A3438',
-  n800: '#1A2125',
-  n900: '#0E1416',
-
-  success: '#1E7F4E',
-  successContainer: '#D7F0E0',
-  onSuccessContainer: '#0E4A2B',
-  warning: '#B8861B',
-  warningContainer: '#FBEFC9',
-  onWarningContainer: '#5C4408',
-  error: '#B23A2C',
-  errorContainer: '#FCDCD7',
-  onErrorContainer: '#5C1A12',
-  info: '#1F6FB2',
-  infoContainer: '#D6E8F7',
-  onInfoContainer: '#0E3A5C',
-
-  sevBaja: '#3FA34D',
-  sevMedia: '#E8B022',
-  sevAlta: '#E2691E',
-
-  stPendBg: '#FBEFC9', stPendFg: '#5C4408', stPendBd: '#B8861B',
-  stRevBg: '#D6E8F7', stRevFg: '#0E3A5C', stRevBd: '#1F6FB2',
-  stProBg: '#C2EAEC', stProFg: '#042F34', stProBd: '#0A6F78',
-  stResBg: '#D7F0E0', stResFg: '#0E4A2B', stResBd: '#1E7F4E',
-
-  // Alias semánticos usados en las pantallas
-  primary: '#0A6F78',
-  surface: '#FFFFFF',
-  surfaceDim: '#F7F9FA',
-  surfaceMid: '#EEF2F4',
-  background: '#EEF2F4',
-  outline: '#C2CCD1',
-  outlineVariant: '#DEE5E8',
-  onSurface: '#1A2125',
-  onSurfaceVariant: '#5C6B72',
-  mapGround: '#EEF2F4',
-  mapLine: '#FFFFFF',
-  skeleton: '#DEE5E8',
+  ...andiColors,
+  // Alias que solo existen bajo este nombre -- mismos valores que su
+  // equivalente camelCase (background = surfaceMid, skeleton = outlineVariant).
+  background: andiColors.surfaceMid,
+  skeleton: andiColors.outlineVariant,
 } as const;
 
 export const ANDI_GRADIENTS = {
   // primary-800 -> primary-900 (LiftHeader)
-  header: ['#06434A', '#042F34'],
+  header: [andiColors.primary800, andiColors.primary900],
 } as const;
 
 export const ANDI_SPACING = {
-  s1: 4, s2: 8, s3: 12, s4: 16, s5: 20, s6: 24, s8: 32, s10: 40, s12: 48, s16: 64,
+  s1: andiSpace[1], s2: andiSpace[2], s3: andiSpace[3], s4: andiSpace[4],
+  s5: andiSpace[5], s6: andiSpace[6], s8: andiSpace[8], s10: andiSpace[10],
+  s12: andiSpace[12], s16: andiSpace[16],
 } as const;
 
 export const ANDI_RADIUS = {
-  xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, full: 999,
+  xs: andiRadius.xs, sm: andiRadius.sm, md: andiRadius.md, lg: andiRadius.lg,
+  xl: andiRadius.xl, xxl: andiRadius['2xl'], full: andiRadius.full,
 } as const;
 
-// Sombras RN (iOS: shadow*, Android: elevation). No se carga una fuente
-// custom para no agregar dependencias de assets nuevas; se usa la pila del
-// sistema, que ya se ve muy cercana a Inter en ambas plataformas.
+// Sombras RN (iOS: shadow*, Android: elevation) -- mismos valores que
+// andiElevation[1..4], solo con las claves el1..el4 que ya usan las
+// pantallas de Ciudadano.
 export const ANDI_SHADOWS = {
-  el1: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.13, shadowRadius: 3, elevation: 2 },
-  el2: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.16, shadowRadius: 6, elevation: 4 },
-  el3: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 8 },
-  el4: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.21, shadowRadius: 20, elevation: 12 },
+  el1: andiElevation[1], el2: andiElevation[2], el3: andiElevation[3], el4: andiElevation[4],
 } as const;
 
 export const ANDI_TYPE = {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +26,7 @@ function initials(nombre: string) {
 
 export default function AdminPerfilScreen({ navigation }: Props) {
   const r = useResponsive();
+  const insets = useSafeAreaInsets();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const toast = useToast();
@@ -108,8 +110,8 @@ export default function AdminPerfilScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+        <LinearGradient colors={['#042F34', '#0A6F78']} style={[styles.header, { paddingTop: insets.top + andiSpace[6] }]}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
             <Feather name="arrow-left" size={22} color={andiColors.surface} />
           </TouchableOpacity>
           <View style={styles.heroCenter}>
@@ -137,7 +139,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
           </View>
 
           <View style={styles.sectionList}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.sectionRow}
               activeOpacity={0.8}
               onPress={() => navigation.navigate('SolicitudesAcceso')}
@@ -150,7 +152,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
               <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sectionRow} activeOpacity={0.8} onPress={abrirDatosModal}>
+            <TouchableOpacity accessibilityRole="button" style={styles.sectionRow} activeOpacity={0.8} onPress={abrirDatosModal}>
               <Feather name="user" size={18} color={andiColors.onSurface} />
               <Text style={styles.sectionRowLabel}>Datos personales</Text>
               <View style={{ flex: 1 }} />
@@ -158,7 +160,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.85} onPress={() => setLogoutConfirmVisible(true)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.logoutBtn} activeOpacity={0.85} onPress={() => setLogoutConfirmVisible(true)}>
             <Feather name="log-out" size={18} color={andiColors.error600} />
             <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
           </TouchableOpacity>
@@ -170,10 +172,10 @@ export default function AdminPerfilScreen({ navigation }: Props) {
           <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(480), alignSelf: 'center' }]}>
             <Text style={styles.modalTitle}>¿Cerrar sesión?</Text>
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setLogoutConfirmVisible(false)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.modalCancelBtn} onPress={() => setLogoutConfirmVisible(false)}>
                 <Text style={styles.modalCancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSalirBtn} onPress={handleLogout}>
+              <TouchableOpacity accessibilityRole="button" style={styles.modalSalirBtn} onPress={handleLogout}>
                 <Text style={styles.modalSalirBtnText}>Salir</Text>
               </TouchableOpacity>
             </View>
@@ -215,7 +217,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
                 keyboardType="phone-pad"
               />
 
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalSalirBtn, { backgroundColor: andiColors.primary600, marginTop: andiSpace[5] }]}
                 onPress={handleGuardarDatos}
                 disabled={savingDatos}
@@ -235,7 +237,10 @@ export default function AdminPerfilScreen({ navigation }: Props) {
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: andiColors.surfaceMid },
   scroll: { flexGrow: 1 },
-  header: { height: 200, paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4] },
+  // paddingTop viene inline (insets.top + andiSpace[6]) -- sin height fijo,
+  // así el contenido nunca se recorta cuando el inset es más alto de lo
+  // que el canvas asumía (notch/isla dinámica).
+  header: { paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[8] },
   backBtn: { alignSelf: 'flex-start', padding: andiSpace[1] },
   heroCenter: { alignItems: 'center', marginTop: andiSpace[1] },
   avatar: {

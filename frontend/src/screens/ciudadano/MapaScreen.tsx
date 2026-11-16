@@ -248,7 +248,7 @@ export default function MapaScreen({ navigation }: Props) {
             <Text style={styles.kicker}>Cundinamarca</Text>
             <Text style={styles.title}>Cerca de ti</Text>
           </View>
-          <TouchableOpacity style={styles.searchBtn} onPress={() => setSearching((s) => !s)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.searchBtn} onPress={() => setSearching((s) => !s)}>
             <Text style={styles.searchIcon}>⌕</Text>
           </TouchableOpacity>
         </View>
@@ -274,7 +274,7 @@ export default function MapaScreen({ navigation }: Props) {
       <LiftSurface>
         <View style={styles.filterBar}>
           {FILTERS.map((f) => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={f.key}
               style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
               onPress={() => setFilter(f.key)}
@@ -286,26 +286,26 @@ export default function MapaScreen({ navigation }: Props) {
 
         {/* Capas SIASAR (datos oficiales, capa de solo lectura) */}
         <View style={styles.layerBar}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.layerChip, capaReportes && styles.layerChipActive]}
             onPress={() => setCapaReportes((v) => !v)}
           >
             <Text style={[styles.layerChipText, capaReportes && styles.layerChipTextActive]}>Reportes</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.layerChip, capaComunidades && styles.layerChipActiveSiasar]}
             onPress={() => setCapaComunidades((v) => !v)}
           >
             <Text style={[styles.layerChipText, capaComunidades && styles.layerChipTextActive]}>⬤ Veredas SIASAR</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.layerChip, capaSistemas && styles.layerChipActiveSiasar]}
             onPress={() => setCapaSistemas((v) => !v)}
           >
             <Text style={[styles.layerChipText, capaSistemas && styles.layerChipTextActive]}>⬤ Acueductos SIASAR</Text>
           </TouchableOpacity>
           {(capaComunidades || capaSistemas) && municipio && (
-            <TouchableOpacity style={styles.municipioBtn} onPress={() => setSelectorMunicipioAbierto((v) => !v)}>
+            <TouchableOpacity accessibilityRole="button" style={styles.municipioBtn} onPress={() => setSelectorMunicipioAbierto((v) => !v)}>
               <Text style={styles.municipioBtnText}>{municipio} ▾</Text>
             </TouchableOpacity>
           )}
@@ -314,7 +314,7 @@ export default function MapaScreen({ navigation }: Props) {
         {selectorMunicipioAbierto && (
           <ScrollView style={styles.municipioList}>
             {municipios.map((m) => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={m.municipio}
                 style={styles.municipioItem}
                 onPress={() => { setMunicipio(m.municipio); setSelectorMunicipioAbierto(false); }}
@@ -340,10 +340,10 @@ export default function MapaScreen({ navigation }: Props) {
                 <Text style={styles.noLocationText}>
                   Sin ubicación puedo mostrarte Cundinamarca completo, pero no lo que tienes al lado.
                 </Text>
-                <TouchableOpacity style={styles.primaryBtn} onPress={requestLocation}>
+                <TouchableOpacity accessibilityRole="button" style={styles.primaryBtn} onPress={requestLocation}>
                   <Text style={styles.primaryBtnText}>Permitir ubicación</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.outlineBtn} onPress={() => setCenter(ZIPAQUIRA)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.outlineBtn} onPress={() => setCenter(ZIPAQUIRA)}>
                   <Text style={styles.outlineBtnText}>Ver todo Cundinamarca</Text>
                 </TouchableOpacity>
               </View>
@@ -358,7 +358,7 @@ export default function MapaScreen({ navigation }: Props) {
                 onMarkerPress={handleMarkerPress}
                 style={styles.map}
               />
-              <TouchableOpacity style={styles.recenterBtn} onPress={recentrar}>
+              <TouchableOpacity accessibilityRole="button" style={styles.recenterBtn} onPress={recentrar}>
                 <Text style={styles.recenterIcon}>◎</Text>
               </TouchableOpacity>
 
@@ -389,7 +389,7 @@ export default function MapaScreen({ navigation }: Props) {
           <View style={styles.anchorCard}>
             <View style={styles.anchorTop}>
               <Text style={styles.anchorId}>Reporte #{selectedPin.id_reporte}</Text>
-              <TouchableOpacity onPress={() => setSelectedPin(null)}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedPin(null)}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
             </View>
             <Text style={styles.anchorTitle} numberOfLines={2}>
               {selectedPin.title || 'Reporte'}
@@ -398,7 +398,7 @@ export default function MapaScreen({ navigation }: Props) {
               <StatusChip estado={selectedPin.estado} />
               <SeverityChip severidad={selectedPin.severidad} />
             </View>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.anchorBtn}
               onPress={() => verDetalle(selectedPin.id_reporte)}
             >
@@ -428,7 +428,7 @@ function ComunidadPanel({ data, onClose, styles }: { data: ComunidadDetalle; onC
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
         <Text style={styles.siasarTitle}>{data.nombre}</Text>
-        <TouchableOpacity onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
       </View>
       <SiasarComunidadInfo data={data} />
     </View>
@@ -440,7 +440,7 @@ function SistemaPanel({ data, onClose, styles }: { data: SistemaDetalle; onClose
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
         <Text style={styles.siasarTitle}>{data.nombre}</Text>
-        <TouchableOpacity onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
       </View>
       <Text style={styles.siasarSubtitle}>{data.municipio}</Text>
 

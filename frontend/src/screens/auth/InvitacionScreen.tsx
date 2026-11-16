@@ -145,7 +145,7 @@ export default function InvitacionScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.contentWrap}>
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
         <Feather name="arrow-left" size={22} color={andiColors.surface} />
       </TouchableOpacity>
 
@@ -172,7 +172,7 @@ export default function InvitacionScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.solicitarAccesoLink}
         activeOpacity={0.7}
         onPress={() => navigation.navigate('SolicitarAcceso')}
@@ -185,7 +185,7 @@ export default function InvitacionScreen({ navigation }: Props) {
           <Feather name="clock" size={16} color={andiColors.warning700} />
           <View style={styles.bannerTextWrap}>
             <Text style={styles.bannerTextWarning}>Este código ya venció.</Text>
-            <TouchableOpacity onPress={() => navigation.replace('Register', { id_rol: Rol.CIUDADANO })}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigation.replace('Register', { id_rol: Rol.CIUDADANO })}>
               <Text style={styles.bannerLink}>Ingresar como Ciudadano</Text>
             </TouchableOpacity>
           </View>
@@ -225,7 +225,7 @@ export default function InvitacionScreen({ navigation }: Props) {
             </Text>
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.confirmBtn}
             activeOpacity={0.85}
             onPress={() => navigation.navigate('Register', {

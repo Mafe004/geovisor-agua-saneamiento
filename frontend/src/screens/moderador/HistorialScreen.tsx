@@ -92,7 +92,7 @@ export default function HistorialScreen() {
           <View style={styles.center}>
             <Text style={[andiType.section, styles.emptyTitle]}>No se pudo cargar el historial</Text>
             <Text style={[andiType.body, styles.emptyText]}>Verifica tu conexión e intenta de nuevo.</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={loadHistorial}>
+            <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={loadHistorial}>
               <Text style={styles.retryText}>Reintentar</Text>
             </TouchableOpacity>
           </View>

@@ -94,7 +94,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
                   </View>
                 )}
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.btn, loading && styles.btnDisabled]}
                   onPress={handleSubmit}
                   disabled={loading}
@@ -110,7 +110,7 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
               </>
             )}
 
-            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
+            <TouchableOpacity accessibilityRole="button" style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
               <Text style={styles.linkText}>Volver a la entrada</Text>
             </TouchableOpacity>
           </View>

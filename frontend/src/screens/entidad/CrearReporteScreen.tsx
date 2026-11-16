@@ -188,7 +188,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
             <Text style={styles.emptyChip}>Cargando tipos…</Text>
           )}
           {tipos.map(t => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={t.id_tipo_incidente}
               style={[styles.chip, idTipo === t.id_tipo_incidente && styles.chipActive]}
               onPress={() => setIdTipo(t.id_tipo_incidente)}
@@ -207,7 +207,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
             <Text style={styles.emptyChip}>Cargando severidades…</Text>
           )}
           {severidades.map(s => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={s.id_severidad}
               style={[styles.chip, idSeveridad === s.id_severidad && styles.chipActive]}
               onPress={() => setIdSeveridad(s.id_severidad)}
@@ -223,7 +223,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
         <View style={styles.mapSection}>
           <View style={styles.mapHeader}>
             <Text style={styles.label}>Ubicación del problema *</Text>
-            <TouchableOpacity style={styles.locBtn} onPress={getMyLocation} disabled={locLoading}>
+            <TouchableOpacity accessibilityRole="button" style={styles.locBtn} onPress={getMyLocation} disabled={locLoading}>
               {locLoading
                 ? <ActivityIndicator size="small" color="#1565C0" />
                 : <Text style={styles.locBtnText}>📍 Mi ubicación</Text>
@@ -266,7 +266,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
         </View>
 
         {/* ── Botón enviar ── */}
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.btn, loading && styles.btnDisabled]}
           onPress={handleSubmit}
           disabled={loading}

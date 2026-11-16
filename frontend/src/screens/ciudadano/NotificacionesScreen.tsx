@@ -100,7 +100,7 @@ export default function NotificacionesScreen() {
             </View>
           </View>
           {unreadCount > 0 && (
-            <TouchableOpacity style={styles.markAllBtn} onPress={markAllRead}>
+            <TouchableOpacity accessibilityRole="button" style={styles.markAllBtn} onPress={markAllRead}>
               <Text style={styles.markAllText}>Marcar todo</Text>
             </TouchableOpacity>
           )}
@@ -125,7 +125,7 @@ export default function NotificacionesScreen() {
               const meta = TIPO_META[item.tipo_notificacion] || DEFAULT_TIPO_META;
               const unread = !item.leida;
               return (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.card, unread ? styles.cardUnread : styles.cardRead]}
                   onPress={() => unread && markRead(item.id_notificacion)}
                   activeOpacity={0.85}

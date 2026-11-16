@@ -120,7 +120,7 @@ export default function TriageSheet({
                         : 'Asignación manual'}
                     </Text>
                   </View>
-                  <TouchableOpacity style={styles.changeBtn} onPress={() => setChangingEntidad(v => !v)}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.changeBtn} onPress={() => setChangingEntidad(v => !v)}>
                     <Text style={styles.changeBtnText}>Cambiar</Text>
                   </TouchableOpacity>
                 </View>
@@ -128,7 +128,7 @@ export default function TriageSheet({
                 {changingEntidad && (
                   <View style={styles.entidadGrid}>
                     {entidades.map(ent => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={ent.id_entidad}
                         style={[styles.entidadChip, idEntidad === ent.id_entidad && styles.entidadChipActive]}
                         onPress={() => { setIdEntidad(ent.id_entidad); setChangingEntidad(false); }}
@@ -150,7 +150,7 @@ export default function TriageSheet({
                     const isSelected = idEstadoNuevo === e.id_estado;
                     const cfg = andiStatusPill[e.nombre] ?? andiStatusPill.PENDIENTE!;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={e.id_estado}
                         disabled={isCurrent}
                         onPress={() => setIdEstadoNuevo(e.id_estado)}
@@ -190,10 +190,10 @@ export default function TriageSheet({
               </View>
 
               <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+                <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={onClose}>
                   <Text style={styles.cancelBtnText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.saveBtn, andiElevation[2], saving && styles.saveBtnDisabled]}
                   onPress={handleGuardar}
                   disabled={saving}

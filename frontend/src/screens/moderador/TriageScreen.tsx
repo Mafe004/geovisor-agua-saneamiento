@@ -110,6 +110,7 @@ export default function TriageScreen() {
               setBusquedaVisible(v => !v);
               if (busquedaVisible) setBusqueda('');
             }}
+            accessibilityLabel={busquedaVisible ? 'Cerrar búsqueda' : 'Buscar'}
           />
         }
       />

@@ -201,7 +201,7 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
                       tomandoId === item.id_reporte ? (
                         <ActivityIndicator size="small" color={andiColors.primary} />
                       ) : (
-                        <TouchableOpacity style={styles.tomarBtn} onPress={() => handleTomar(item)}>
+                        <TouchableOpacity accessibilityRole="button" style={styles.tomarBtn} onPress={() => handleTomar(item)}>
                           <Text style={styles.tomarBtnText}>Tomar</Text>
                         </TouchableOpacity>
                       )

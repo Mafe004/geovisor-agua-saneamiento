@@ -32,7 +32,7 @@ export default function AndiReportCard({
   const styles = useMemo(() => makeStyles(r), [r]);
   if (variant === 'anchor') {
     return (
-      <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.anchorCard}>
+      <TouchableOpacity accessibilityRole="button" activeOpacity={0.9} onPress={onPress} style={styles.anchorCard}>
         <View style={styles.headerRow}>
           <Text style={styles.anchorId}>{idLabel}</Text>
           {badge}
@@ -52,11 +52,16 @@ export default function AndiReportCard({
           </View>
         )}
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.primaryPill} onPress={onPrimaryPress}>
+          <TouchableOpacity accessibilityRole="button" style={styles.primaryPill} onPress={onPrimaryPress}>
             <Text style={styles.primaryPillText}>{primaryLabel}</Text>
           </TouchableOpacity>
           {onSecondaryPress && (
-            <TouchableOpacity style={styles.secondaryCircle} onPress={onSecondaryPress}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Ver ubicación en el mapa"
+              style={styles.secondaryCircle}
+              onPress={onSecondaryPress}
+            >
               <Feather name="map-pin" size={17} color={andiColors.primary100} />
             </TouchableOpacity>
           )}
@@ -66,7 +71,7 @@ export default function AndiReportCard({
   }
 
   return (
-    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.normalCard}>
+    <TouchableOpacity accessibilityRole="button" activeOpacity={0.9} onPress={onPress} style={styles.normalCard}>
       <View style={styles.headerRow}>
         <Text style={styles.normalId}>{idLabel}</Text>
         {badge}

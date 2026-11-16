@@ -83,7 +83,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       <LiftHeader>
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity accessibilityRole="button" style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
@@ -108,7 +108,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
                   <Text style={styles.mapLabel}>{reporte.direccion || 'Ubicación aproximada'}</Text>
                   <Text style={styles.mapCoords}>{lat!.toFixed(5)}, {lng!.toFixed(5)}</Text>
                 </View>
-                <TouchableOpacity style={styles.mapBtn} onPress={abrirComoLlegar}>
+                <TouchableOpacity accessibilityRole="button" style={styles.mapBtn} onPress={abrirComoLlegar}>
                   <Text style={styles.mapBtnText}>Cómo llegar</Text>
                 </TouchableOpacity>
               </View>

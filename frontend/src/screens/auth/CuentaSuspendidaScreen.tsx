@@ -26,7 +26,7 @@ export default function CuentaSuspendidaScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.card}>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.btn}
           onPress={() => Linking.openURL('mailto:admin@geovisor.com')}
           activeOpacity={0.85}
@@ -36,7 +36,7 @@ export default function CuentaSuspendidaScreen({ navigation, route }: Props) {
           </LinearGradient>
         </TouchableOpacity>
 
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.linkRow}
           onPress={() => navigation.replace('Login')}
           activeOpacity={0.7}

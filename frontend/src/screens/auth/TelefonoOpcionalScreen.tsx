@@ -80,10 +80,10 @@ export default function TelefonoOpcionalScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.btnRow}>
-        <TouchableOpacity style={styles.outlineBtn} onPress={handleAhoraNo} disabled={loading} activeOpacity={0.85}>
+        <TouchableOpacity accessibilityRole="button" style={styles.outlineBtn} onPress={handleAhoraNo} disabled={loading} activeOpacity={0.85}>
           <Text style={styles.outlineBtnText}>Ahora no</Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.primaryBtn, (!telefono.trim() || loading) && styles.btnDisabled]}
           onPress={handleGuardar}
           disabled={!telefono.trim() || loading}

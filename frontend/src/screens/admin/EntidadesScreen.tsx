@@ -158,7 +158,7 @@ export default function EntidadesScreen() {
       <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Entidades</Text>
-          <TouchableOpacity style={styles.newBtn} activeOpacity={0.85} onPress={() => setNuevaModalVisible(true)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.newBtn} activeOpacity={0.85} onPress={() => setNuevaModalVisible(true)}>
             <Feather name="plus" size={16} color={andiColors.surface} />
             <Text style={styles.newBtnText}>Nueva entidad</Text>
           </TouchableOpacity>
@@ -230,7 +230,7 @@ export default function EntidadesScreen() {
                   </View>
                 </View>
 
-                <TouchableOpacity style={styles.linkBtn} activeOpacity={0.85} onPress={() => abrirVincularModal(entidad)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.linkBtn} activeOpacity={0.85} onPress={() => abrirVincularModal(entidad)}>
                   <Text style={styles.linkBtnText}>Vincular usuario</Text>
                 </TouchableOpacity>
               </View>
@@ -300,7 +300,7 @@ export default function EntidadesScreen() {
                 keyboardType="phone-pad"
               />
 
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.sheetPrimaryBtn, { marginTop: andiSpace[5] }]}
                 onPress={handleCrearEntidad}
                 disabled={creandoEntidad}
@@ -336,7 +336,7 @@ export default function EntidadesScreen() {
             ) : (
               <ScrollView style={{ maxHeight: 360 }}>
                 {usuariosEntidad.map(u => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={u.id_usuario}
                     style={styles.userRow}
                     activeOpacity={0.8}

@@ -226,7 +226,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
       <View style={styles.container}>
         <LiftHeader>
           <View style={styles.topRow}>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
+            <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
               <Text style={styles.closeIcon}>✕</Text>
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
@@ -243,10 +243,10 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             <Text style={styles.queuedCardTitle}>{successSummary}</Text>
             <Text style={styles.queuedCardMeta}>Reporte guardado</Text>
           </View>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
             <Text style={styles.primaryBtnText}>Ver mis reportes</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.textBtn} onPress={() => setMode('form')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.textBtn} onPress={() => setMode('form')}>
             <Text style={styles.textBtnText}>Reportar otra cosa</Text>
           </TouchableOpacity>
         </LiftSurface>
@@ -259,7 +259,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
       <View style={styles.container}>
         <LiftHeader>
           <View style={styles.topRow}>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setMode('form')}>
+            <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => setMode('form')}>
               <Text style={styles.closeIcon}>✕</Text>
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
@@ -283,10 +283,10 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             <Text style={styles.queuedCardTitle}>{savedSummary}</Text>
             <Text style={styles.queuedCardMeta}>Guardado como borrador</Text>
           </View>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
             <Text style={styles.primaryBtnText}>Ver mis reportes</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.textBtn} onPress={() => setMode('form')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.textBtn} onPress={() => setMode('form')}>
             <Text style={styles.textBtnText}>Seguir editando</Text>
           </TouchableOpacity>
         </LiftSurface>
@@ -298,7 +298,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
     <View style={styles.container}>
       <LiftHeader>
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
             <Text style={styles.closeIcon}>✕</Text>
           </TouchableOpacity>
           <Text style={styles.screenTitle}>Nuevo reporte</Text>
@@ -318,7 +318,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             <View style={styles.chipWrap}>
               {tipos.length === 0 && <Text style={styles.mutedText}>Cargando tipos…</Text>}
               {tipos.map((t) => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={t.id_tipo_incidente}
                   style={[styles.typeChip, idTipo === t.id_tipo_incidente && styles.typeChipActive]}
                   onPress={() => handleSelectTipo(t)}
@@ -361,7 +361,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
                     <Text style={styles.coordPending}>Arrastra el mapa para marcar el punto</Text>
                   )}
                 </View>
-                <TouchableOpacity style={styles.adjustBtn} onPress={getMyLocation} disabled={locLoading}>
+                <TouchableOpacity accessibilityRole="button" style={styles.adjustBtn} onPress={getMyLocation} disabled={locLoading}>
                   {locLoading ? <ActivityIndicator size="small" color={ANDI_COLORS.primary700} /> : <Text style={styles.adjustBtnText}>Mi ubicación</Text>}
                 </TouchableOpacity>
               </View>
@@ -388,11 +388,11 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
             />
           </Section>
 
-          <TouchableOpacity style={styles.draftLink} onPress={handleSaveDraft}>
+          <TouchableOpacity accessibilityRole="button" style={styles.draftLink} onPress={handleSaveDraft}>
             <Text style={styles.draftLinkText}>Guardar como borrador para terminar después</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.submitBtn, loading && styles.disabled]} onPress={handleSubmit} disabled={loading}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.submitBtn, loading && styles.disabled]} onPress={handleSubmit} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Enviar reporte</Text>}
           </TouchableOpacity>
           </View>

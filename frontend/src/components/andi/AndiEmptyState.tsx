@@ -33,7 +33,7 @@ export default function AndiEmptyState({
       <Text style={[andiType.section, styles.title]}>{title}</Text>
       <Text style={[andiType.bodyLg, styles.body]}>{body}</Text>
       {ctaLabel && (
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           onPress={onPressCta}
           style={[styles.cta, ctaVariant === 'solid' ? styles.ctaSolid : styles.ctaOutline]}
         >

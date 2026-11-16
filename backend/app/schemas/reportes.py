@@ -107,6 +107,23 @@ class CambiarEstadoResponse(BaseModel):
     reporte: ReporteDetalle
 
 
+class EditarReporteResponse(BaseModel):
+    """Respuesta de PUT /reportes/{id_reporte}: el reporte ya editado, con
+    la misma forma completa que devuelve crear_reporte()."""
+
+    message: str
+    reporte: ReporteDetalle
+
+
+class EliminarReporteResponse(BaseModel):
+    """Respuesta de DELETE /reportes/{id_reporte}: el reporte ya no existe,
+    así que solo se devuelve su id para que el cliente lo saque de sus
+    listas/mapa."""
+
+    message: str
+    id_reporte: int
+
+
 class EstadisticaEstadoItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     estado: str

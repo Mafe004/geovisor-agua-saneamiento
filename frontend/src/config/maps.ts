@@ -19,4 +19,4 @@
 // purposes only" watermark (or fail to load) but the app won't crash.
 // ============================================================
 export const GOOGLE_MAPS_API_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyBJwtCFpLvUYpI_mK2PRmniShe1JuBJWcI';

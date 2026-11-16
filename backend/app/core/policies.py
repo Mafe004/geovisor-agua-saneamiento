@@ -11,7 +11,12 @@ con diccionarios simples, sin FastAPI ni MySQL de por medio.
 
 from fastapi import HTTPException
 
-from app.core.roles import Rol
+from app.core.roles import EstadoCuenta, Rol
+
+# Nombre (no id) del único estado_reporte en que el ciudadano dueño todavía
+# puede editar/eliminar su reporte -- mismo criterio nombre->catálogo que
+# _resolve_estado_ids() en routers/reportes.py, sin asumir que su id es 1.
+ESTADO_EDITABLE = "PENDIENTE"
 
 
 def scope_reportes(user: dict, alias: str = "r") -> tuple[list[str], list]:
@@ -96,3 +101,33 @@ def puede_cambiar_estado(user: dict, reporte: dict) -> bool:
         )
     # rol desconocido: fail closed, nunca fail open
     return id_rol in (Rol.MODERADOR, Rol.ADMIN)
+
+
+def puede_editar_reporte(user: dict, reporte: dict) -> bool:
+    """
+    Editar o eliminar un reporte: solo cuando se cumplen TODAS a la vez --
+      1. el usuario es CIUDADANO,
+      2. su cuenta está ACTIVA,
+      3. el reporte es suyo (id_usuario),
+      4. el reporte no tiene entidad asignada (id_entidad IS NULL),
+      5. el estado del reporte es exactamente PENDIENTE.
+
+    ENTIDAD/MODERADOR/ADMIN nunca pasan por aquí: ningún otro rol edita ni
+    elimina reportes. `reporte` debe traer `estado` como nombre (lo que
+    devuelve _select_reporte_detalle_sql() / er.nombre). Cualquier dato
+    faltante da False: fail closed, nunca fail open.
+    """
+    if user.get("id_rol") != Rol.CIUDADANO:
+        return False
+    if user.get("id_estado_cuenta") != EstadoCuenta.ACTIVO:
+        return False
+
+    id_usuario = user.get("id_usuario")
+    if id_usuario is None or reporte.get("id_usuario") != id_usuario:
+        return False
+    # La clave debe existir Y valer None: .get() no distingue "NULL en la
+    # base" de "columna no seleccionada", y lo segundo no prueba nada.
+    if "id_entidad" not in reporte or reporte["id_entidad"] is not None:
+        return False
+
+    return reporte.get("estado") == ESTADO_EDITABLE

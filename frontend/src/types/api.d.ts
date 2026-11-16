@@ -1329,6 +1329,28 @@ export interface components {
             /** Usuario */
             usuario: string;
         };
+        /**
+         * EditarReporteResponse
+         * @description Respuesta de PUT /reportes/{id_reporte}: el reporte ya editado, con
+         *     la misma forma completa que devuelve crear_reporte().
+         */
+        EditarReporteResponse: {
+            /** Message */
+            message: string;
+            reporte: components["schemas"]["ReporteDetalle"];
+        };
+        /**
+         * EliminarReporteResponse
+         * @description Respuesta de DELETE /reportes/{id_reporte}: el reporte ya no existe,
+         *     así que solo se devuelve su id para que el cliente lo saque de sus
+         *     listas/mapa.
+         */
+        EliminarReporteResponse: {
+            /** Message */
+            message: string;
+            /** Id Reporte */
+            id_reporte: number;
+        };
         /** EntidadCreate */
         EntidadCreate: {
             /**
@@ -2032,6 +2054,29 @@ export interface components {
              * Format: date-time
              */
             fecha_reporte: string;
+        };
+        /**
+         * ReporteUpdateRequest
+         * @description Body de PUT /reportes/{id_reporte} (ciudadano dueño). Reemplazo
+         *     completo de los campos editables: todos obligatorios salvo imagen_url.
+         *     Campos extra se rechazan con 422 (extra="forbid").
+         *     imagen_url: clave ausente -> se conserva; null -> se quita; ruta -> se reemplaza.
+         */
+        ReporteUpdateRequest: {
+            /** Id Tipo Incidente */
+            id_tipo_incidente: number;
+            /** Id Severidad */
+            id_severidad: number;
+            /** Descripcion */
+            descripcion: string;
+            /** Direccion */
+            direccion: string | null;
+            /** Latitud */
+            latitud: number;
+            /** Longitud */
+            longitud: number;
+            /** Imagen Url */
+            imagen_url?: string | null;
         };
         /** RestablecerContrasena */
         RestablecerContrasena: {

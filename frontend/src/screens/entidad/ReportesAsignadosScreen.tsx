@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useContext, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import axios from 'axios';
@@ -14,6 +14,7 @@ import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
+import { useToast } from '../../components/andi/Toast';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem } from '../../types/domain';
@@ -46,6 +47,7 @@ function formatRelative(dateStr: string | undefined) {
 export default function ReportesAsignadosScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { user } = useContext(AuthContext);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [entidadNombre, setEntidadNombre] = useState<string>('');
@@ -121,7 +123,7 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
       setReportes(prev => prev.map(r => r.id_reporte === res.data.reporte.id_reporte ? res.data.reporte : r));
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo tomar el reporte.');
+      toast.error('Error', msg || 'No se pudo tomar el reporte.');
     } finally {
       setTomandoId(null);
     }

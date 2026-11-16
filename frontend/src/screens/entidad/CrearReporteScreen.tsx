@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
@@ -12,6 +12,7 @@ import MapaWebView from '../../components/MapaWebView';
 import type { MapCenterChange } from '../../components/MapaWebView.types';
 import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
+import { useToast } from '../../components/andi/Toast';
 import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 import { useResponsive, type Responsive } from '../../theme/responsive';
@@ -35,6 +36,7 @@ const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 export default function CrearReporteScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { isCiudadano } = useContext(AuthContext);
   const destinoMisReportes = isCiudadano ? 'Reportes' : 'Asignados';
   const [descripcion, setDescripcion] = useState('');
@@ -89,13 +91,13 @@ export default function CrearReporteScreen({ navigation }: Props) {
           setLocLoading(false);
         },
         (_err) => {
-          Alert.alert('Permiso denegado', 'Activa la ubicación para usar esta función.');
+          toast.warning('Permiso denegado', 'Activa la ubicación para usar esta función.');
           setLocLoading(false);
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
-      Alert.alert('No disponible', 'La geolocalización no está disponible en este dispositivo.');
+      toast.warning('No disponible', 'La geolocalización no está disponible en este dispositivo.');
       setLocLoading(false);
     }
   };
@@ -106,10 +108,10 @@ export default function CrearReporteScreen({ navigation }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!descripcion.trim()) { Alert.alert('Requerido', 'Ingresa una descripción.'); return; }
-    if (!coordenadas) { Alert.alert('Requerido', 'Arrastra el mapa para marcar la ubicación del problema.'); return; }
-    if (!idTipo) { Alert.alert('Requerido', 'Selecciona el tipo de incidente.'); return; }
-    if (!idSeveridad) { Alert.alert('Requerido', 'Selecciona la severidad.'); return; }
+    if (!descripcion.trim()) { toast.warning('Requerido', 'Ingresa una descripción.'); return; }
+    if (!coordenadas) { toast.warning('Requerido', 'Arrastra el mapa para marcar la ubicación del problema.'); return; }
+    if (!idTipo) { toast.warning('Requerido', 'Selecciona el tipo de incidente.'); return; }
+    if (!idSeveridad) { toast.warning('Requerido', 'Selecciona la severidad.'); return; }
 
     try {
       setLoading(true);
@@ -127,11 +129,8 @@ export default function CrearReporteScreen({ navigation }: Props) {
         fuente_reporte: isCiudadano ? 'CIUDADANO' : 'ENTIDAD',
       };
       await reportesAPI.crear(payload);
-      Alert.alert(
-        '✅ Reporte creado',
-        'Tu reporte fue enviado exitosamente. Un moderador lo revisará pronto.',
-        [{ text: 'Ver mis reportes', onPress: () => navigation.navigate(destinoMisReportes) }],
-      );
+      toast.success('Reporte creado', 'Tu reporte fue enviado exitosamente. Un moderador lo revisará pronto.');
+      navigation.navigate(destinoMisReportes);
       setDescripcion('');
       setDireccion('');
       setCoordenadas(null);
@@ -140,7 +139,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
       setIdSeveridad(null);
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo enviar el reporte.');
+      toast.error('Error', msg || 'No se pudo enviar el reporte.');
     } finally {
       setLoading(false);
     }
@@ -300,12 +299,12 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   label: { fontSize: r.scaleFont(13), fontWeight: '700', color: '#374151', marginBottom: 8, marginTop: 16 },
   textarea: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(14), color: '#1F2937',
+    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(16), color: '#1F2937',
     minHeight: 100,
   },
   inputField: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(14), color: '#1F2937', height: 48,
+    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(16), color: '#1F2937', height: 48,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   emptyChip: { fontSize: r.scaleFont(12), color: '#9CA3AF', fontStyle: 'italic' },

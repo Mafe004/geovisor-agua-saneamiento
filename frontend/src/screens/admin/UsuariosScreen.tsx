@@ -405,7 +405,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   modalInput: {
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
     backgroundColor: andiColors.surfaceDim, padding: andiSpace[3], marginTop: andiSpace[4],
-    minHeight: 60, textAlignVertical: 'top', color: andiColors.onSurface,
+    minHeight: 60, textAlignVertical: 'top', color: andiColors.onSurface, fontSize: 16,
   },
   modalBtnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[5] },
   modalCancelBtn: {

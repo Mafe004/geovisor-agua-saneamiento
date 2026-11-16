@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Alert, ActivityIndicator,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp, type RouteProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -14,6 +14,7 @@ import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SeverityPicker, { type SeveridadKey } from '../../components/ciudadano/SeverityPicker';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
+import { useToast } from '../../components/andi/Toast';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
@@ -47,6 +48,7 @@ type Mode = 'form' | 'draft-saved' | 'success';
 export default function CrearReporteScreen({ navigation, route }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const draftId = route.params?.draftId ?? null;
 
   const [descripcion, setDescripcion] = useState('');
@@ -129,13 +131,13 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
           setLocLoading(false);
         },
         () => {
-          Alert.alert('Permiso denegado', 'Activa la ubicación o marca el punto arrastrando el mapa.');
+          toast.warning('Permiso denegado', 'Activa la ubicación o marca el punto arrastrando el mapa.');
           setLocLoading(false);
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );
     } else {
-      Alert.alert('No disponible', 'No se pudo obtener tu ubicación. Marca el punto en el mapa.');
+      toast.warning('No disponible', 'No se pudo obtener tu ubicación. Marca el punto en el mapa.');
       setLocLoading(false);
     }
   };
@@ -170,17 +172,16 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
 
   const handleSaveDraft = async () => {
     await persistDraft(!coordenadas ? 'Falta el sitio' : !idTipo ? 'Falta el tipo' : 'Incompleto');
-    Alert.alert('Guardado', 'Tu borrador quedó guardado en este teléfono.', [
-      { text: 'OK', onPress: () => navigation.navigate('Reportes') },
-    ]);
+    toast.success('Guardado', 'Tu borrador quedó guardado en este teléfono.');
+    navigation.navigate('Reportes');
   };
 
   const handleSubmit = async () => {
-    if (!descripcion.trim()) { Alert.alert('Requerido', 'Ingresa una descripción.'); return; }
-    if (!coordenadas) { Alert.alert('Requerido', 'Marca la ubicación del problema en el mapa.'); return; }
-    if (!idTipo) { Alert.alert('Requerido', 'Selecciona el tipo de incidente.'); return; }
+    if (!descripcion.trim()) { toast.warning('Requerido', 'Ingresa una descripción.'); return; }
+    if (!coordenadas) { toast.warning('Requerido', 'Marca la ubicación del problema en el mapa.'); return; }
+    if (!idTipo) { toast.warning('Requerido', 'Selecciona el tipo de incidente.'); return; }
     const idSeveridad = idSeveridadNumerico();
-    if (!idSeveridad) { Alert.alert('Requerido', 'Selecciona la severidad.'); return; }
+    if (!idSeveridad) { toast.warning('Requerido', 'Selecciona la severidad.'); return; }
 
     const payload: ReporteCreateRequest = {
       descripcion: descripcion.trim(),
@@ -205,7 +206,7 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
       const status = axios.isAxiosError(e) ? e.response?.status : undefined;
       if (status === 400 || status === 422) {
         const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-        Alert.alert('Revisa los datos', msg || 'No se pudo enviar el reporte.');
+        toast.error('Revisa los datos', msg || 'No se pudo enviar el reporte.');
         return;
       }
       // Falla de red o del servidor (no de validación): no hay cola de
@@ -446,14 +447,14 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   mapCard: { borderRadius: ANDI_RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant },
   map: { height: 180 },
   mapFooter: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, padding: ANDI_SPACING.s3, backgroundColor: ANDI_COLORS.surface },
-  direccionInput: { fontSize: r.scaleFont(13), color: ANDI_COLORS.onSurface, padding: 0 },
+  direccionInput: { fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface, padding: 0 },
   coordText: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant, marginTop: 4 },
   coordPending: { fontSize: r.scaleFont(11), color: ANDI_COLORS.warning, marginTop: 4, fontWeight: '600' },
   adjustBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
   adjustBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(11) },
   siasarHint: { fontSize: r.scaleFont(11), color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
 
-  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface, minHeight: 90 },
+  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface, minHeight: 90 },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
   draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },

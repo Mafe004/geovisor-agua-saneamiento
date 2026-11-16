@@ -232,7 +232,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     minHeight: 48,
   },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(16), color: andiColors.onSurface },
   textareaWrap: {
     borderWidth: 1.5,
     borderColor: andiColors.outline,
@@ -242,7 +242,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingVertical: andiSpace[2],
     marginTop: andiSpace[2],
   },
-  textarea: { minHeight: 90, fontSize: r.scaleFont(15), color: andiColors.onSurface },
+  textarea: { minHeight: 90, fontSize: r.scaleFont(16), color: andiColors.onSurface },
   charCount: { ...r.scaleType(andiType.caption), color: andiColors.onSurfaceVariant, marginTop: andiSpace[1], textAlign: 'right' },
   errorBanner: {
     flexDirection: 'row',

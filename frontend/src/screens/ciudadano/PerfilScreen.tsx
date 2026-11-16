@@ -1,7 +1,7 @@
 import React, { useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, TextInput, ActivityIndicator, KeyboardAvoidingView,
+  TextInput, ActivityIndicator, KeyboardAvoidingView,
   Platform, Modal,
 } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { usuariosAPI, reportesAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
+import { useToast } from '../../components/andi/Toast';
 import { getDrafts, type ReporteDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
@@ -35,6 +36,7 @@ type Props = {
 export default function PerfilScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { user: userReal, logout, updateUser } = useContext(AuthContext);
   const user = userReal as UserLegacy | null;
 
@@ -90,7 +92,7 @@ export default function PerfilScreen({ navigation }: Props) {
   const initials = ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || '?';
 
   const handleSave = async () => {
-    if (!nombre.trim()) { Alert.alert('Requerido', 'El nombre no puede estar vacío.'); return; }
+    if (!nombre.trim()) { toast.warning('Requerido', 'El nombre no puede estar vacío.'); return; }
     try {
       setSaving(true);
       await usuariosAPI.actualizarPerfil({
@@ -111,7 +113,7 @@ export default function PerfilScreen({ navigation }: Props) {
       setSuccessBanner({ title: 'Perfil actualizado', message: 'Tus datos fueron guardados correctamente.' });
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo actualizar el perfil.');
+      toast.error('Error', msg || 'No se pudo actualizar el perfil.');
     } finally {
       setSaving(false);
     }
@@ -126,9 +128,9 @@ export default function PerfilScreen({ navigation }: Props) {
   };
 
   const handleChangePass = async () => {
-    if (!passActual || !passNueva || !passConfirm) { Alert.alert('Requerido', 'Completa todos los campos.'); return; }
-    if (passNueva.length < 6) { Alert.alert('Contraseña débil', 'La nueva contraseña debe tener al menos 6 caracteres.'); return; }
-    if (passNueva !== passConfirm) { Alert.alert('No coinciden', 'La nueva contraseña y su confirmación no son iguales.'); return; }
+    if (!passActual || !passNueva || !passConfirm) { toast.warning('Requerido', 'Completa todos los campos.'); return; }
+    if (passNueva.length < 6) { toast.warning('Contraseña débil', 'La nueva contraseña debe tener al menos 6 caracteres.'); return; }
+    if (passNueva !== passConfirm) { toast.warning('No coinciden', 'La nueva contraseña y su confirmación no son iguales.'); return; }
     try {
       setSavingPass(true);
       await usuariosAPI.cambiarPassword({ password_actual: passActual, password_nueva: passNueva });
@@ -138,7 +140,7 @@ export default function PerfilScreen({ navigation }: Props) {
     } catch (e) {
       const msg = (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail)
         || 'No se pudo cambiar la contraseña.';
-      Alert.alert('Error', msg);
+      toast.error('Error', msg);
     } finally {
       setSavingPass(false);
     }
@@ -372,7 +374,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   input: {
     borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md,
     backgroundColor: ANDI_COLORS.surfaceMid, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12,
-    fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface,
+    fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface,
   },
   inputError: { borderColor: ANDI_COLORS.error },
   errorText: { color: ANDI_COLORS.error, fontSize: r.scaleFont(11), marginTop: 4 },
@@ -403,6 +405,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   modalMessage: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s2 },
   logoutConfirmBtn: { backgroundColor: ANDI_COLORS.error },
   passWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, backgroundColor: ANDI_COLORS.surfaceMid, paddingRight: 8 },
-  passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface },
+  passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface },
   eyeBtn: { padding: 6 },
 });

@@ -1,6 +1,7 @@
 import React, { useMemo, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive, type Responsive } from '../theme/responsive';
 
 interface GradientHeaderProps {
@@ -13,9 +14,10 @@ interface GradientHeaderProps {
 
 export default function GradientHeader({ title, subtitle, onBack, rightAction, children }: GradientHeaderProps) {
   const r = useResponsive();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => makeStyles(r), [r]);
   return (
-    <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.container}>
+    <LinearGradient colors={['#1565C0', '#00ACC1']} style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <StatusBar barStyle="light-content" />
       <View style={styles.content}>
         <View style={styles.left}>
@@ -39,7 +41,7 @@ export default function GradientHeader({ title, subtitle, onBack, rightAction, c
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
-  container: { paddingTop: 48, paddingBottom: 16 },
+  container: { paddingBottom: 16 }, // paddingTop viene inline (insets.top + 16)
   content: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
   left: { width: 40 },
   center: { flex: 1, alignItems: 'center' },

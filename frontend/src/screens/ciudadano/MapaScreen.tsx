@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -12,6 +12,7 @@ import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { StatusChip, SeverityChip } from '../../components/ciudadano/Chip';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
+import { useToast } from '../../components/andi/Toast';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -48,6 +49,7 @@ type SiasarSeleccion =
 export default function MapaScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const [pines, setPines] = useState<ReporteMapaPunto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -152,7 +154,7 @@ export default function MapaScreen({ navigation }: Props) {
       navigation.navigate('DetalleReporte', { reporte: res.data });
       setSelectedPin(null);
     } catch (_) {
-      Alert.alert('Error', 'No se pudo cargar el detalle del reporte.');
+      toast.error('Error', 'No se pudo cargar el detalle del reporte.');
     }
   };
 
@@ -165,7 +167,7 @@ export default function MapaScreen({ navigation }: Props) {
         const res = await siasarAPI.comunidad(Number(id.slice(4)));
         setSelectedSiasar({ tipo: 'comunidad', data: res.data });
       } catch (_) {
-        Alert.alert('Error', 'No se pudo cargar el diagnóstico de esta vereda.');
+        toast.error('Error', 'No se pudo cargar el diagnóstico de esta vereda.');
       } finally {
         setCargandoDetalleSiasar(false);
       }
@@ -178,7 +180,7 @@ export default function MapaScreen({ navigation }: Props) {
         const res = await siasarAPI.sistema(Number(id.slice(4)));
         setSelectedSiasar({ tipo: 'sistema', data: res.data });
       } catch (_) {
-        Alert.alert('Error', 'No se pudo cargar el diagnóstico de este acueducto.');
+        toast.error('Error', 'No se pudo cargar el diagnóstico de este acueducto.');
       } finally {
         setCargandoDetalleSiasar(false);
       }
@@ -482,7 +484,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   countLabel: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.primary200 },
   searchInput: {
     marginTop: ANDI_SPACING.s4, backgroundColor: ANDI_COLORS.primary700, borderRadius: ANDI_RADIUS.md,
-    paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 10, color: '#fff', fontSize: r.scaleFont(14),
+    paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 10, color: '#fff', fontSize: r.scaleFont(16),
   },
 
   filterBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, padding: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s2 },

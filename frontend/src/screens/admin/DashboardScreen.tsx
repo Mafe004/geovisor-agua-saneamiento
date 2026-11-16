@@ -236,7 +236,7 @@ export default function DashboardScreen() {
         <View style={styles.searchWrap}>
           <Feather name="search" size={16} color={andiColors.onSurfaceVariant} />
           <TextInput
-            style={[styles.searchInput, { fontSize: r.scaleFont(13) }]}
+            style={[styles.searchInput, { fontSize: r.scaleFont(16) }]}
             placeholder="Buscar municipio…"
             placeholderTextColor={andiColors.onSurfaceVariant}
             value={busquedaMunicipio}
@@ -340,7 +340,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
     backgroundColor: andiColors.surface, paddingHorizontal: andiSpace[3], minHeight: 40,
   },
-  searchInput: { flex: 1, minHeight: 40, fontSize: 13, color: andiColors.onSurface },
+  searchInput: { flex: 1, minHeight: 40, fontSize: 16, color: andiColors.onSurface },
 
   siasarRow: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: andiColors.surface,

@@ -62,7 +62,7 @@ function Field({
       <View style={[styles.inputWrap, readOnly && styles.inputWrapReadOnly]}>
         <Feather name={icon} size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
         <TextInput
-          style={[styles.input, { fontSize: r.scaleFont(15) }]}
+          style={[styles.input, { fontSize: r.scaleFont(16) }]}
           placeholder={placeholder}
           placeholderTextColor={andiColors.onSurfaceVariant}
           value={value}
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   },
   inputWrapReadOnly: { backgroundColor: andiColors.surfaceMid },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: 15, color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: 16, color: andiColors.onSurface },
   eyeBtn: { padding: andiSpace[1] },
 
   strengthWrap: { marginTop: andiSpace[2] },

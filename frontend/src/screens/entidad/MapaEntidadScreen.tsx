@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useContext, useMemo } from 'react';
-import { View, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,6 +10,7 @@ import AndiHeader from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import MapaWebView from '../../components/MapaWebView';
+import { useToast } from '../../components/andi/Toast';
 import { andiColors } from '../../theme/andi';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import type { ReporteMapaPunto } from '../../types/domain';
@@ -37,6 +38,7 @@ const LEGEND: { estado: string; label: string; color: string }[] = [
 export default function MapaEntidadScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { user } = useContext(AuthContext);
   const [puntos, setPuntos] = useState<ReporteMapaPunto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,7 +101,7 @@ export default function MapaEntidadScreen({ navigation }: Props) {
       navigation.navigate('DetalleReporte', { reporte: res.data });
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo abrir el detalle de este reporte.');
+      toast.error('Error', msg || 'No se pudo abrir el detalle de este reporte.');
     } finally {
       setCargandoDetalle(null);
     }

@@ -1,6 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { andiColors, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatLabelDecor } from '../../theme/andi';
 import { useScaledType } from '../../theme/responsive';
 
@@ -35,8 +36,20 @@ export default function AndiHeader({
   onBack, kicker, overline, title, subtitle, stats, rightElement, headerExtra,
 }: AndiHeaderProps) {
   const andiType = useScaledType(andiTypeBase);
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.header, { paddingBottom: (stats && stats.length > 0) ? andiSpace[8] : andiSpace[6] }]}>
+    <View
+      style={[
+        styles.header,
+        {
+          // andiSpace[6] (24px) de respiro propio del canvas, sumado al
+          // inset real del dispositivo -- así el título nunca queda debajo
+          // del notch/isla dinámica ni de la barra de estado.
+          paddingTop: insets.top + andiSpace[6],
+          paddingBottom: (stats && stats.length > 0) ? andiSpace[8] : andiSpace[6],
+        },
+      ]}
+    >
       <View style={styles.topRow}>
         {onBack && (
           <TouchableOpacity onPress={onBack} style={styles.circleBtn} accessibilityLabel="Volver">
@@ -86,7 +99,7 @@ const styles = StyleSheet.create({
     flex: 0,
     backgroundColor: andiColors.primary800,
     paddingHorizontal: andiSpace[5],
-    paddingTop: andiSpace[6],
+    // paddingTop viene inline (insets.top + andiSpace[6], ver arriba).
   },
   topRow: {
     flexDirection: 'row',

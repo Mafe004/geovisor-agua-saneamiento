@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator, TextInput,
+  TouchableOpacity, ActivityIndicator, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import StatusBadge from '../../components/StatusBadge';
 import GradientHeader from '../../components/GradientHeader';
 import EstadoChips from '../../components/EstadoChips';
 import MapaWebView from '../../components/MapaWebView';
+import { useToast } from '../../components/andi/Toast';
 import AndiHeader from '../../components/andi/AndiHeader';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation, andiStatusPill } from '../../theme/andi';
@@ -156,6 +157,7 @@ function ClassicDetalleView({
 }) {
   const responsive = useResponsive();
   const styles = useMemo(() => makeStyles(responsive), [responsive]);
+  const toast = useToast();
   const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
   const [comentario, setComentario] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -169,7 +171,7 @@ function ClassicDetalleView({
   const handleUpdateEstado = async () => {
     const seleccionado = estadosDisponibles.find(e => e.id_estado === idEstadoNuevo);
     if (!seleccionado || seleccionado.nombre === reporte.estado) {
-      Alert.alert('Sin cambios', 'Selecciona un estado diferente al actual.');
+      toast.warning('Sin cambios', 'Selecciona un estado diferente al actual.');
       return;
     }
     try {
@@ -181,13 +183,13 @@ function ClassicDetalleView({
       onUpdated(res.data.reporte);
       setComentario('');
       setIdEstadoNuevo(null);
-      Alert.alert(
-        '✅ Estado actualizado',
+      toast.success(
+        'Estado actualizado',
         `El reporte ahora está en: ${seleccionado.nombre.replace(/_/g, ' ')}`
       );
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo actualizar el estado.');
+      toast.error('Error', msg || 'No se pudo actualizar el estado.');
     } finally {
       setUpdating(false);
     }
@@ -318,6 +320,7 @@ function EntidadCierreView({
   const responsive = useResponsive();
   const andiStyles = useMemo(() => makeAndiStyles(responsive), [responsive]);
   const andiType = useScaledType(andiTypeBase);
+  const toast = useToast();
   // El backend no soporta una bitácora de avance sin cambio de estado --
   // "Sigue en proceso" es honesto sobre eso: no llama a la API, solo
   // descarta el cierre. "Resuelto" es la única transición real que hace.
@@ -345,7 +348,7 @@ function EntidadCierreView({
   const handleGuardar = async () => {
     if (!resolviendo) { onBack(); return; }
     if (!comentario.trim()) {
-      Alert.alert('Comentario requerido', 'Describe qué se hizo antes de marcar como resuelto.');
+      toast.warning('Comentario requerido', 'Describe qué se hizo antes de marcar como resuelto.');
       return;
     }
     const resuelto = estadosDisponibles.find(e => e.nombre === 'RESUELTO');
@@ -599,7 +602,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   commentLabel: { fontSize: r.scaleFont(13), fontWeight: '600', color: '#374151', marginBottom: 6 },
   commentInput: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
-    backgroundColor: '#F9FAFB', padding: 10, fontSize: r.scaleFont(13),
+    backgroundColor: '#F9FAFB', padding: 10, fontSize: r.scaleFont(16),
     color: '#1F2937', minHeight: 80,
   },
   updateBtn: { marginTop: 14, borderRadius: 12, overflow: 'hidden' },
@@ -671,7 +674,7 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   textarea: {
     backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outlineVariant,
     borderRadius: andiRadius.lg, padding: andiSpace[3], minHeight: 76,
-    fontSize: r.scaleFont(14), lineHeight: r.scaleFont(20), color: andiColors.onSurface,
+    fontSize: r.scaleFont(16), lineHeight: r.scaleFont(22), color: andiColors.onSurface,
   },
   helperText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2] },
 

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, Modal, KeyboardAvoidingView, Platform, ScrollView, Alert,
+  ActivityIndicator, Modal, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import { reportesAPI } from '../../api/services';
+import { useToast } from '../../components/andi/Toast';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiElevation } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem, EntidadDetalle } from '../../types/domain';
@@ -29,6 +30,7 @@ export default function TriageSheet({
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const [idEntidad, setIdEntidad] = useState<number | null>(null);
   const [changingEntidad, setChangingEntidad] = useState(false);
   const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
@@ -59,7 +61,7 @@ export default function TriageSheet({
     const estadoCambio = !!estadoSeleccionado && estadoSeleccionado.nombre !== reporte.estado;
 
     if (!entidadCambio && !estadoCambio) {
-      Alert.alert('Sin cambios', 'Selecciona una entidad o un estado diferente al actual.');
+      toast.warning('Sin cambios', 'Selecciona una entidad o un estado diferente al actual.');
       return;
     }
 
@@ -83,7 +85,7 @@ export default function TriageSheet({
       onClose();
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo guardar el triage.');
+      toast.error('Error', msg || 'No se pudo guardar el triage.');
     } finally {
       setSaving(false);
     }
@@ -266,7 +268,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   comentarioInput: {
     backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outlineVariant,
     borderRadius: andiRadius.lg, padding: andiSpace[3], minHeight: 64,
-    fontSize: r.scaleFont(14), lineHeight: 20, color: andiColors.onSurface,
+    fontSize: r.scaleFont(16), lineHeight: 22, color: andiColors.onSurface,
   },
 
   actionRow: { flexDirection: 'row', gap: andiSpace[2] },

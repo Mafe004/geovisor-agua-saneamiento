@@ -122,7 +122,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   },
   prefix: { ...r.scaleType(andiType.bodyLg), color: andiColors.onSurface },
   prefixDivider: { width: 1, height: 20, backgroundColor: andiColors.outlineVariant, marginHorizontal: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(16), color: andiColors.onSurface },
 
   btnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[8] },
   outlineBtn: {

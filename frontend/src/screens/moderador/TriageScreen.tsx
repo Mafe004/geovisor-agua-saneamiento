@@ -228,7 +228,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingHorizontal: andiSpace[3], height: 44,
     maxWidth: r.maxContentWidth(700), alignSelf: 'center',
   },
-  searchInput: { flex: 1, fontSize: r.scaleFont(14), color: andiColors.onSurface, height: '100%' },
+  searchInput: { flex: 1, fontSize: r.scaleFont(16), color: andiColors.onSurface, height: '100%' },
   chipsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2],
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[3],

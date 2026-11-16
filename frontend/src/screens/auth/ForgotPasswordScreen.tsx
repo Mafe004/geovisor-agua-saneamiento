@@ -155,7 +155,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     minHeight: 48,
   },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(16), color: andiColors.onSurface },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',

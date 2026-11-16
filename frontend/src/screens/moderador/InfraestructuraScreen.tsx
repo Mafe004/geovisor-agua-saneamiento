@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity,
-  Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
@@ -10,6 +10,7 @@ import AndiHeader, { AndiHeaderIconButton } from '../../components/andi/AndiHead
 import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
+import { useToast } from '../../components/andi/Toast';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker, MapCenterChange } from '../../components/MapaWebView.types';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation } from '../../theme/andi';
@@ -163,6 +164,7 @@ function InfraestructuraForm({
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const [nombre, setNombre] = useState('');
   const [tipo, setTipo] = useState<string | null>(null);
   const [fuente, setFuente] = useState('');
@@ -175,9 +177,9 @@ function InfraestructuraForm({
   };
 
   const handleGuardar = async () => {
-    if (!nombre.trim()) { Alert.alert('Requerido', 'Ingresa un nombre.'); return; }
-    if (!tipo) { Alert.alert('Requerido', 'Selecciona un tipo.'); return; }
-    if (!coordenadas) { Alert.alert('Requerido', 'Marca la ubicación en el mapa.'); return; }
+    if (!nombre.trim()) { toast.warning('Requerido', 'Ingresa un nombre.'); return; }
+    if (!tipo) { toast.warning('Requerido', 'Selecciona un tipo.'); return; }
+    if (!coordenadas) { toast.warning('Requerido', 'Marca la ubicación en el mapa.'); return; }
 
     try {
       setSaving(true);
@@ -193,7 +195,7 @@ function InfraestructuraForm({
       onCreated();
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo crear la infraestructura.');
+      toast.error('Error', msg || 'No se pudo crear la infraestructura.');
     } finally {
       setSaving(false);
     }
@@ -310,7 +312,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   formLabel: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.onSurface, marginBottom: andiSpace[2], marginTop: andiSpace[3] },
   input: {
     borderWidth: 1, borderColor: andiColors.outlineVariant, borderRadius: andiRadius.full,
-    backgroundColor: andiColors.surfaceMid, paddingHorizontal: andiSpace[4], height: 44, fontSize: r.scaleFont(14), color: andiColors.onSurface,
+    backgroundColor: andiColors.surfaceMid, paddingHorizontal: andiSpace[4], height: 44, fontSize: r.scaleFont(16), color: andiColors.onSurface,
   },
   mapHint: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[2] },
   formMap: { height: 180, borderRadius: andiRadius.lg, overflow: 'hidden' },

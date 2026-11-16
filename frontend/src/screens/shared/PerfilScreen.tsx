@@ -1,7 +1,7 @@
 import React, { useContext, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, TextInput, ActivityIndicator, KeyboardAvoidingView,
+  TextInput, ActivityIndicator, KeyboardAvoidingView,
   Platform, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,8 @@ import { AuthContext } from '../../context/AuthContext';
 import { usuariosAPI } from '../../api/services';
 import type { UserPublic } from '../../types/domain';
 import { useResponsive, type Responsive } from '../../theme/responsive';
+import { useToast } from '../../components/andi/Toast';
+import { confirmAsync } from '../../utils/confirmDialog';
 
 // user (AuthContext) es UserPublic -- nunca trae `telefono` (ver
 // MIGRATION_FINDINGS.md). Se preserva el acceso con este tipo local en vez
@@ -27,6 +29,7 @@ const ROL_COLOR: Record<number, readonly [string, string]> = {
 export default function PerfilScreen() {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { user: userReal, logout, updateUser } = useContext(AuthContext);
   const user = userReal as UserLegacy | null;
 
@@ -58,7 +61,7 @@ export default function PerfilScreen() {
   // ── Guardar datos de perfil ──
   const handleSave = async () => {
     if (!nombre.trim()) {
-      Alert.alert('Requerido', 'El nombre no puede estar vacío.');
+      toast.warning('Requerido', 'El nombre no puede estar vacío.');
       return;
     }
     try {
@@ -74,10 +77,10 @@ export default function PerfilScreen() {
       const actualizado: UserLegacy = { ...user, nombre_completo: nombre.trim(), telefono: telefono.trim() || null };
       updateUser(actualizado);
       setEditMode(false);
-      Alert.alert('✅ Actualizado', 'Tu perfil fue guardado correctamente.');
+      toast.success('Actualizado', 'Tu perfil fue guardado correctamente.');
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo actualizar el perfil.');
+      toast.error('Error', msg || 'No se pudo actualizar el perfil.');
     } finally {
       setSaving(false);
     }
@@ -92,15 +95,15 @@ export default function PerfilScreen() {
   // ── Cambiar contraseña ──
   const handleChangePass = async () => {
     if (!passActual || !passNueva || !passConfirm) {
-      Alert.alert('Requerido', 'Completa todos los campos.');
+      toast.warning('Requerido', 'Completa todos los campos.');
       return;
     }
     if (passNueva.length < 6) {
-      Alert.alert('Contraseña débil', 'La nueva contraseña debe tener al menos 6 caracteres.');
+      toast.warning('Contraseña débil', 'La nueva contraseña debe tener al menos 6 caracteres.');
       return;
     }
     if (passNueva !== passConfirm) {
-      Alert.alert('No coinciden', 'La nueva contraseña y su confirmación no son iguales.');
+      toast.warning('No coinciden', 'La nueva contraseña y su confirmación no son iguales.');
       return;
     }
     try {
@@ -111,34 +114,23 @@ export default function PerfilScreen() {
       });
       setPassModal(false);
       setPassActual(''); setPassNueva(''); setPassConfirm('');
-      Alert.alert('✅ Contraseña cambiada', 'Tu contraseña fue actualizada correctamente.');
+      toast.success('Contraseña cambiada', 'Tu contraseña fue actualizada correctamente.');
     } catch (e) {
       const msg = (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail)
         || 'No se pudo cambiar la contraseña.';
-      Alert.alert('Error', msg);
+      toast.error('Error', msg);
     } finally {
       setSavingPass(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // Alert.alert con varios botones no tiene equivalente en react-native-web
-    // (window.alert no distingue botones), así que ahí ningún onPress se
-    // dispara nunca -- se usa window.confirm en su lugar.
-    if (Platform.OS === 'web') {
-      if (window.confirm('¿Seguro que quieres salir de tu cuenta?')) {
-        logout();
-      }
-      return;
-    }
-    Alert.alert(
-      'Cerrar sesión',
-      '¿Seguro que quieres salir de tu cuenta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Salir', style: 'destructive', onPress: logout },
-      ],
-    );
+    // (window.alert no distingue botones, y ningún onPress se dispara
+    // nunca ahí) -- confirmAsync ya resuelve esto (window.confirm en web,
+    // Alert.alert normal en nativo).
+    const confirmado = await confirmAsync('Cerrar sesión', '¿Seguro que quieres salir de tu cuenta?');
+    if (confirmado) logout();
   };
 
   return (
@@ -470,7 +462,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   input: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
     backgroundColor: '#F9FAFB', paddingHorizontal: 14,
-    paddingVertical: 12, fontSize: r.scaleFont(14), color: '#1F2937',
+    paddingVertical: 12, fontSize: r.scaleFont(16), color: '#1F2937',
     marginHorizontal: 16,
   },
   inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
@@ -483,7 +475,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     backgroundColor: '#F9FAFB', marginHorizontal: 16,
     paddingRight: 8,
   },
-  passInput:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: r.scaleFont(14), color: '#1F2937' },
+  passInput:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: r.scaleFont(16), color: '#1F2937' },
   eyeBtn:     { padding: 6 },
 
   // Botón guardar

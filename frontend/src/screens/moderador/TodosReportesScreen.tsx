@@ -149,7 +149,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 12, height: 40,
   },
   searchIcon: { fontSize: 14, marginRight: 8 },
-  searchInput: { flex: 1, color: '#fff', fontSize: r.scaleFont(14) },
+  searchInput: { flex: 1, color: '#fff', fontSize: r.scaleFont(16) },
   clearIcon: { color: 'rgba(255,255,255,0.7)', fontSize: 16, padding: 4 },
   filterScroll: {
     flexDirection: 'row',

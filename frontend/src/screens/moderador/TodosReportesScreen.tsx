@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, StyleSheet,
   RefreshControl, TextInput, TouchableOpacity,
@@ -11,6 +11,7 @@ import ReportCard from '../../components/ReportCard';
 import type { Reporte, EstadoReporteItem } from '../../types/domain';
 import type { operations } from '../../types/api';
 import type { RootStackParamList } from '../../navigation/types';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
@@ -19,6 +20,8 @@ type Props = {
 type ReportesQuery = operations['listar_reportes_reportes__get']['parameters']['query'];
 
 export default function TodosReportesScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -120,7 +123,7 @@ export default function TodosReportesScreen({ navigation }: Props) {
             colors={['#1565C0']}
           />
         }
-        contentContainerStyle={reportesFiltrados.length === 0 && styles.emptyContainer}
+        contentContainerStyle={[styles.listContent, reportesFiltrados.length === 0 && styles.emptyContainer]}
         ListEmptyComponent={
           !loading ? (
             <View style={styles.empty}>
@@ -135,21 +138,22 @@ export default function TodosReportesScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   header: { paddingTop: 48, paddingBottom: 12, paddingHorizontal: 16 },
-  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2, marginBottom: 10 },
+  headerTitle: { color: '#fff', fontSize: r.scaleFont(20), fontWeight: '700' },
+  headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: r.scaleFont(12), marginTop: 2, marginBottom: 10 },
   searchWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12, paddingHorizontal: 12, height: 40,
   },
   searchIcon: { fontSize: 14, marginRight: 8 },
-  searchInput: { flex: 1, color: '#fff', fontSize: 14 },
+  searchInput: { flex: 1, color: '#fff', fontSize: r.scaleFont(14) },
   clearIcon: { color: 'rgba(255,255,255,0.7)', fontSize: 16, padding: 4 },
   filterScroll: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: '#fff',
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -161,11 +165,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#E5E7EB',
   },
   filterChipActive: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
-  filterText: { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  filterText: { fontSize: r.scaleFont(12), color: '#6B7280', fontWeight: '600' },
   filterTextActive: { color: '#fff' },
+  listContent: { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' },
   emptyContainer: { flex: 1 },
   empty: { alignItems: 'center', padding: 40, marginTop: 60 },
   emptyIcon: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#6B7280', textAlign: 'center' },
+  emptyTitle: { fontSize: r.scaleFont(18), fontWeight: '700', color: '#1F2937', marginBottom: 8 },
+  emptyText: { fontSize: r.scaleFont(14), color: '#6B7280', textAlign: 'center' },
 });

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, TextInput, ActivityIndicator, KeyboardAvoidingView,
@@ -9,6 +9,7 @@ import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
 import { usuariosAPI } from '../../api/services';
 import type { UserPublic } from '../../types/domain';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 // user (AuthContext) es UserPublic -- nunca trae `telefono` (ver
 // MIGRATION_FINDINGS.md). Se preserva el acceso con este tipo local en vez
@@ -24,6 +25,8 @@ const ROL_COLOR: Record<number, readonly [string, string]> = {
 };
 
 export default function PerfilScreen() {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { user: userReal, logout, updateUser } = useContext(AuthContext);
   const user = userReal as UserLegacy | null;
 
@@ -141,6 +144,7 @@ export default function PerfilScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView style={styles.container} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <View style={styles.contentWrap}>
 
         {/* ── HERO ── */}
         <LinearGradient colors={gradColors} style={styles.hero}>
@@ -159,18 +163,21 @@ export default function PerfilScreen() {
         {/* ── ACCIONES RÁPIDAS ── */}
         <View style={styles.quickRow}>
           <QuickAction
+            styles={styles}
             icon="✏️"
             label={editMode ? 'Cancelar' : 'Editar perfil'}
             color={editMode ? '#6B7280' : '#1565C0'}
             onPress={editMode ? handleCancelEdit : () => setEditMode(true)}
           />
           <QuickAction
+            styles={styles}
             icon="🔑"
             label="Contraseña"
             color="#7C3AED"
             onPress={() => setPassModal(true)}
           />
           <QuickAction
+            styles={styles}
             icon="🚪"
             label="Salir"
             color="#DC2626"
@@ -220,10 +227,11 @@ export default function PerfilScreen() {
         {/* ── INFO DE CUENTA ── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>👤 Información de cuenta</Text>
-          <InfoRow icon="✉️" label="Correo" value={user.correo} />
-          <InfoRow icon="📱" label="Teléfono" value={user.telefono || 'No registrado'} />
-          <InfoRow icon="🎭" label="Rol" value={ROL_LABEL[user.id_rol] || '—'} />
+          <InfoRow styles={styles} icon="✉️" label="Correo" value={user.correo} />
+          <InfoRow styles={styles} icon="📱" label="Teléfono" value={user.telefono || 'No registrado'} />
+          <InfoRow styles={styles} icon="🎭" label="Rol" value={ROL_LABEL[user.id_rol] || '—'} />
           <InfoRow
+            styles={styles}
             icon="🟢"
             label="Estado"
             value={user.id_estado_cuenta === 1 ? 'Activo' : 'Inactivo'}
@@ -234,9 +242,9 @@ export default function PerfilScreen() {
         {/* ── APP INFO ── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>💧 Sobre la app</Text>
-          <InfoRow icon="🏗️" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
-          <InfoRow icon="🎓" label="Proyecto" value="Tesis de grado · 2025" />
-          <InfoRow icon="📍" label="Municipio" value="Cundinamarca" />
+          <InfoRow styles={styles} icon="🏗️" label="Aplicación" value="GeoVisor Agua y Saneamiento" />
+          <InfoRow styles={styles} icon="🎓" label="Proyecto" value="Tesis de grado · 2025" />
+          <InfoRow styles={styles} icon="📍" label="Municipio" value="Cundinamarca" />
         </View>
 
         {/* ── CERRAR SESIÓN ── */}
@@ -248,12 +256,13 @@ export default function PerfilScreen() {
         </TouchableOpacity>
 
         <Text style={styles.version}>v1.0.0 · GeoVisor 2025</Text>
+      </View>
       </ScrollView>
 
       {/* ── MODAL CAMBIAR CONTRASEÑA ── */}
       <Modal visible={passModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }}>
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>🔑 Cambiar contraseña</Text>
@@ -330,13 +339,16 @@ export default function PerfilScreen() {
 
 /* ── Subcomponentes ── */
 
+type PerfilStyles = ReturnType<typeof makeStyles>;
+
 function QuickAction({
-  icon, label, color, onPress,
+  icon, label, color, onPress, styles,
 }: {
   icon: string;
   label: string;
   color: string;
   onPress: () => void;
+  styles: PerfilStyles;
 }) {
   return (
     <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.75}>
@@ -349,12 +361,13 @@ function QuickAction({
 }
 
 function InfoRow({
-  icon, label, value, valueColor,
+  icon, label, value, valueColor, styles,
 }: {
   icon: string;
   label: string;
   value: string;
   valueColor?: string;
+  styles: PerfilStyles;
 }) {
   return (
     <View style={styles.infoRow}>
@@ -368,9 +381,10 @@ function InfoRow({
 }
 
 /* ── Estilos ── */
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container:   { flex: 1, backgroundColor: '#F0F4F8' },
-  scroll:      { paddingBottom: 40 },
+  scroll:      { paddingBottom: 40, alignItems: 'center' },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
 
   // Hero
   hero: {
@@ -389,8 +403,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center', alignItems: 'center',
   },
-  avatarText:  { color: '#fff', fontSize: 32, fontWeight: '800' },
-  heroName:    { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  avatarText:  { color: '#fff', fontSize: r.scaleFont(32), fontWeight: '800' },
+  heroName:    { color: '#fff', fontSize: r.scaleFont(22), fontWeight: '700', textAlign: 'center' },
   rolPill: {
     marginTop: 8, marginBottom: 6,
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -398,8 +412,8 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.35)',
   },
-  rolPillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  heroEmail:   { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 2 },
+  rolPillText: { color: '#fff', fontSize: r.scaleFont(13), fontWeight: '600' },
+  heroEmail:   { color: 'rgba(255,255,255,0.75)', fontSize: r.scaleFont(13), marginTop: 2 },
 
   // Acciones rápidas
   quickRow: {
@@ -418,7 +432,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   quickIcon:   { fontSize: 22 },
-  quickLabel:  { fontSize: 11, fontWeight: '700' },
+  quickLabel:  { fontSize: r.scaleFont(11), fontWeight: '700' },
 
   // Cards
   card: {
@@ -430,7 +444,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06, shadowRadius: 8,
   },
   cardTitle: {
-    fontSize: 13, fontWeight: '700', color: '#6B7280',
+    fontSize: r.scaleFont(13), fontWeight: '700', color: '#6B7280',
     textTransform: 'uppercase', letterSpacing: 0.6,
     paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8,
     borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
@@ -444,23 +458,23 @@ const styles = StyleSheet.create({
   },
   infoIcon:    { fontSize: 18, width: 28, textAlign: 'center', marginRight: 10 },
   infoContent: { flex: 1 },
-  infoLabel:   { fontSize: 11, color: '#9CA3AF', marginBottom: 2, fontWeight: '500' },
-  infoValue:   { fontSize: 14, color: '#1F2937', fontWeight: '600' },
+  infoLabel:   { fontSize: r.scaleFont(11), color: '#9CA3AF', marginBottom: 2, fontWeight: '500' },
+  infoValue:   { fontSize: r.scaleFont(14), color: '#1F2937', fontWeight: '600' },
 
   // Editar campos
   fieldLabel: {
-    fontSize: 12, fontWeight: '700', color: '#374151',
+    fontSize: r.scaleFont(12), fontWeight: '700', color: '#374151',
     marginBottom: 6, marginTop: 14,
     paddingHorizontal: 16,
   },
   input: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
     backgroundColor: '#F9FAFB', paddingHorizontal: 14,
-    paddingVertical: 12, fontSize: 14, color: '#1F2937',
+    paddingVertical: 12, fontSize: r.scaleFont(14), color: '#1F2937',
     marginHorizontal: 16,
   },
   inputError: { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
-  errorText:  { color: '#EF4444', fontSize: 11, marginTop: 4, paddingHorizontal: 16 },
+  errorText:  { color: '#EF4444', fontSize: r.scaleFont(11), marginTop: 4, paddingHorizontal: 16 },
 
   // Pass wrap
   passWrap: {
@@ -469,13 +483,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB', marginHorizontal: 16,
     paddingRight: 8,
   },
-  passInput:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#1F2937' },
+  passInput:  { flex: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: r.scaleFont(14), color: '#1F2937' },
   eyeBtn:     { padding: 6 },
 
   // Botón guardar
   saveBtn:     { marginHorizontal: 16, marginTop: 16, borderRadius: 14, overflow: 'hidden' },
   saveBtnGrad: { height: 50, justifyContent: 'center', alignItems: 'center' },
-  saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  saveBtnText: { color: '#fff', fontSize: r.scaleFont(15), fontWeight: '700' },
 
   // Logout
   logoutBtn: {
@@ -489,11 +503,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   logoutIcon:  { fontSize: 20 },
-  logoutText:  { color: '#DC2626', fontSize: 15, fontWeight: '700' },
+  logoutText:  { color: '#DC2626', fontSize: r.scaleFont(15), fontWeight: '700' },
 
   version: {
     textAlign: 'center', color: '#9CA3AF',
-    fontSize: 11, marginTop: 24, marginBottom: 8,
+    fontSize: r.scaleFont(11), marginTop: 24, marginBottom: 8,
   },
 
   // Modal
@@ -510,6 +524,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 16,
   },
-  modalTitle:  { fontSize: 18, fontWeight: '700', color: '#1F2937' },
+  modalTitle:  { fontSize: r.scaleFont(18), fontWeight: '700', color: '#1F2937' },
   modalClose:  { fontSize: 20, color: '#9CA3AF', padding: 4 },
 });

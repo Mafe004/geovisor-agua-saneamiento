@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext } from 'react';
+import React, { useState, useCallback, useContext, useMemo } from 'react';
 import { View, Text, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -14,7 +14,8 @@ import { andiColors } from '../../theme/andi';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import type { ReporteMapaPunto } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
-import { styles } from './MapaEntidadScreen.styles';
+import { makeStyles } from './MapaEntidadScreen.styles';
+import { useResponsive } from '../../theme/responsive';
 
 // Mismo patrón de navigation prop que ReportesAsignadosScreen.tsx: este tab
 // necesita subir al stack raíz (DetalleReporte), así que se tipa con
@@ -34,6 +35,8 @@ const LEGEND: { estado: string; label: string; color: string }[] = [
 ];
 
 export default function MapaEntidadScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { user } = useContext(AuthContext);
   const [puntos, setPuntos] = useState<ReporteMapaPunto[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,6 +1,7 @@
-import React, { type ReactNode } from 'react';
+import React, { useMemo, type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useResponsive, type Responsive } from '../theme/responsive';
 
 interface GradientHeaderProps {
   title: string;
@@ -11,6 +12,8 @@ interface GradientHeaderProps {
 }
 
 export default function GradientHeader({ title, subtitle, onBack, rightAction, children }: GradientHeaderProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -35,15 +38,15 @@ export default function GradientHeader({ title, subtitle, onBack, rightAction, c
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { paddingTop: 48, paddingBottom: 16 },
   content: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
   left: { width: 40 },
   center: { flex: 1, alignItems: 'center' },
   right: { width: 40, alignItems: 'flex-end' },
-  title: { color: '#fff', fontSize: 20, fontWeight: '700', textAlign: 'center' },
-  subtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 },
+  title: { color: '#fff', fontSize: r.scaleFont(20), fontWeight: '700', textAlign: 'center' },
+  subtitle: { color: 'rgba(255,255,255,0.8)', fontSize: r.scaleFont(13), marginTop: 2 },
   backBtn: { padding: 4 },
-  backIcon: { color: '#fff', fontSize: 22, fontWeight: '600' },
+  backIcon: { color: '#fff', fontSize: r.scaleFont(22), fontWeight: '600' },
   childrenSlot: { paddingHorizontal: 16, marginTop: 12 },
 });

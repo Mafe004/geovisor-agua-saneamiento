@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity,
   Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
@@ -12,7 +12,8 @@ import AndiChip from '../../components/andi/AndiChip';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker, MapCenterChange } from '../../components/MapaWebView.types';
-import { andiColors, andiRadius, andiSpace, andiType, andiElevation } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation } from '../../theme/andi';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { InfraestructuraItem } from '../../types/domain';
 
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
@@ -33,6 +34,8 @@ function shortCode(tipo: string) {
 }
 
 export default function InfraestructuraScreen() {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [items, setItems] = useState<InfraestructuraItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -130,6 +133,9 @@ function cap(s: string) {
 }
 
 function InfraCard({ item }: { item: InfraestructuraItem }) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(r), [r]);
   const isActiva = item.estado === 'ACTIVA';
   return (
     <View style={styles.card}>
@@ -154,6 +160,9 @@ function InfraCard({ item }: { item: InfraestructuraItem }) {
 function InfraestructuraForm({
   visible, onClose, onCreated,
 }: { visible: boolean; onClose: () => void; onCreated: () => void }) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [nombre, setNombre] = useState('');
   const [tipo, setTipo] = useState<string | null>(null);
   const [fuente, setFuente] = useState('');
@@ -193,7 +202,7 @@ function InfraestructuraForm({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kbWrap}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
           <View style={[styles.formCard, andiElevation[4]]}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.handle} />
@@ -270,11 +279,11 @@ function InfraestructuraForm({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   map: { height: 230, marginHorizontal: 0 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2], paddingHorizontal: andiSpace[5], paddingVertical: andiSpace[3] },
-  list: { paddingHorizontal: andiSpace[5], paddingBottom: andiSpace[6] },
+  list: { paddingHorizontal: andiSpace[5], paddingBottom: andiSpace[6], width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' },
 
   card: {
     flexDirection: 'row', alignItems: 'center', gap: andiSpace[3],
@@ -282,12 +291,12 @@ const styles = StyleSheet.create({
     borderRadius: andiRadius.lg, padding: andiSpace[3],
   },
   cardIcon: { width: 36, height: 36, borderRadius: andiRadius.sm, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  cardIconText: { fontSize: 12, lineHeight: 12, fontWeight: '600', color: andiColors.n0 },
+  cardIconText: { fontSize: r.scaleFont(12), lineHeight: 12, fontWeight: '600', color: andiColors.n0 },
   cardTitle: { color: andiColors.onSurface },
   cardMeta: { color: andiColors.onSurfaceVariant, marginTop: 2 },
   statusTag: { backgroundColor: andiColors.successContainer, borderRadius: andiRadius.full, paddingHorizontal: 10, paddingVertical: 3 },
   statusTagInactive: { backgroundColor: andiColors.surfaceMid },
-  statusTagText: { fontSize: 10, lineHeight: 14, fontWeight: '600', color: andiColors.onSuccessContainer, textTransform: 'uppercase' },
+  statusTagText: { fontSize: r.scaleFont(10), lineHeight: 14, fontWeight: '600', color: andiColors.onSuccessContainer, textTransform: 'uppercase' },
   statusTagTextInactive: { color: andiColors.onSurfaceVariant },
 
   overlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end' },
@@ -298,18 +307,18 @@ const styles = StyleSheet.create({
   },
   handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center', marginBottom: andiSpace[4] },
   formHeader: { marginBottom: andiSpace[2] },
-  formLabel: { fontSize: 13, fontWeight: '600', color: andiColors.onSurface, marginBottom: andiSpace[2], marginTop: andiSpace[3] },
+  formLabel: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.onSurface, marginBottom: andiSpace[2], marginTop: andiSpace[3] },
   input: {
     borderWidth: 1, borderColor: andiColors.outlineVariant, borderRadius: andiRadius.full,
-    backgroundColor: andiColors.surfaceMid, paddingHorizontal: andiSpace[4], height: 44, fontSize: 14, color: andiColors.onSurface,
+    backgroundColor: andiColors.surfaceMid, paddingHorizontal: andiSpace[4], height: 44, fontSize: r.scaleFont(14), color: andiColors.onSurface,
   },
   mapHint: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[2] },
   formMap: { height: 180, borderRadius: andiRadius.lg, overflow: 'hidden' },
   coordText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2], textAlign: 'center' },
   actionRow: { flexDirection: 'row', gap: andiSpace[2], marginTop: andiSpace[5] },
   cancelBtn: { minHeight: 56, paddingHorizontal: andiSpace[5], borderRadius: andiRadius.full, borderWidth: 1, borderColor: andiColors.outline, alignItems: 'center', justifyContent: 'center' },
-  cancelBtnText: { fontSize: 14, fontWeight: '600', color: andiColors.onSurface },
+  cancelBtnText: { fontSize: r.scaleFont(14), fontWeight: '600', color: andiColors.onSurface },
   saveBtn: { flex: 1, minHeight: 56, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { fontSize: 16, fontWeight: '600', color: andiColors.n0 },
+  saveBtnText: { fontSize: r.scaleFont(16), fontWeight: '600', color: andiColors.n0 },
 });

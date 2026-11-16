@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator,
   TextInput, TouchableOpacity, FlatList,
@@ -13,7 +13,8 @@ import { reportesAPI, siasarAPI, usuariosAPI, entidadesAPI, auditoriaAPI } from 
 import { useAuth } from '../../context/AuthContext';
 import type { EstadisticasResponse, ResumenMunicipio } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType, andiRadius, andiElevation, andiSpace, andiSeverityColor } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, andiSeverityColor } from '../../theme/andi';
+import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Nav = BottomTabNavigationProp<AdminTabParamList, 'Panel'>;
 
@@ -63,6 +64,9 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(andiType), [andiType]);
 
   const [stats, setStats] = useState<EstadisticasResponse | null>(null);
   const [resumenSiasar, setResumenSiasar] = useState<ResumenMunicipio[]>([]);
@@ -150,11 +154,12 @@ export default function DashboardScreen() {
       </LinearGradient>
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(true); }} colors={[andiColors.primary600]} />
         }
       >
+        <View style={{ width: '100%', maxWidth: r.maxContentWidth(900) }}>
         {/* KPI tiles */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kpiRow}>
           <View style={styles.kpiTile}>
@@ -231,7 +236,7 @@ export default function DashboardScreen() {
         <View style={styles.searchWrap}>
           <Feather name="search" size={16} color={andiColors.onSurfaceVariant} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { fontSize: r.scaleFont(13) }]}
             placeholder="Buscar municipio…"
             placeholderTextColor={andiColors.onSurfaceVariant}
             value={busquedaMunicipio}
@@ -263,12 +268,13 @@ export default function DashboardScreen() {
             </View>
           }
         />
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3] },

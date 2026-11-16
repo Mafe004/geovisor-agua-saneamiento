@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform,
@@ -10,11 +10,14 @@ import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import { usuariosAPI } from '../../api/services';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForgotPassword'>;
 
 export default function ForgotPasswordScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [correo, setCorreo] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -117,14 +120,16 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: andiColors.primary900 },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'flex-end' },
+  scroll: { flexGrow: 1, justifyContent: 'flex-end', alignItems: 'center' },
   hero: { alignItems: 'center', paddingTop: '25%', paddingBottom: andiSpace[8], paddingHorizontal: andiSpace[6] },
-  appName: { ...andiType.headingLg, color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },
-  tagline: { ...andiType.bodySm, color: andiColors.primary200, marginTop: andiSpace[2], textAlign: 'center' },
+  appName: { ...r.scaleType(andiType.headingLg), color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },
+  tagline: { ...r.scaleType(andiType.bodySm), color: andiColors.primary200, marginTop: andiSpace[2], textAlign: 'center' },
   card: {
+    width: '100%',
+    maxWidth: r.maxContentWidth(480),
     backgroundColor: andiColors.surface,
     borderTopLeftRadius: andiRadius.xl,
     borderTopRightRadius: andiRadius.xl,
@@ -133,7 +138,7 @@ const styles = StyleSheet.create({
     paddingBottom: andiSpace[10],
   },
   label: {
-    ...andiType.labelSm,
+    ...r.scaleType(andiType.labelSm),
     textTransform: 'uppercase',
     letterSpacing: 1.5,
     color: andiColors.onSurfaceVariant,
@@ -150,7 +155,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: 15, color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -163,7 +168,7 @@ const styles = StyleSheet.create({
     backgroundColor: andiColors.error50,
     borderRadius: andiRadius.xs,
   },
-  errorText: { ...andiType.bodySm, color: andiColors.error700, flexShrink: 1 },
+  errorText: { ...r.scaleType(andiType.bodySm), color: andiColors.error700, flexShrink: 1 },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -175,11 +180,11 @@ const styles = StyleSheet.create({
     backgroundColor: andiColors.success50,
     borderRadius: andiRadius.xs,
   },
-  successText: { ...andiType.bodySm, color: andiColors.success700, flexShrink: 1 },
+  successText: { ...r.scaleType(andiType.bodySm), color: andiColors.success700, flexShrink: 1 },
   btn: { marginTop: andiSpace[6], borderRadius: andiRadius.full, overflow: 'hidden' },
   btnDisabled: { opacity: 0.6 },
   btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
-  btnText: { ...andiType.label, color: andiColors.surface, letterSpacing: 0.5 },
+  btnText: { ...r.scaleType(andiType.label), color: andiColors.surface, letterSpacing: 0.5 },
   linkRow: { alignItems: 'center', marginTop: andiSpace[6] },
-  linkText: { ...andiType.bodySm, color: andiColors.primary600 },
+  linkText: { ...r.scaleType(andiType.bodySm), color: andiColors.primary600 },
 });

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useResponsive, type Responsive } from '../theme/responsive';
 
 // Los estados/severidades son catálogos de la BD (ver domain.ts) -- las
 // claves de este mapa son solo los valores conocidos hoy para darles un
@@ -31,6 +32,8 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ status, type = 'status', size = 'sm' }: StatusBadgeProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   // (status ?? '') en vez de status? -- mismo resultado: ninguna clave real
   // del mapa es "" ni "undefined", así que un status vacío/ausente sigue
   // cayendo en el mismo fallback que antes.
@@ -59,7 +62,7 @@ export default function StatusBadge({ status, type = 'status', size = 'sm' }: St
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -80,11 +83,11 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   label: {
-    fontSize: 11,
+    fontSize: r.scaleFont(11),
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   labelLg: {
-    fontSize: 13,
+    fontSize: r.scaleFont(13),
   },
 });

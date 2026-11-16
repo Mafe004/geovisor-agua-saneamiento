@@ -1,8 +1,8 @@
-# 💧 GeoVisor — Agua y Saneamiento · Zipaquirá
+# 💧 GeoVisor — Agua y Saneamiento · Cundinamarca
 
 Sistema de gestión y visualización geoespacial de reportes de agua potable y saneamiento básico del municipio de Zipaquirá, Cundinamarca.
 
-> 🎓 Proyecto de Tesis de Grado — 2025
+> 🎓 Proyecto de Tesis de Grado — 2026
 
 ---
 
@@ -117,4 +117,4 @@ Ver lista completa en el README de la rama `backend`.
 
 ---
 
-*Municipio de Zipaquirá · Cundinamarca · Colombia*
+*Municipio de  · Cundinamarca · Colombia*

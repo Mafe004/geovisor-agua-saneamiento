@@ -33,7 +33,9 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements-dev.txt
       - run: ruff check app/
-      - run: pytest --cov=app --cov-report=term-missing
+      # Plain `pytest` (unlike `python -m pytest`) doesn't put the cwd on
+      # sys.path, so conftest.py's `from app...` imports fail without this.
+      - run: PYTHONPATH=. pytest --cov=app --cov-report=term-missing
 
   frontend:
     runs-on: ubuntu-latest

@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { historialAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
-import { andiColors, andiRadius, andiSpace, andiType, andiOverlineDecor, andiStatusPill } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill } from '../../theme/andi';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { HistorialEntry } from '../../types/domain';
 
 function formatTime(d: string | undefined) {
@@ -31,6 +32,9 @@ function estadoLabel(nombre: string) {
 interface Group { label: string; items: HistorialEntry[] }
 
 export default function HistorialScreen() {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(r), [r]);
   const { user } = useContext(AuthContext);
   const [historial, setHistorial] = useState<HistorialEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,7 +146,7 @@ export default function HistorialScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   weekStatRow: {
     flexDirection: 'row', alignItems: 'baseline', gap: andiSpace[2],
@@ -157,7 +161,7 @@ const styles = StyleSheet.create({
   retryBtn: { marginTop: andiSpace[4], backgroundColor: andiColors.primary600, borderRadius: andiRadius.full, paddingHorizontal: andiSpace[5], paddingVertical: andiSpace[3] },
   retryText: { color: andiColors.n0, fontWeight: '700' },
 
-  list: { paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[6] },
+  list: { paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[6], width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' },
   dayLabel: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[2], marginTop: andiSpace[2] },
 
   entryRow: { flexDirection: 'row', gap: andiSpace[3] },
@@ -166,11 +170,11 @@ const styles = StyleSheet.create({
   timelineLine: { flex: 1, width: 2, backgroundColor: andiColors.outlineVariant, marginTop: 2 },
   entryContent: { flex: 1, paddingBottom: andiSpace[4] },
   entryHeaderRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: andiSpace[2], marginBottom: 4 },
-  entryId: { fontFamily: 'monospace', fontSize: 12, lineHeight: 16, fontWeight: '500', color: andiColors.onSurfaceVariant },
+  entryId: { fontFamily: 'monospace', fontSize: r.scaleFont(12), lineHeight: 16, fontWeight: '500', color: andiColors.onSurfaceVariant },
   entryTransition: { color: andiColors.onSurfaceVariant },
   entryTransitionStrong: { color: andiColors.onSurface, fontWeight: '700' },
   tuTag: { backgroundColor: andiColors.primary50, borderRadius: andiRadius.full, paddingHorizontal: 8, paddingVertical: 2 },
-  tuTagText: { fontSize: 10, lineHeight: 14, fontWeight: '600', color: andiColors.primary700, textTransform: 'uppercase' },
+  tuTagText: { fontSize: r.scaleFont(10), lineHeight: 14, fontWeight: '600', color: andiColors.primary700, textTransform: 'uppercase' },
   entryComment: { color: andiColors.onSurface },
   entryMeta: { color: andiColors.onSurfaceVariant, marginTop: 4 },
 });

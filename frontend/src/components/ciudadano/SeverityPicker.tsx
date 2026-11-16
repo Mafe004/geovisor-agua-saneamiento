@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, SEVERITY_META } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 const OPTIONS = ['BAJA', 'MEDIA', 'ALTA'] as const;
 export type SeveridadKey = (typeof OPTIONS)[number];
@@ -11,6 +12,8 @@ interface SeverityPickerProps {
 }
 
 export default function SeverityPicker({ value, onChange }: SeverityPickerProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <View style={styles.row}>
       {OPTIONS.map((key) => {
@@ -34,7 +37,7 @@ export default function SeverityPicker({ value, onChange }: SeverityPickerProps)
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   row: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
   option: {
     flex: 1,
@@ -54,6 +57,6 @@ const styles = StyleSheet.create({
     backgroundColor: ANDI_COLORS.primary50,
   },
   dot: { width: 12, height: 12, borderRadius: 6 },
-  label: { fontSize: 12, fontWeight: '600', color: ANDI_COLORS.onSurface },
+  label: { fontSize: r.scaleFont(12), fontWeight: '600', color: ANDI_COLORS.onSurface },
   labelSelected: { color: ANDI_COLORS.primary900 },
 });

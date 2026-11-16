@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { EstadoReporteItem } from '../types/domain';
+import { useResponsive, type Responsive } from '../theme/responsive';
 
 interface EstadoChipsProps {
   estados: EstadoReporteItem[];
@@ -10,6 +11,8 @@ interface EstadoChipsProps {
 }
 
 export default function EstadoChips({ estados, selectedId, currentNombre, onSelect }: EstadoChipsProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <View style={styles.grid}>
       {estados.map(e => (
@@ -34,7 +37,7 @@ export default function EstadoChips({ estados, selectedId, currentNombre, onSele
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   chip: {
     paddingHorizontal: 12, paddingVertical: 7,
@@ -43,6 +46,6 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
   chipCurrent: { borderColor: '#059669', borderWidth: 2 },
-  chipText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  chipText: { fontSize: r.scaleFont(12), fontWeight: '600', color: '#374151' },
   chipTextActive: { color: '#fff' },
 });

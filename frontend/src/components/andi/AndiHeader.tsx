@@ -1,7 +1,8 @@
 import React, { type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { andiColors, andiSpace, andiType, andiOverlineDecor, andiStatLabelDecor } from '../../theme/andi';
+import { andiColors, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatLabelDecor } from '../../theme/andi';
+import { useScaledType } from '../../theme/responsive';
 
 interface Stat {
   value: number | string;
@@ -33,6 +34,7 @@ interface AndiHeaderProps {
 export default function AndiHeader({
   onBack, kicker, overline, title, subtitle, stats, rightElement, headerExtra,
 }: AndiHeaderProps) {
+  const andiType = useScaledType(andiTypeBase);
   return (
     <View style={[styles.header, { paddingBottom: (stats && stats.length > 0) ? andiSpace[8] : andiSpace[6] }]}>
       <View style={styles.topRow}>

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_MONO, statusMeta } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import { StatusChip, SeverityChip, SyncChip } from './Chip';
 import type { Reporte } from '../../types/domain';
 
@@ -19,6 +20,8 @@ export interface DraftSummary {
 
 // Tarjeta ancla oscura: el reporte "vivo" (más reciente).
 export function AnchorReportCard({ reporte, onPress }: { reporte: Reporte; onPress?: (reporte: Reporte) => void }) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const meta = statusMeta(reporte.estado);
   return (
     <TouchableOpacity style={styles.anchor} onPress={() => onPress?.(reporte)} activeOpacity={0.85}>
@@ -46,6 +49,8 @@ export function AnchorReportCard({ reporte, onPress }: { reporte: Reporte; onPre
 
 // Borrador local sin terminar.
 export function DraftReportCard({ item, onResume }: { item: DraftSummary; onResume?: (item: DraftSummary) => void }) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <TouchableOpacity style={styles.draft} onPress={() => onResume?.(item)} activeOpacity={0.85}>
       <View style={styles.draftContent}>
@@ -60,6 +65,8 @@ export function DraftReportCard({ item, onResume }: { item: DraftSummary; onResu
 
 // Tarjeta neutra: el resto de reportes sincronizados con el servidor.
 export default function ReportCard({ reporte, onPress }: { reporte: Reporte; onPress?: (reporte: Reporte) => void }) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <TouchableOpacity style={styles.neutral} onPress={() => onPress?.(reporte)} activeOpacity={0.85}>
       <View style={styles.neutralTop}>
@@ -75,30 +82,30 @@ export default function ReportCard({ reporte, onPress }: { reporte: Reporte; onP
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   // Anchor
   anchor: { backgroundColor: ANDI_COLORS.primary900, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
   anchorTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: ANDI_SPACING.s2 },
-  anchorId: { fontFamily: ANDI_MONO, fontSize: 12, color: ANDI_COLORS.primary200 },
+  anchorId: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(12), color: ANDI_COLORS.primary200 },
   anchorChip: { flexDirection: 'row', paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 3, borderRadius: ANDI_RADIUS.full, borderWidth: 1 },
-  anchorChipText: { color: ANDI_COLORS.primary100, fontSize: 12, fontWeight: '600' },
-  anchorTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  anchorDesc: { color: ANDI_COLORS.primary100, fontSize: 12.5, marginTop: 4 },
+  anchorChipText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
+  anchorTitle: { color: '#fff', fontSize: r.scaleFont(15), fontWeight: '600' },
+  anchorDesc: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12.5), marginTop: 4 },
   anchorFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: ANDI_SPACING.s3 },
-  anchorMeta: { color: ANDI_COLORS.primary200, fontSize: 11.5 },
+  anchorMeta: { color: ANDI_COLORS.primary200, fontSize: r.scaleFont(11.5) },
 
   // Draft
   draft: { backgroundColor: ANDI_COLORS.surface, borderWidth: 1, borderStyle: 'dashed', borderColor: ANDI_COLORS.outline, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4, flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   draftContent: { flex: 1 },
-  draftTitle: { fontSize: 13, fontWeight: '600', color: ANDI_COLORS.onSurface, marginTop: 4 },
-  draftMeta: { fontSize: 11.5, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
-  draftAction: { fontSize: 12, fontWeight: '600', color: ANDI_COLORS.primary700 },
+  draftTitle: { fontSize: r.scaleFont(13), fontWeight: '600', color: ANDI_COLORS.onSurface, marginTop: 4 },
+  draftMeta: { fontSize: r.scaleFont(11.5), color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
+  draftAction: { fontSize: r.scaleFont(12), fontWeight: '600', color: ANDI_COLORS.primary700 },
 
   // Neutral
   neutral: { backgroundColor: ANDI_COLORS.surface, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4, marginBottom: ANDI_SPACING.s3 },
   neutralTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: ANDI_SPACING.s2 },
-  neutralId: { fontFamily: ANDI_MONO, fontSize: 12, color: ANDI_COLORS.onSurfaceVariant },
-  neutralTitle: { fontSize: 14, color: ANDI_COLORS.onSurface, lineHeight: 20 },
+  neutralId: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(12), color: ANDI_COLORS.onSurfaceVariant },
+  neutralTitle: { fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface, lineHeight: r.scaleFont(20) },
   neutralFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: ANDI_SPACING.s3 },
-  neutralDate: { fontSize: 11.5, color: ANDI_COLORS.onSurfaceVariant },
+  neutralDate: { fontSize: r.scaleFont(11.5), color: ANDI_COLORS.onSurfaceVariant },
 });

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { andiColors, andiRadius, andiSpace, andiType } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase } from '../../theme/andi';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 
 interface AndiEmptyStateProps {
   icon?: keyof typeof Feather.glyphMap;
@@ -21,6 +22,9 @@ export default function AndiEmptyState({
   icon = 'check', title, body, ctaLabel, onPressCta,
   ctaVariant = 'outline', iconBg = andiColors.successContainer, iconFg = andiColors.onSuccessContainer,
 }: AndiEmptyStateProps) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(r), [r]);
   return (
     <View style={styles.container}>
       <View style={[styles.circle, { backgroundColor: iconBg }]}>
@@ -40,17 +44,17 @@ export default function AndiEmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: andiSpace[6] },
   circle: {
     width: 120, height: 120, borderRadius: andiRadius.full,
     alignItems: 'center', justifyContent: 'center', marginBottom: andiSpace[5],
   },
   title: { color: andiColors.onSurface, marginBottom: andiSpace[2], textAlign: 'center' },
-  body: { color: andiColors.onSurfaceVariant, textAlign: 'center', maxWidth: 290, marginBottom: andiSpace[6] },
+  body: { color: andiColors.onSurfaceVariant, textAlign: 'center', maxWidth: r.isTablet ? 420 : 290, marginBottom: andiSpace[6] },
   cta: { minHeight: 48, paddingHorizontal: andiSpace[6], borderRadius: andiRadius.full, alignItems: 'center', justifyContent: 'center' },
   ctaOutline: { borderWidth: 1, borderColor: andiColors.outline },
   ctaSolid: { backgroundColor: andiColors.accent500 },
-  ctaText: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: andiColors.onSurface },
+  ctaText: { fontSize: r.scaleFont(14), lineHeight: r.scaleFont(20), fontWeight: '600', color: andiColors.onSurface },
   ctaTextSolid: { color: andiColors.n0 },
 });

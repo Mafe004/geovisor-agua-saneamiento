@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, KeyboardAvoidingView, Platform, type NativeSyntheticEvent, type TextInputKeyPressEventData,
@@ -9,6 +9,7 @@ import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 import { Rol } from '../../types/models';
 import { invitacionesAPI } from '../../api/services';
 
@@ -73,6 +74,8 @@ async function validarCodigo(codigo: string): Promise<ValidarCodigoResult> {
 type ConfirmResult = { rol: RolCodigo; entidad: string | null; invitadoPor: string; diasRestantes: number };
 
 export default function InvitacionScreen({ navigation }: Props) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'expired' | 'used' | 'invalid' | null>(null);
@@ -141,6 +144,7 @@ export default function InvitacionScreen({ navigation }: Props) {
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={styles.contentWrap}>
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
         <Feather name="arrow-left" size={22} color={andiColors.surface} />
       </TouchableOpacity>
@@ -235,31 +239,33 @@ export default function InvitacionScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       )}
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: andiColors.primary900, paddingHorizontal: andiSpace[6] },
+const makeStyles = (r: Responsive) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: andiColors.primary900, paddingHorizontal: andiSpace[6], alignItems: 'center' },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(480), flex: 1 },
   backBtn: { marginTop: andiSpace[10], alignSelf: 'flex-start', padding: andiSpace[2] },
   hero: { alignItems: 'center', marginTop: andiSpace[6] },
-  title: { ...andiType.headingLg, color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },
-  subtitle: { ...andiType.bodySm, color: andiColors.primary200, marginTop: andiSpace[2], textAlign: 'center' },
+  title: { ...r.scaleType(andiType.headingLg), color: andiColors.surface, marginTop: andiSpace[4], textAlign: 'center' },
+  subtitle: { ...r.scaleType(andiType.bodySm), color: andiColors.primary200, marginTop: andiSpace[2], textAlign: 'center' },
   otpRow: { flexDirection: 'row', justifyContent: 'center', gap: andiSpace[2], marginTop: andiSpace[8] },
   otpCell: {
-    width: 48,
-    height: 56,
+    width: Math.max(38, Math.min(56, r.scaleWidth(48))),
+    height: Math.max(48, Math.min(64, r.scaleHeight(56))),
     borderWidth: 1.5,
     borderColor: andiColors.outline,
     borderRadius: andiRadius.md,
     backgroundColor: andiColors.surface,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: r.scaleFont(20),
     color: andiColors.onSurface,
   },
   otpCellFilled: { borderColor: andiColors.primary400 },
   solicitarAccesoLink: { alignItems: 'center', marginTop: andiSpace[6] },
-  solicitarAccesoText: { ...andiType.bodySm, color: andiColors.primary200, textDecorationLine: 'underline', textAlign: 'center' },
+  solicitarAccesoText: { ...r.scaleType(andiType.bodySm), color: andiColors.primary200, textDecorationLine: 'underline', textAlign: 'center' },
   banner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -273,9 +279,9 @@ const styles = StyleSheet.create({
   bannerWarning: { borderLeftColor: andiColors.warning600, backgroundColor: andiColors.warning50 },
   bannerError: { borderLeftColor: andiColors.error600, backgroundColor: andiColors.error50 },
   bannerTextWrap: { flex: 1 },
-  bannerTextWarning: { ...andiType.bodySm, color: andiColors.warning700 },
-  bannerTextError: { ...andiType.bodySm, color: andiColors.error700, flex: 1 },
-  bannerLink: { ...andiType.bodySm, color: andiColors.primary600, fontWeight: '700', marginTop: andiSpace[1] },
+  bannerTextWarning: { ...r.scaleType(andiType.bodySm), color: andiColors.warning700 },
+  bannerTextError: { ...r.scaleType(andiType.bodySm), color: andiColors.error700, flex: 1 },
+  bannerLink: { ...r.scaleType(andiType.bodySm), color: andiColors.primary600, fontWeight: '700', marginTop: andiSpace[1] },
   confirmCard: {
     backgroundColor: andiColors.surface,
     borderRadius: andiRadius.xl,
@@ -284,16 +290,16 @@ const styles = StyleSheet.create({
     marginTop: andiSpace[8],
   },
   confirmRoleLabel: {
-    ...andiType.labelMd,
+    ...r.scaleType(andiType.labelMd),
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     color: andiColors.onSurfaceVariant,
     marginTop: andiSpace[3],
   },
-  confirmEntidad: { ...andiType.headingMd, color: andiColors.onSurface, marginTop: andiSpace[1], minHeight: 26, textAlign: 'center' },
+  confirmEntidad: { ...r.scaleType(andiType.headingMd), color: andiColors.onSurface, marginTop: andiSpace[1], minHeight: 26, textAlign: 'center' },
   confirmMetaRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2], marginTop: andiSpace[3] },
-  confirmMetaText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant },
+  confirmMetaText: { ...r.scaleType(andiType.bodySm), color: andiColors.onSurfaceVariant },
   confirmBtn: { alignSelf: 'stretch', borderRadius: andiRadius.full, overflow: 'hidden', marginTop: andiSpace[6] },
   confirmBtnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
-  confirmBtnText: { ...andiType.label, color: andiColors.surface, letterSpacing: 0.5 },
+  confirmBtnText: { ...r.scaleType(andiType.label), color: andiColors.surface, letterSpacing: 0.5 },
 });

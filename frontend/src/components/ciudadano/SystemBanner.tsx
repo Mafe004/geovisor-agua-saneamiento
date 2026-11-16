@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
+import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Tone = 'warning' | 'error' | 'info' | 'success';
 
@@ -21,6 +22,8 @@ interface SystemBannerProps {
 }
 
 export default function SystemBanner({ tone = 'info', icon, title, message, actionLabel, onAction }: SystemBannerProps) {
+  const r = useResponsive();
+  const styles = useMemo(() => makeStyles(r), [r]);
   const t = TONES[tone];
   return (
     <View style={[styles.banner, { backgroundColor: t.bg, borderColor: t.border }]}>
@@ -40,7 +43,7 @@ export default function SystemBanner({ tone = 'info', icon, title, message, acti
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   banner: {
     flexDirection: 'row',
     gap: ANDI_SPACING.s3,
@@ -53,10 +56,10 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16, flexShrink: 0,
     alignItems: 'center', justifyContent: 'center',
   },
-  icon: { fontSize: 15, color: '#fff' },
+  icon: { fontSize: r.scaleFont(15), color: '#fff' },
   content: { flex: 1 },
-  title: { ...ANDI_TYPE.label },
-  message: { ...ANDI_TYPE.caption, marginTop: 2 },
+  title: { ...r.scaleType(ANDI_TYPE.label) },
+  message: { ...r.scaleType(ANDI_TYPE.caption), marginTop: 2 },
   actionBtn: {
     marginTop: ANDI_SPACING.s2, alignSelf: 'flex-start',
     minHeight: 40, paddingHorizontal: ANDI_SPACING.s4,
@@ -64,5 +67,5 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: ANDI_COLORS.surface,
   },
-  actionText: { ...ANDI_TYPE.label, fontSize: 12 },
+  actionText: { ...ANDI_TYPE.label, fontSize: r.scaleFont(12) },
 });

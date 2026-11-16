@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, Modal, KeyboardAvoidingView, Platform, ScrollView, Alert,
@@ -6,7 +6,8 @@ import {
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import { reportesAPI } from '../../api/services';
-import { andiColors, andiRadius, andiSpace, andiType, andiOverlineDecor, andiStatusPill, andiElevation } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiElevation } from '../../theme/andi';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem, EntidadDetalle } from '../../types/domain';
 
 interface TriageSheetProps {
@@ -25,6 +26,9 @@ const ESTADO_ORDEN = ['RESUELTO', 'EN_PROCESO', 'EN_REVISION', 'PENDIENTE'];
 export default function TriageSheet({
   visible, reporte, estadosDisponibles, entidades, onClose, onSaved,
 }: TriageSheetProps) {
+  const r = useResponsive();
+  const andiType = useScaledType(andiTypeBase);
+  const styles = useMemo(() => makeStyles(r), [r]);
   const [idEntidad, setIdEntidad] = useState<number | null>(null);
   const [changingEntidad, setChangingEntidad] = useState(false);
   const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
@@ -88,7 +92,7 @@ export default function TriageSheet({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kbWrap}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
           <View style={[styles.card, andiElevation[4]]}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.handle} />
@@ -205,8 +209,8 @@ export default function TriageSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end' },
+const makeStyles = (r: Responsive) => StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end', alignItems: 'center' },
   kbWrap: { width: '100%' },
   card: {
     backgroundColor: andiColors.surface,
@@ -237,7 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: andiColors.surface, borderWidth: 1, borderColor: andiColors.info,
     alignItems: 'center', justifyContent: 'center',
   },
-  changeBtnText: { fontSize: 12, lineHeight: 16, fontWeight: '600', color: andiColors.onInfoContainer },
+  changeBtnText: { fontSize: r.scaleFont(12), lineHeight: 16, fontWeight: '600', color: andiColors.onInfoContainer },
 
   entidadGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2], marginTop: andiSpace[3] },
   entidadChip: {
@@ -246,7 +250,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: andiColors.outline,
   },
   entidadChipActive: { backgroundColor: andiColors.primary600, borderColor: andiColors.primary600 },
-  entidadChipText: { fontSize: 12, lineHeight: 16, fontWeight: '600', color: andiColors.onSurface },
+  entidadChipText: { fontSize: r.scaleFont(12), lineHeight: 16, fontWeight: '600', color: andiColors.onSurface },
   entidadChipTextActive: { color: andiColors.n0 },
 
   estadoPill: {
@@ -256,13 +260,13 @@ const styles = StyleSheet.create({
   },
   estadoPillDimmed: { opacity: 0.55 },
   estadoDot: { width: 8, height: 8, borderRadius: 4 },
-  estadoPillText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  estadoPillText: { fontSize: r.scaleFont(13), lineHeight: 18, fontWeight: '600' },
   helperText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2] },
 
   comentarioInput: {
     backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outlineVariant,
     borderRadius: andiRadius.lg, padding: andiSpace[3], minHeight: 64,
-    fontSize: 14, lineHeight: 20, color: andiColors.onSurface,
+    fontSize: r.scaleFont(14), lineHeight: 20, color: andiColors.onSurface,
   },
 
   actionRow: { flexDirection: 'row', gap: andiSpace[2] },
@@ -270,11 +274,11 @@ const styles = StyleSheet.create({
     minHeight: 56, paddingHorizontal: andiSpace[5], borderRadius: andiRadius.full,
     borderWidth: 1, borderColor: andiColors.outline, alignItems: 'center', justifyContent: 'center',
   },
-  cancelBtnText: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: andiColors.onSurface },
+  cancelBtnText: { fontSize: r.scaleFont(14), lineHeight: 20, fontWeight: '600', color: andiColors.onSurface },
   saveBtn: {
     flex: 1, minHeight: 56, borderRadius: andiRadius.full,
     backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center',
   },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: andiColors.n0 },
+  saveBtnText: { fontSize: r.scaleFont(16), lineHeight: 22, fontWeight: '600', color: andiColors.n0 },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, type ReactNode } from 'react';
+import React, { useState, useContext, useEffect, useMemo, type ReactNode } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, TextInput,
@@ -15,7 +15,8 @@ import EstadoChips from '../../components/EstadoChips';
 import MapaWebView from '../../components/MapaWebView';
 import AndiHeader from '../../components/andi/AndiHeader';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
-import { andiColors, andiRadius, andiSpace, andiType, andiElevation, andiStatusPill } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation, andiStatusPill } from '../../theme/andi';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import type { Reporte, EstadoReporteItem, ComunidadDetalle, HistorialEntry } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
@@ -110,8 +111,8 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
 
   if (!reporte) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emptyText}>No se encontró información del reporte.</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center' }}>No se encontró información del reporte.</Text>
       </View>
     );
   }
@@ -153,6 +154,8 @@ function ClassicDetalleView({
   onBack: () => void;
   onUpdated: (r: Reporte) => void;
 }) {
+  const responsive = useResponsive();
+  const styles = useMemo(() => makeStyles(responsive), [responsive]);
   const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
   const [comentario, setComentario] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -215,25 +218,26 @@ function ClassicDetalleView({
         onBack={onBack}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} nestedScrollEnabled>
+      <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]} nestedScrollEnabled>
+        <View style={styles.contentWrap}>
         <View style={styles.badgeRow}>
           <StatusBadge status={reporte.estado} type="status" size="lg" />
           <StatusBadge status={reporte.severidad} type="severity" size="lg" />
         </View>
 
-        <Section title="📝 Descripción">
+        <Section title="📝 Descripción" styles={styles}>
           <Text style={styles.description}>{reporte.descripcion || '—'}</Text>
         </Section>
 
-        <Section title="ℹ️ Detalles">
-          <DetailRow label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
-          <DetailRow label="Dirección" value={reporte.direccion || 'No especificada'} />
-          <DetailRow label="Reportado por" value={reporte.usuario || '—'} />
-          <DetailRow label="Fecha reporte" value={formatDate(reporte.created_at)} />
+        <Section title="ℹ️ Detalles" styles={styles}>
+          <DetailRow styles={styles} label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
+          <DetailRow styles={styles} label="Dirección" value={reporte.direccion || 'No especificada'} />
+          <DetailRow styles={styles} label="Reportado por" value={reporte.usuario || '—'} />
+          <DetailRow styles={styles} label="Fecha reporte" value={formatDate(reporte.created_at)} />
         </Section>
 
         {hasCoords && (
-          <Section title="📍 Ubicación">
+          <Section title="📍 Ubicación" styles={styles}>
             <MapaWebView
               style={styles.map}
               latitude={parseFloat(String(reporte.latitud))}
@@ -250,13 +254,13 @@ function ClassicDetalleView({
         )}
 
         {siasarDetalle && (
-          <Section title="📊 Diagnóstico oficial de la zona (SIASAR)">
+          <Section title="📊 Diagnóstico oficial de la zona (SIASAR)" styles={styles}>
             <SiasarComunidadInfo data={siasarDetalle} />
           </Section>
         )}
 
         {canChangeStatus && (
-          <Section title="🔄 Cambiar Estado">
+          <Section title="🔄 Cambiar Estado" styles={styles}>
             <EstadoChips
               estados={estadosDisponibles}
               selectedId={idEstadoNuevo}
@@ -295,6 +299,7 @@ function ClassicDetalleView({
             </TouchableOpacity>
           </Section>
         )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -310,6 +315,9 @@ function EntidadCierreView({
   onBack: () => void;
   onUpdated: (r: Reporte) => void;
 }) {
+  const responsive = useResponsive();
+  const andiStyles = useMemo(() => makeAndiStyles(responsive), [responsive]);
+  const andiType = useScaledType(andiTypeBase);
   // El backend no soporta una bitácora de avance sin cambio de estado --
   // "Sigue en proceso" es honesto sobre eso: no llama a la API, solo
   // descarta el cierre. "Resuelto" es la única transición real que hace.
@@ -376,7 +384,8 @@ function EntidadCierreView({
     return (
       <View style={andiStyles.container}>
         <AndiHeader kicker={`#${reporte.id_reporte}`} title="Reporte resuelto" />
-        <ScrollView contentContainerStyle={andiStyles.scroll}>
+        <ScrollView contentContainerStyle={[andiStyles.scroll, { alignItems: 'center' }]}>
+          <View style={andiStyles.contentWrap}>
           <View style={andiStyles.reciboIconWrap}>
             <Feather name="check-circle" size={56} color={andiColors.success} />
           </View>
@@ -399,6 +408,7 @@ function EntidadCierreView({
           <TouchableOpacity style={[andiStyles.saveBtn, andiElevation[2]]} onPress={onBack}>
             <Text style={andiStyles.saveBtnText}>Listo</Text>
           </TouchableOpacity>
+          </View>
         </ScrollView>
       </View>
     );
@@ -408,7 +418,8 @@ function EntidadCierreView({
     <View style={andiStyles.container}>
       <AndiHeader onBack={onBack} kicker={`#${reporte.id_reporte}`} title={reporte.descripcion || 'Reporte'} />
 
-      <ScrollView contentContainerStyle={andiStyles.scroll} nestedScrollEnabled>
+      <ScrollView contentContainerStyle={[andiStyles.scroll, { alignItems: 'center' }]} nestedScrollEnabled>
+        <View style={andiStyles.contentWrap}>
         {hasCoords ? (
           <MapaWebView
             style={andiStyles.map}
@@ -526,6 +537,7 @@ function EntidadCierreView({
             ? <ActivityIndicator color={andiColors.n0} />
             : <Text style={andiStyles.saveBtnText}>{errorMsg ? 'Reintentar' : (resolviendo ? 'Marcar como resuelto' : 'Guardar cambio')}</Text>}
         </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -533,7 +545,9 @@ function EntidadCierreView({
 
 /* ── Componentes auxiliares (vista clásica) ── */
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+type ClassicStyles = ReturnType<typeof makeStyles>;
+
+function Section({ title, children, styles }: { title: string; children: ReactNode; styles: ClassicStyles }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -542,7 +556,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value, styles }: { label: string; value: string; styles: ClassicStyles }) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -553,15 +567,16 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 /* ── Estilos: vista clásica ── */
 
-const styles = StyleSheet.create({
+const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  emptyText: { fontSize: 15, color: '#6B7280', textAlign: 'center' },
+  emptyText: { fontSize: r.scaleFont(15), color: '#6B7280', textAlign: 'center' },
   scroll: { padding: 16, paddingBottom: 40 },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
 
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
 
-  description: { fontSize: 15, color: '#1F2937', lineHeight: 22 },
+  description: { fontSize: r.scaleFont(15), color: '#1F2937', lineHeight: r.scaleFont(22) },
 
   section: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16,
@@ -569,36 +584,37 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#374151', marginBottom: 12 },
+  sectionTitle: { fontSize: r.scaleFont(14), fontWeight: '700', color: '#374151', marginBottom: 12 },
 
   detailRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
-  detailLabel: { fontSize: 13, color: '#6B7280', flex: 1 },
-  detailValue: { fontSize: 13, color: '#1F2937', fontWeight: '500', flex: 1.5, textAlign: 'right' },
+  detailLabel: { fontSize: r.scaleFont(13), color: '#6B7280', flex: 1 },
+  detailValue: { fontSize: r.scaleFont(13), color: '#1F2937', fontWeight: '500', flex: 1.5, textAlign: 'right' },
 
-  map: { height: 200, borderRadius: 12, overflow: 'hidden', marginBottom: 6 },
-  coordText: { fontSize: 11, color: '#9CA3AF', textAlign: 'center' },
+  map: { height: r.scaleHeight(200), borderRadius: 12, overflow: 'hidden', marginBottom: 6 },
+  coordText: { fontSize: r.scaleFont(11), color: '#9CA3AF', textAlign: 'center' },
 
-  commentLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  commentLabel: { fontSize: r.scaleFont(13), fontWeight: '600', color: '#374151', marginBottom: 6 },
   commentInput: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 10,
-    backgroundColor: '#F9FAFB', padding: 10, fontSize: 13,
+    backgroundColor: '#F9FAFB', padding: 10, fontSize: r.scaleFont(13),
     color: '#1F2937', minHeight: 80,
   },
   updateBtn: { marginTop: 14, borderRadius: 12, overflow: 'hidden' },
   updateBtnDisabled: { opacity: 0.6 },
   updateBtnGrad: { height: 48, justifyContent: 'center', alignItems: 'center' },
-  updateBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  updateBtnText: { color: '#fff', fontWeight: '700', fontSize: r.scaleFont(15) },
 });
 
 /* ── Estilos: vista Andi (Entidad) ── */
 
-const andiStyles = StyleSheet.create({
+const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceDim },
   scroll: { padding: andiSpace[5], paddingBottom: andiSpace[8], backgroundColor: andiColors.surface },
-  map: { height: 160, borderRadius: andiRadius.lg, overflow: 'hidden', marginBottom: andiSpace[3] },
+  contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
+  map: { height: r.scaleHeight(160), borderRadius: andiRadius.lg, overflow: 'hidden', marginBottom: andiSpace[3] },
   description: { color: andiColors.onSurface, marginBottom: andiSpace[4] },
 
   siasarCard: {
@@ -620,7 +636,7 @@ const andiStyles = StyleSheet.create({
     flex: 1, minHeight: 52, borderRadius: andiRadius.lg,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
   },
-  estadoPillText: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  estadoPillText: { fontSize: r.scaleFont(13), lineHeight: r.scaleFont(18), fontWeight: '600' },
 
   noCoordsCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2],
@@ -648,14 +664,14 @@ const andiStyles = StyleSheet.create({
     paddingHorizontal: andiSpace[3], paddingVertical: andiSpace[2], borderRadius: andiRadius.full,
     backgroundColor: andiColors.surfaceMid,
   },
-  reciboEstadoPillText: { fontSize: 13, fontWeight: '600', color: andiColors.onSurfaceVariant },
+  reciboEstadoPillText: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.onSurfaceVariant },
   reciboDuracion: { textAlign: 'center', color: andiColors.onSurfaceVariant, marginBottom: andiSpace[5] },
   reciboComentario: { color: andiColors.onSurface },
 
   textarea: {
     backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outlineVariant,
     borderRadius: andiRadius.lg, padding: andiSpace[3], minHeight: 76,
-    fontSize: 14, lineHeight: 20, color: andiColors.onSurface,
+    fontSize: r.scaleFont(14), lineHeight: r.scaleFont(20), color: andiColors.onSurface,
   },
   helperText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2] },
 
@@ -672,5 +688,5 @@ const andiStyles = StyleSheet.create({
 
   saveBtn: { minHeight: 56, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: andiColors.n0 },
+  saveBtnText: { fontSize: r.scaleFont(16), lineHeight: r.scaleFont(22), fontWeight: '600', color: andiColors.n0 },
 });

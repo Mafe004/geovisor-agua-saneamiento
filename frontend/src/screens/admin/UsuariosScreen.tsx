@@ -73,14 +73,7 @@ export default function UsuariosScreen({ route }: Props) {
     setFilter(route.params.filter as FilterKey);
   }
 
-  useEffect(() => { loadUsuarios(); }, []);
-  useEffect(() => () => {
-    if (undoShowTimer.current) clearTimeout(undoShowTimer.current);
-    if (undoHideTimer.current) clearTimeout(undoHideTimer.current);
-  }, []);
-
-  const loadUsuarios = async (silent = false) => {
-    if (!silent) setLoading(true);
+  const loadUsuarios = async () => {
     try {
       const res = await usuariosAPI.listar();
       setUsuarios(res.data || []);
@@ -91,6 +84,16 @@ export default function UsuariosScreen({ route }: Props) {
       setRefreshing(false);
     }
   };
+
+  // loadUsuarios también es el handler del RefreshControl y se reusa tras
+  // activar/suspender/deshacer -- no se puede inlinear como IIFE en este
+  // efecto sin duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadUsuarios(); }, []);
+  useEffect(() => () => {
+    if (undoShowTimer.current) clearTimeout(undoShowTimer.current);
+    if (undoHideTimer.current) clearTimeout(undoHideTimer.current);
+  }, []);
 
   const usuariosFiltrados = filter === 'TODOS' ? usuarios : usuarios.filter(u => u.estado_cuenta === filter);
   const selectionMode = selected.size > 0;
@@ -126,7 +129,7 @@ export default function UsuariosScreen({ route }: Props) {
     await Promise.allSettled(
       ids.map(id => usuariosAPI.cambiarEstado(id, { id_estado_cuenta: nuevoEstado }))
     );
-    await loadUsuarios(true);
+    await loadUsuarios();
     setApplying(false);
     setSelected(new Set());
     scheduleUndo(prev, label);
@@ -162,7 +165,7 @@ export default function UsuariosScreen({ route }: Props) {
       data.prev.map(p => usuariosAPI.cambiarEstado(p.id, { id_estado_cuenta: p.estado }))
     );
     undoData.current = null;
-    loadUsuarios(true);
+    loadUsuarios();
   };
 
   const selectedNames = usuarios.filter(u => selected.has(u.id_usuario)).map(u => u.nombre_completo);
@@ -207,7 +210,7 @@ export default function UsuariosScreen({ route }: Props) {
           keyExtractor={u => String(u.id_usuario)}
           contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadUsuarios(true); }} colors={[andiColors.primary600]} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadUsuarios(); }} colors={[andiColors.primary600]} />
           }
           renderItem={({ item }) => {
             const chip = ESTADO_CHIP[item.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;

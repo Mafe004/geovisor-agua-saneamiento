@@ -78,6 +78,9 @@ export default function CrearReporteScreen({ navigation, route }: Props) {
   // reporte -- ver crear_reporte en reportes.py). Debounce de ~600ms para
   // no llamar a /siasar/cercana en cada pixel que se arrastra el mapa.
   useEffect(() => {
+    // Reset síncrono a propósito: sin ubicación no hay nada que mostrar,
+    // no tiene sentido esperar un debounce para vaciarlo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!coordenadas) { setProximidadSiasar(null); return; }
     const id = setTimeout(() => {
       siasarAPI.cercana(coordenadas.latitude, coordenadas.longitude, 2000)

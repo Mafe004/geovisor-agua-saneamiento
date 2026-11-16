@@ -71,7 +71,7 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id_entidad]);
+  }, [user]);
 
   useFocusEffect(useCallback(() => {
     loadReportes();

@@ -59,7 +59,7 @@ export default function MisReportesScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.id_usuario]);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { loadAll(); }, [loadAll]));
 

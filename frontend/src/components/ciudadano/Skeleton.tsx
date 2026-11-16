@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, type DimensionValue, type ViewStyle } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS } from '../../theme/andi';
 
@@ -17,7 +17,10 @@ export default function Skeleton({
   style,
   delay = 0,
 }: SkeletonProps) {
-  const opacity = useRef(new Animated.Value(0.55)).current;
+  // useState con inicializador perezoso en vez de useRef(...).current --
+  // mismo valor estable entre renders, pero sin el lint del React Compiler
+  // "Cannot access refs during render" (ver components/andi/Toast.tsx).
+  const [opacity] = useState(() => new Animated.Value(0.55));
 
   useEffect(() => {
     const loop = Animated.loop(

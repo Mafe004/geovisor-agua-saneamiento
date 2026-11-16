@@ -51,10 +51,7 @@ export default function EntidadesScreen() {
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false);
   const [vinculandoId, setVinculandoId] = useState<number | null>(null);
 
-  useEffect(() => { loadEntidades(); }, []);
-
-  const loadEntidades = async (silent = false) => {
-    if (!silent) setLoading(true);
+  const loadEntidades = async () => {
     try {
       const res = await entidadesAPI.listar();
       const lista = res.data || [];
@@ -79,6 +76,12 @@ export default function EntidadesScreen() {
     }
   };
 
+  // loadEntidades también es el handler del RefreshControl y se reusa tras
+  // crear/activar/vincular -- no se puede inlinear como IIFE en este efecto
+  // sin duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadEntidades(); }, []);
+
   const handleToggle = async (entidad: EntidadDetalle) => {
     const activo = entidad.estado_cuenta === 'ACTIVO';
     setTogglingId(entidad.id_entidad);
@@ -86,7 +89,7 @@ export default function EntidadesScreen() {
       await entidadesAPI.cambiarEstado(entidad.id_entidad, {
         id_estado_cuenta: activo ? ESTADO_ID.INACTIVO : ESTADO_ID.ACTIVO,
       });
-      await loadEntidades(true);
+      await loadEntidades();
     } finally {
       setTogglingId(null);
     }
@@ -111,7 +114,7 @@ export default function EntidadesScreen() {
       setNuevaModalVisible(false);
       resetNuevaEntidad();
       toast.success('Entidad creada', `${nombreEntidad.trim()} fue registrada correctamente.`);
-      await loadEntidades(true);
+      await loadEntidades();
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
       toast.error('Error', msg || 'No se pudo crear la entidad.');
@@ -144,7 +147,7 @@ export default function EntidadesScreen() {
       await entidadesAPI.asignarUsuario(linkTarget.id_entidad, usuario.id_usuario);
       toast.success('Usuario vinculado', `${usuario.nombre_completo} ahora gestiona ${linkTarget.nombre_entidad}.`);
       setLinkTarget(null);
-      await loadEntidades(true);
+      await loadEntidades();
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
       toast.error('Error', msg || 'No se pudo vincular el usuario.');
@@ -173,7 +176,7 @@ export default function EntidadesScreen() {
         <ScrollView
           contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadEntidades(true); }} colors={[andiColors.primary600]} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadEntidades(); }} colors={[andiColors.primary600]} />
           }
         >
         <View style={{ width: '100%', maxWidth: r.maxContentWidth(700) }}>

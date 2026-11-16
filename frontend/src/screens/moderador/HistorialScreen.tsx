@@ -29,6 +29,15 @@ function estadoLabel(nombre: string) {
   return (andiStatusPill[nombre]?.label) ?? nombre.replace(/_/g, ' ');
 }
 
+/** Function-level helper (no un literal `Date.now()` dentro del componente)
+ * -- el React Compiler marca una llamada directa a Date.now() en el cuerpo
+ * de un componente como "impura" (podría quedar memoizada con un valor
+ * viejo); mismo patrón que dayLabel/formatTime arriba. */
+function esDeEstaSemana(fechaCambio: string): boolean {
+  const dias = (Date.now() - new Date(fechaCambio).getTime()) / 86400000;
+  return dias <= 7;
+}
+
 interface Group { label: string; items: HistorialEntry[] }
 
 export default function HistorialScreen() {
@@ -39,8 +48,6 @@ export default function HistorialScreen() {
   const [historial, setHistorial] = useState<HistorialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
-  useEffect(() => { loadHistorial(); }, []);
 
   const loadHistorial = async () => {
     setLoading(true);
@@ -55,10 +62,12 @@ export default function HistorialScreen() {
     }
   };
 
-  const cambiosEstaSemana = historial.filter(h => {
-    const days = (Date.now() - new Date(h.fecha_cambio).getTime()) / 86400000;
-    return days <= 7;
-  }).length;
+  // loadHistorial también es el botón "Reintentar" del estado de error --
+  // no se puede inlinear como IIFE en este efecto sin duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadHistorial(); }, []);
+
+  const cambiosEstaSemana = historial.filter(h => esDeEstaSemana(h.fecha_cambio)).length;
 
   const groups: Group[] = [];
   for (const item of historial) {

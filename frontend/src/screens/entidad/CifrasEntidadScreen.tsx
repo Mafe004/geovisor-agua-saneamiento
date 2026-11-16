@@ -46,7 +46,7 @@ export default function CifrasEntidadScreen() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id_entidad]);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

@@ -31,6 +31,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DetalleReporte'>;
 function useSiasarDiagnostico(idSiasar: number | undefined): ComunidadDetalle | null {
   const [detalle, setDetalle] = useState<ComunidadDetalle | null>(null);
   useEffect(() => {
+    // Reset síncrono a propósito: sin vínculo SIASAR no hay nada que mostrar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (idSiasar == null) { setDetalle(null); return; }
     let mounted = true;
     siasarAPI.comunidad(idSiasar)
@@ -54,7 +56,10 @@ function useHistorialReporte(idReporte: number): { historial: HistorialEntry[]; 
   const [cargando, setCargando] = useState(true);
   useEffect(() => {
     let mounted = true;
-    setCargando(true);
+    // Sin setCargando(true) acá -- `cargando` ya arranca en `true` (ver
+    // useState arriba) y en la práctica este efecto solo corre una vez
+    // (idReporte no cambia durante la vida de esta pantalla), así que
+    // volver a ponerlo sería un no-op redundante.
     historialAPI.porReporte(idReporte)
       .then(res => { if (mounted) setHistorial(res.data || []); })
       .catch(() => { if (mounted) setHistorial([]); })

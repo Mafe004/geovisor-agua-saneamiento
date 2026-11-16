@@ -67,11 +67,6 @@ export default function AuditoriaScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Un solo efecto por [filter] cubre tanto el mount inicial (primera
-  // ejecución) como cada cambio de filtro después -- evita el doble
-  // fetch que resultaría de un efecto de mount aparte más uno por filtro.
-  useEffect(() => { loadLogs(); }, [filter]);
-
   const loadLogs = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
@@ -87,6 +82,15 @@ export default function AuditoriaScreen() {
       setRefreshing(false);
     }
   };
+
+  // Un solo efecto por [filter] cubre tanto el mount inicial (primera
+  // ejecución) como cada cambio de filtro después -- evita el doble
+  // fetch que resultaría de un efecto de mount aparte más uno por filtro.
+  // loadLogs hace setLoading(true) síncrono (necesario: muestra el spinner
+  // de pantalla completa de nuevo al cambiar de filtro, no es un no-op
+  // como en otras pantallas donde loading ya arranca en true).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadLogs(); }, [filter]);
 
   return (
     <View style={styles.container}>

@@ -60,8 +60,6 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
   const [tokenModal, setTokenModal] = useState<{ token: string; nota: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => { load(); }, []);
-
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     setLoadError(null);
@@ -76,6 +74,12 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
       setRefreshing(false);
     }
   };
+
+  // load también es el botón "Reintentar" del estado de error y el handler
+  // del RefreshControl -- no se puede inlinear como IIFE en este efecto sin
+  // duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load(); }, []);
 
   const toggleExpanded = (id: number) => {
     setExpandedIds(prev => {

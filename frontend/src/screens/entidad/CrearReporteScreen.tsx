@@ -51,7 +51,19 @@ export default function CrearReporteScreen({ navigation }: Props) {
   const [proximidadSiasar, setProximidadSiasar] = useState<CercanaResponse | null>(null);
 
   useEffect(() => {
-    loadCatalogos();
+    // Inline (no una función nombrada aparte, que no se reusa en ningún
+    // otro lado) -- así el linter puede ver que todo setState ocurre
+    // después de un await.
+    (async () => {
+      try {
+        const [t, s] = await Promise.all([
+          catalogosAPI.tiposIncidente(),
+          catalogosAPI.severidades(),
+        ]);
+        setTipos(t.data || []);
+        setSeveridades(s.data || []);
+      } catch (_) {}
+    })();
   }, []);
 
   // Solo informativo -- nunca bloquea el envío ni se manda en el payload
@@ -59,6 +71,8 @@ export default function CrearReporteScreen({ navigation }: Props) {
   // reporte -- ver crear_reporte en reportes.py). Debounce de ~600ms para
   // no llamar a /siasar/cercana en cada pixel que se arrastra el mapa.
   useEffect(() => {
+    // Reset síncrono a propósito: sin ubicación no hay nada que mostrar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!coordenadas) { setProximidadSiasar(null); return; }
     const id = setTimeout(() => {
       siasarAPI.cercana(coordenadas.latitude, coordenadas.longitude, 2000)
@@ -67,17 +81,6 @@ export default function CrearReporteScreen({ navigation }: Props) {
     }, 600);
     return () => clearTimeout(id);
   }, [coordenadas]);
-
-  const loadCatalogos = async () => {
-    try {
-      const [t, s] = await Promise.all([
-        catalogosAPI.tiposIncidente(),
-        catalogosAPI.severidades(),
-      ]);
-      setTipos(t.data || []);
-      setSeveridades(s.data || []);
-    } catch (_) {}
-  };
 
   // Obtener ubicación del dispositivo usando la API del navegador (funciona en WebView + Expo Go)
   const getMyLocation = () => {

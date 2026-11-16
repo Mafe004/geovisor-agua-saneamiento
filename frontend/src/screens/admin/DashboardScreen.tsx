@@ -80,10 +80,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadStats(); }, []);
-
-  const loadStats = async (silent = false) => {
-    if (!silent) setLoading(true);
+  const loadStats = async () => {
     // Cada estadística viene de un endpoint independiente -- allSettled para
     // que una falla no vacíe las demás (ver fix previo en este mismo
     // screen: SIASAR caído no debe ocultar el conteo de reportes).
@@ -113,6 +110,11 @@ export default function DashboardScreen() {
     setLoading(false);
     setRefreshing(false);
   };
+
+  // loadStats también es el handler del RefreshControl de abajo -- no se
+  // puede inlinear como IIFE en este efecto sin duplicar toda esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadStats(); }, []);
 
   if (loading) {
     return (
@@ -156,7 +158,7 @@ export default function DashboardScreen() {
       <ScrollView
         contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(true); }} colors={[andiColors.primary600]} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(); }} colors={[andiColors.primary600]} />
         }
       >
         <View style={{ width: '100%', maxWidth: r.maxContentWidth(900) }}>

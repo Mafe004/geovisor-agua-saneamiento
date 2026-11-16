@@ -37,8 +37,13 @@ export default function TriageSheet({
   const [comentario, setComentario] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Resetea el formulario al abrir la hoja para un reporte nuevo -- el
+  // Modal se queda montado entre aperturas (no remonta por `key`), así que
+  // esto reemplaza eso. Reset síncrono a propósito: el formulario debe
+  // verse limpio apenas se abre, no un frame después.
   useEffect(() => {
     if (visible && reporte) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIdEntidad(reporte.id_entidad ?? reporte.id_entidad_sugerida ?? null);
       setChangingEntidad(false);
       setIdEstadoNuevo(null);

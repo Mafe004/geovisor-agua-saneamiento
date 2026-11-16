@@ -100,21 +100,28 @@ export default function MapaScreen({ navigation }: Props) {
     }
   }, []);
 
+  // requestLocation también es el botón "reintentar ubicación" de más abajo
+  // -- no se puede inlinear como IIFE en este efecto sin duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { requestLocation(); }, [requestLocation]);
 
-  const loadMunicipios = useCallback(async () => {
-    try {
-      const res = await siasarAPI.municipios();
-      const lista = res.data || [];
-      setMunicipios(lista);
-      const zipaquira = lista.find((m) => m.municipio === 'ZIPAQUIRÁ');
-      setMunicipio(zipaquira?.municipio ?? lista[0]?.municipio ?? null);
-    } catch (_) {
-      setMunicipios([]);
-    }
+  useEffect(() => {
+    // Inline (no un useCallback aparte, que no se reusa en ningún otro
+    // lado) -- así el linter puede ver que todo setState ocurre después de
+    // un await, en vez de tratar la llamada como si pudiera setState de
+    // forma síncrona dentro del efecto.
+    (async () => {
+      try {
+        const res = await siasarAPI.municipios();
+        const lista = res.data || [];
+        setMunicipios(lista);
+        const zipaquira = lista.find((m) => m.municipio === 'ZIPAQUIRÁ');
+        setMunicipio(zipaquira?.municipio ?? lista[0]?.municipio ?? null);
+      } catch (_) {
+        setMunicipios([]);
+      }
+    })();
   }, []);
-
-  useEffect(() => { loadMunicipios(); }, [loadMunicipios]);
 
   const cargarComunidadesSiasar = useCallback(async (m: string) => {
     try {
@@ -134,12 +141,19 @@ export default function MapaScreen({ navigation }: Props) {
     }
   }, []);
 
+  // cargarComunidadesSiasar es un useCallback, no un inline IIFE, así que
+  // el linter la trata como caja negra y asume que podría hacer setState
+  // síncrono -- en realidad todo su setState ocurre tras el await (ver su
+  // definición arriba). El reset de la rama `else` sí es síncrono a
+  // propósito: apagar el switch de la capa vacía sus marcadores de inmediato.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (capaComunidades && municipio) cargarComunidadesSiasar(municipio);
     else setComunidadesSiasar([]);
   }, [capaComunidades, municipio, cargarComunidadesSiasar]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (capaSistemas && municipio) cargarSistemasSiasar(municipio);
     else setSistemasSiasar([]);
   }, [capaSistemas, municipio, cargarSistemasSiasar]);

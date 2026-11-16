@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
 
@@ -15,7 +15,10 @@ function Bar({ width, height = 12, style }: { width: number | `${number}%`; heig
 }
 
 export default function AndiSkeletonCard() {
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  // useState con inicializador perezoso en vez de useRef(...).current --
+  // mismo valor estable entre renders, pero sin el lint del React Compiler
+  // "Cannot access refs during render" (ver components/andi/Toast.tsx).
+  const [opacity] = useState(() => new Animated.Value(0.5));
 
   useEffect(() => {
     const loop = Animated.loop(

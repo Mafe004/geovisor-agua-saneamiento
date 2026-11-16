@@ -11,6 +11,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, siasarAPI, usuariosAPI, entidadesAPI, auditoriaAPI } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
+import AndiErrorState from '../../components/andi/AndiErrorState';
 import type { EstadisticasResponse, ResumenMunicipio } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, andiSeverityColor } from '../../theme/andi';
@@ -78,23 +79,29 @@ export default function DashboardScreen() {
   });
   const [busquedaMunicipio, setBusquedaMunicipio] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadStats = async () => {
     // Cada estadística viene de un endpoint independiente -- allSettled para
     // que una falla no vacíe las demás (ver fix previo en este mismo
     // screen: SIASAR caído no debe ocultar el conteo de reportes).
-    const [statsR, siasarR, usuariosR, entidadesR, pendientesR, repActR, authActR, usrActR] =
-      await Promise.allSettled([
-        reportesAPI.estadisticas(),
-        siasarAPI.resumenMunicipios(),
-        usuariosAPI.listar(),
-        entidadesAPI.listar(),
-        usuariosAPI.pendientes(),
-        auditoriaAPI.listar({ modulo: 'REPORTES', limite: 1 }),
-        auditoriaAPI.listar({ modulo: 'AUTH', limite: 1 }),
-        auditoriaAPI.listar({ modulo: 'USUARIOS', limite: 1 }),
-      ]);
+    const results = await Promise.allSettled([
+      reportesAPI.estadisticas(),
+      siasarAPI.resumenMunicipios(),
+      usuariosAPI.listar(),
+      entidadesAPI.listar(),
+      usuariosAPI.pendientes(),
+      auditoriaAPI.listar({ modulo: 'REPORTES', limite: 1 }),
+      auditoriaAPI.listar({ modulo: 'AUTH', limite: 1 }),
+      auditoriaAPI.listar({ modulo: 'USUARIOS', limite: 1 }),
+    ]);
+    const [statsR, siasarR, usuariosR, entidadesR, pendientesR, repActR, authActR, usrActR] = results;
+
+    // Solo se trata como error de pantalla completa si TODO falló (caída
+    // total de red/backend) -- una falla puntual (p.ej. solo SIASAR) sigue
+    // el criterio de arriba: se degrada esa tarjeta, no toda la pantalla.
+    setError(results.every(res => res.status === 'rejected'));
 
     setStats(statsR.status === 'fulfilled' ? statsR.value.data : null);
     setResumenSiasar(siasarR.status === 'fulfilled' ? (siasarR.value.data || []) : []);
@@ -121,6 +128,21 @@ export default function DashboardScreen() {
       <View style={styles.loadingWrap}>
         <ActivityIndicator size="large" color={andiColors.primary600} />
         <Text style={styles.loadingText}>Cargando estadísticas…</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.loadingWrap}>
+        <AndiErrorState
+          icon="wifi-off"
+          title="No se pudo cargar"
+          body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+          code="Error de red"
+          ctaLabel="Reintentar"
+          onPressCta={() => loadStats()}
+        />
       </View>
     );
   }

@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { usuariosAPI } from '../../api/services';
+import AndiErrorState from '../../components/andi/AndiErrorState';
 import type { UsuarioListItem } from '../../types/domain';
 import type { AdminTabParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
@@ -49,6 +50,7 @@ export default function UsuariosScreen({ route }: Props) {
   const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const [usuarios, setUsuarios] = useState<UsuarioListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('TODOS');
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -77,8 +79,9 @@ export default function UsuariosScreen({ route }: Props) {
     try {
       const res = await usuariosAPI.listar();
       setUsuarios(res.data || []);
+      setError(false);
     } catch (_) {
-      setUsuarios([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -204,6 +207,15 @@ export default function UsuariosScreen({ route }: Props) {
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={andiColors.primary600} />
         </View>
+      ) : error ? (
+        <AndiErrorState
+          icon="wifi-off"
+          title="No se pudo cargar"
+          body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+          code="Error de red"
+          ctaLabel="Reintentar"
+          onPressCta={() => loadUsuarios()}
+        />
       ) : (
         <FlatList
           data={usuariosFiltrados}

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { auditoriaAPI } from '../../api/services';
+import AndiErrorState from '../../components/andi/AndiErrorState';
 import type { LogAuditoriaItem } from '../../types/domain';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
@@ -65,6 +66,7 @@ export default function AuditoriaScreen() {
   const [logs, setLogs] = useState<LogAuditoriaItem[]>([]);
   const [filter, setFilter] = useState<ModuloFilter>('TODOS');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadLogs = async (silent = false) => {
@@ -75,8 +77,9 @@ export default function AuditoriaScreen() {
         limite: 100,
       });
       setLogs(res.data.logs || []);
+      setError(false);
     } catch (_) {
-      setLogs([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -118,6 +121,15 @@ export default function AuditoriaScreen() {
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={andiColors.primary600} />
         </View>
+      ) : error ? (
+        <AndiErrorState
+          icon="wifi-off"
+          title="No se pudo cargar"
+          body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+          code="Error de red"
+          ctaLabel="Reintentar"
+          onPressCta={() => loadLogs()}
+        />
       ) : (
         <FlatList
           data={logs}

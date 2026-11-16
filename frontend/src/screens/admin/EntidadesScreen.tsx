@@ -9,6 +9,7 @@ import axios from 'axios';
 import { entidadesAPI, usuariosAPI } from '../../api/services';
 import type { EntidadDetalle, UsuarioDeEntidadItem, UsuarioListItem } from '../../types/domain';
 import { useToast } from '../../components/andi/Toast';
+import AndiErrorState from '../../components/andi/AndiErrorState';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
@@ -34,6 +35,7 @@ export default function EntidadesScreen() {
   const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
   const [operadores, setOperadores] = useState<Record<number, UsuarioDeEntidadItem[]>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
@@ -67,9 +69,9 @@ export default function EntidadesScreen() {
         if (entidad) next[entidad.id_entidad] = r.status === 'fulfilled' ? r.value.data.usuarios : [];
       });
       setOperadores(next);
+      setError(false);
     } catch (_) {
-      setEntidades([]);
-      setOperadores({});
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -172,6 +174,15 @@ export default function EntidadesScreen() {
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={andiColors.primary600} />
         </View>
+      ) : error ? (
+        <AndiErrorState
+          icon="wifi-off"
+          title="No se pudo cargar"
+          body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+          code="Error de red"
+          ctaLabel="Reintentar"
+          onPressCta={() => loadEntidades()}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}

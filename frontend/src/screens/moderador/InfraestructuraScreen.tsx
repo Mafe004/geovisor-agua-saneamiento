@@ -10,6 +10,8 @@ import AndiHeader, { AndiHeaderIconButton } from '../../components/andi/AndiHead
 import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
+import AndiErrorState from '../../components/andi/AndiErrorState';
+import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
 import { useToast } from '../../components/andi/Toast';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker, MapCenterChange } from '../../components/MapaWebView.types';
@@ -39,6 +41,7 @@ export default function InfraestructuraScreen() {
   const styles = useMemo(() => makeStyles(r), [r]);
   const [items, setItems] = useState<InfraestructuraItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<string | null>(null);
@@ -48,8 +51,9 @@ export default function InfraestructuraScreen() {
     try {
       const res = await infraestructuraAPI.listar();
       setItems(res.data || []);
+      setError(false);
     } catch (_) {
-      setItems([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -100,7 +104,18 @@ export default function InfraestructuraScreen() {
           ))}
         </View>
 
-        {!loading && itemsFiltrados.length === 0 ? (
+        {loading ? (
+          <View style={styles.list}><AndiSkeletonList count={4} /></View>
+        ) : error ? (
+          <AndiErrorState
+            icon="wifi-off"
+            title="No se pudo cargar"
+            body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+            code="Error de red"
+            ctaLabel="Reintentar"
+            onPressCta={() => load()}
+          />
+        ) : itemsFiltrados.length === 0 ? (
           <AndiEmptyState
             icon="map-pin"
             title="Sin infraestructura registrada"

@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { notificacionesAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import Skeleton from '../../components/ciudadano/Skeleton';
+import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { NotificacionItem } from '../../types/domain';
@@ -43,6 +44,7 @@ export default function NotificacionesScreen() {
   const styles = useMemo(() => makeStyles(r), [r]);
   const [notis, setNotis] = useState<NotificacionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadNotis = useCallback(async (silent = false) => {
@@ -50,8 +52,9 @@ export default function NotificacionesScreen() {
     try {
       const res = await notificacionesAPI.listar();
       setNotis(res.data || []);
+      setError(false);
     } catch (_) {
-      setNotis([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -120,6 +123,18 @@ export default function NotificacionesScreen() {
             keyExtractor={(item) => (isSection(item) ? `section-${item.__section}` : String(item.id_notificacion))}
             contentContainerStyle={styles.list}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadNotis(true); }} colors={[ANDI_COLORS.primary600]} />}
+            ListHeaderComponent={
+              error ? (
+                <SystemBanner
+                  tone="error"
+                  icon="!"
+                  title="No se pudieron cargar los avisos"
+                  message="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+                  actionLabel="Reintentar"
+                  onAction={() => loadNotis()}
+                />
+              ) : null
+            }
             renderItem={({ item }) => {
               if (isSection(item)) return <Text style={styles.sectionLabel}>{item.__section}</Text>;
               const meta = TIPO_META[item.tipo_notificacion] || DEFAULT_TIPO_META;
@@ -145,10 +160,12 @@ export default function NotificacionesScreen() {
               );
             }}
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>Sin avisos por ahora</Text>
-                <Text style={styles.emptyText}>Aquí verás los cambios en tus reportes.</Text>
-              </View>
+              error ? null : (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyTitle}>Sin avisos por ahora</Text>
+                  <Text style={styles.emptyText}>Aquí verás los cambios en tus reportes.</Text>
+                </View>
+              )
             }
             ListFooterComponent={
               notis.length > 0 ? (

@@ -5,6 +5,7 @@ import { reportesAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
+import AndiErrorState from '../../components/andi/AndiErrorState';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { EstadisticasResponse } from '../../types/domain';
@@ -31,6 +32,7 @@ export default function CifrasEntidadScreen() {
   const [stats, setStats] = useState<EstadisticasResponse | null>(null);
   const [entidadNombre, setEntidadNombre] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,8 +43,9 @@ export default function CifrasEntidadScreen() {
       ]);
       setStats(statsRes.data);
       if (entRes) setEntidadNombre(entRes.data.nombre_entidad);
+      setError(false);
     } catch (_) {
-      setStats(null);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -66,6 +69,15 @@ export default function CifrasEntidadScreen() {
       <AndiBody>
         {loading ? (
           <View style={styles.center}><ActivityIndicator size="large" color={andiColors.primary} /></View>
+        ) : error ? (
+          <AndiErrorState
+            icon="wifi-off"
+            title="No se pudo cargar"
+            body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+            code="Error de red"
+            ctaLabel="Reintentar"
+            onPressCta={() => load()}
+          />
         ) : (
           <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}>
             <View style={styles.contentWrap}>

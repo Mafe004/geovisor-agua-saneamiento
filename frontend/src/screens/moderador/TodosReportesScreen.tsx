@@ -10,6 +10,7 @@ import AndiChip from '../../components/andi/AndiChip';
 import AndiReportCard from '../../components/andi/AndiReportCard';
 import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
+import AndiErrorState from '../../components/andi/AndiErrorState';
 import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
 import type { Reporte, EstadoReporteItem } from '../../types/domain';
 import type { operations } from '../../types/api';
@@ -39,6 +40,7 @@ export default function TodosReportesScreen({ navigation }: Props) {
   const styles = useMemo(() => makeStyles(r), [r]);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
   const [idEstado, setIdEstado] = useState<number | null>(null);
@@ -60,8 +62,9 @@ export default function TodosReportesScreen({ navigation }: Props) {
       if (idEstado != null) params.id_estado = idEstado;
       const res = await reportesAPI.listar(params);
       setReportes(res.data || []);
+      setError(false);
     } catch (_) {
-      setReportes([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -124,6 +127,15 @@ export default function TodosReportesScreen({ navigation }: Props) {
 
         {loading ? (
           <View style={styles.list}><AndiSkeletonList count={5} /></View>
+        ) : error ? (
+          <AndiErrorState
+            icon="wifi-off"
+            title="No se pudo cargar"
+            body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+            code="Error de red"
+            ctaLabel="Reintentar"
+            onPressCta={() => loadReportes()}
+          />
         ) : reportesFiltrados.length === 0 ? (
           <AndiEmptyState
             icon={busqueda.trim() ? 'search' : 'inbox'}

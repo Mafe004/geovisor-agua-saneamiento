@@ -26,6 +26,8 @@ import type {
   CrearInvitacionResponse,
   CrearReporteResponse,
   CrearSolicitudAcceso,
+  EditarReporteResponse,
+  EliminarReporteResponse,
   EntidadCreate,
   EntidadDetalle,
   EntidadUpdate,
@@ -53,6 +55,7 @@ import type {
   ReporteComunidad,
   ReporteCreateRequest,
   ReporteMapaPunto,
+  ReporteUpdateRequest,
   RestablecerContrasena,
   RestablecerContrasenaResponse,
   ResumenModuloItem,
@@ -126,6 +129,22 @@ export const reportesAPI = {
   // ver backend/app/routers/reportes.py: obtener_reporte().
   obtener: (id: number) => client.get<Reporte | ReporteComunidad>(`/reportes/${id}`),
   crear: (data: ReporteCreateRequest) => client.post<CrearReporteResponse>('/reportes/', data),
+  // Solo el ciudadano dueño, con el reporte PENDIENTE y sin entidad -- el
+  // backend valida las cinco condiciones (puede_editar_reporte) y responde
+  // 403/409 si no se cumplen. En actualizar(), omitir imagen_url conserva
+  // la foto actual, null la quita y una ruta de subirImagen() la reemplaza.
+  actualizar: (id: number, data: ReporteUpdateRequest) =>
+    client.put<EditarReporteResponse>(`/reportes/${id}`, data),
+  eliminar: (id: number) => client.delete<EliminarReporteResponse>(`/reportes/${id}`),
+  // Evidencia fotográfica opcional: devuelve la ruta relativa
+  // (/uploads/reportes/<uuid>.jpg) que luego va como imagen_url en crear().
+  // Content-Type y timeout solo para esta request -- el default JSON/12s
+  // de client.ts no se toca.
+  subirImagen: (form: FormData) =>
+    client.post<{ imagen_url: string }>('/reportes/imagen', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    }),
   cambiarEstado: (id: number, data: CambiarEstadoRequest) =>
     client.put<CambiarEstadoResponse>(`/reportes/${id}/estado`, data),
   asignarEntidad: (id: number, data: AsignarEntidadRequest) =>

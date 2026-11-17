@@ -30,6 +30,10 @@ export type RootStackParamList = {
   // Entidad/Moderador/Administrador solo navegan aquí con un Reporte
   // completo, nunca con la vista reducida.
   DetalleReporte: { reporte: Reporte | ReporteComunidad };
+  // Solo Ciudadano: reutiliza CrearReporteScreen en modo edición, abierto
+  // desde DetalleReporte cuando el reporte es propio, PENDIENTE y sin
+  // entidad. Siempre recibe el Reporte completo (nunca la vista comunitaria).
+  EditarReporte: { reporte: Reporte };
 };
 
 // Tabs de CiudadanoTabs (AppNavigator.tsx) -- ciudadano y entidad navegan

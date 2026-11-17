@@ -327,6 +327,10 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="CiudadanoHome"  component={CiudadanoTabs} />
             <Stack.Screen name="DetalleReporte" component={CiudadanoDetalleReporteScreen} />
+            {/* Mismo componente que la pestaña Crear, en modo edición: al ser
+                una pantalla de stack aparte, su estado nunca se mezcla con el
+                del formulario de creación. */}
+            <Stack.Screen name="EditarReporte"  component={CrearReporteScreen} />
           </>
         )}
       </Stack.Navigator>

@@ -57,6 +57,18 @@ export default function MapaWebView({
         originWhitelist={['*']}
         mixedContentMode="always"
         allowsInlineMediaPlayback={true}
+        // El WebView en sí no debe scrollear -- solo el mapa de Google Maps
+        // adentro (gestureHandling: 'greedy' en mapHtml.ts). Sin esto, el
+        // WebView compite por el gesto de arrastre contra el mapa y el
+        // paneo se siente trabado/con rebote en vez de seguir al dedo.
+        scrollEnabled={false}
+        overScrollMode="never"
+        bounces={false}
+        nestedScrollEnabled={false}
+        // Evita que Android componga el WebView con la capa por defecto
+        // (más lenta); en mapas con muchos pines, "hardware" renderiza
+        // notablemente más fluido durante el arrastre.
+        androidLayerType="hardware"
         onMessage={(e: WebViewMessageEvent): void => {
           try {
             const data = JSON.parse(e.nativeEvent.data) as MapMessage;

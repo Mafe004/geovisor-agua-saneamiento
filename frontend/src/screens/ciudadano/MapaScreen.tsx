@@ -156,6 +156,22 @@ export default function MapaScreen({ navigation }: Props) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { requestLocation(); }, [requestLocation]);
 
+  // Posición en tiempo real: requestLocation solo toma una foto puntual al
+  // entrar (para centrar el mapa una vez); este watch mantiene `self`
+  // actualizado mientras la pantalla esté montada, sin volver a mover el
+  // centro del mapa (si no, cada tick de GPS le quitaría al usuario el
+  // control de panear libremente).
+  useEffect(() => {
+    if (locStatus !== 'granted') return undefined;
+    let subscription: Location.LocationSubscription | null = null;
+    let cancelado = false;
+    Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, timeInterval: 4000, distanceInterval: 10 },
+      (loc) => setSelf({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }),
+    ).then((sub) => { if (cancelado) sub.remove(); else subscription = sub; });
+    return () => { cancelado = true; subscription?.remove(); };
+  }, [locStatus]);
+
   useEffect(() => {
     // Inline (no un useCallback aparte, que no se reusa en ningún otro
     // lado) -- así el linter puede ver que todo setState ocurre después de
@@ -225,6 +241,7 @@ export default function MapaScreen({ navigation }: Props) {
 
   const handleMarkerPress = async (marker: MapMarker) => {
     const id = String(marker.id ?? '');
+    if (id === 'self') return;
     if (id.startsWith('com-')) {
       setSelectedPin(null);
       setCargandoDetalleSiasar(true);
@@ -356,7 +373,11 @@ export default function MapaScreen({ navigation }: Props) {
       }))
     : [];
 
-  const markers = [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers];
+  const selfMarker: MapMarker[] = self
+    ? [{ id: 'self', lat: self.latitude, lng: self.longitude, titulo: 'Tú', color: '#2563EB', shape: 'circle', scale: 8 }]
+    : [];
+
+  const markers = [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers, ...selfMarker];
 
   const hoy = new Date().toDateString();
   const criticosHoy = pines.filter((p) =>
@@ -554,7 +575,7 @@ export default function MapaScreen({ navigation }: Props) {
                 </View>
               )}
 
-              {markers.length === 0 && (
+              {markers.length - selfMarker.length === 0 && (
                 <View pointerEvents="none" style={styles.emptyOverlay}>
                   {/* Mascota oculta temporalmente (este estado también aparece cuando falla la carga). */}
                   {/* <MascotAndi size={90} /> */}

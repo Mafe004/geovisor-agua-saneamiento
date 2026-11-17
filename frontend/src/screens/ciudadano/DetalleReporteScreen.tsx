@@ -108,6 +108,10 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
   const [fotoError, setFotoError] = useState(false);
 
   useEffect(() => {
+    // Reset síncrono a propósito: al cambiar de foto (o quedar sin ella) no
+    // tiene sentido seguir mostrando la proporción/error de la anterior
+    // mientras se mide la nueva.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFotoRatio(null);
     setFotoError(false);
     if (!imagenUri) return;

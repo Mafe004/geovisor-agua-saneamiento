@@ -168,6 +168,9 @@ export default function CrearReporteScreen(props: Props) {
   // En modo edición no se consulta SIASAR (la edición es independiente de
   // SIASAR) y la pista no se muestra; en creación todo sigue igual.
   useEffect(() => {
+    // Reset síncrono a propósito: sin ubicación (o en edición) no hay nada
+    // que mostrar, no tiene sentido esperar un debounce para vaciarlo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!coordenadas || esEdicion) { setProximidadSiasar(null); return; }
     const id = setTimeout(() => {
       siasarAPI.cercana(coordenadas.latitude, coordenadas.longitude, 2000)

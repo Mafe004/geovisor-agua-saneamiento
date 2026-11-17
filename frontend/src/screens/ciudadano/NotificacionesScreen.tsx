@@ -133,7 +133,7 @@ export default function NotificacionesScreen() {
                   actionLabel="Reintentar"
                   onAction={() => loadNotis()}
                 />
-              ) : null
+              ) : undefined
             }
             renderItem={({ item }) => {
               if (isSection(item)) return <Text style={styles.sectionLabel}>{item.__section}</Text>;
@@ -160,7 +160,7 @@ export default function NotificacionesScreen() {
               );
             }}
             ListEmptyComponent={
-              error ? null : (
+              error ? undefined : (
                 <View style={styles.empty}>
                   <Text style={styles.emptyTitle}>Sin avisos por ahora</Text>
                   <Text style={styles.emptyText}>Aquí verás los cambios en tus reportes.</Text>
@@ -173,7 +173,7 @@ export default function NotificacionesScreen() {
                   <Text style={styles.footerTitle}>Solo llegan avisos de tus propios reportes</Text>
                   <Text style={styles.footerText}>Te avisamos automáticamente cada vez que cambie el estado.</Text>
                 </View>
-              ) : null
+              ) : undefined
             }
           />
         )}

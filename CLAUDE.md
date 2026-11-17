@@ -88,7 +88,7 @@ npx expo lint            # eslint (eslint-config-expo, flat config in eslint.con
 npx expo lint -- --fix
 ```
 
-**Before writing Expo-related code**, note `AGENTS.md` in this directory instructs: *"Expo HAS CHANGED — read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code."* This project pins Expo ~54; don't rely on older/newer Expo API assumptions from training data.
+**Before writing Expo-related code**, note `AGENTS.md` in this directory instructs: *"Expo HAS CHANGED — read the exact versioned docs at https://docs.expo.dev/versions/v58.0.0/ before writing any code."* This project pins Expo ~58 (upgraded from ~57 — Expo Go on app stores only supports the latest SDK, so the project tracks it); don't rely on older/newer Expo API assumptions from training data.
 
 **Backend URL is hardcoded for LAN dev**, not env-driven: edit `DEV_IP` in `src/api/client.js` to your machine's LAN IP (phone can't reach `localhost`). This is the #1 source of `ERR_CONNECTION_TIMED_OUT` during dev.
 

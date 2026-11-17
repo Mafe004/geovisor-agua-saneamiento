@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, type NativeSyntheticEvent, type TextInputKeyPressEventData,
+  StyleSheet, KeyboardAvoidingView, Platform, type TextInputKeyPressEvent, type TextInputInstance,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -80,7 +80,7 @@ export default function InvitacionScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'expired' | 'used' | 'invalid' | null>(null);
   const [result, setResult] = useState<ConfirmResult | null>(null);
-  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const inputRefs = useRef<(TextInputInstance | null)[]>([]);
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
@@ -136,7 +136,7 @@ export default function InvitacionScreen({ navigation }: Props) {
     }
   };
 
-  const handleKeyPress = (index: number, e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+  const handleKeyPress = (index: number, e: TextInputKeyPressEvent) => {
     if (e.nativeEvent.key === 'Backspace' && digits[index] === '' && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }

@@ -43,7 +43,7 @@ export default function MapaWebView({
   showCenterPin = false,
   onCenterChange,
   style,                  // Cuando se pasa style con flex:1, height se ignora
-}: MapaWebViewProps) {
+}: MapaWebViewProps): React.JSX.Element {
   const html = buildMapHtml({ latitude, longitude, markers, zoom, interactive, showCenterPin });
   const containerStyle = resolveMapContainerStyle(style, height, styles.container);
 
@@ -57,7 +57,7 @@ export default function MapaWebView({
         originWhitelist={['*']}
         mixedContentMode="always"
         allowsInlineMediaPlayback={true}
-        onMessage={(e: WebViewMessageEvent) => {
+        onMessage={(e: WebViewMessageEvent): void => {
           try {
             const data = JSON.parse(e.nativeEvent.data) as MapMessage;
             if (data.type === 'markerPress' && onMarkerPress) {

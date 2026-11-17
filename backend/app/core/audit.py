@@ -26,6 +26,10 @@ class Accion(str, Enum):
     ACTUALIZAR = "ACTUALIZAR"
     ASIGNAR_USUARIO = "ASIGNAR_USUARIO"
     ASIGNAR_ENTIDAD = "ASIGNAR_ENTIDAD"
+    # Reparto interno: a qué TRABAJADOR de la entidad se asigna un reporte --
+    # distinto de ASIGNAR_USUARIO (vincular una cuenta de usuario a una
+    # entidad) y de ASIGNAR_ENTIDAD (a qué entidad pertenece el reporte).
+    ASIGNAR_TRABAJADOR = "ASIGNAR_TRABAJADOR"
     IMPORTACION = "IMPORTACION"
     # Valor presente en los datos semilla; ningún código nuevo lo emite —
     # ver nota en Part B: auditar cada lectura inundaría la tabla.

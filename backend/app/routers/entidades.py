@@ -425,16 +425,26 @@ def desasignar_usuario_entidad(
 
 @router.get(
     "/{id_entidad}/usuarios",
-    summary="Listar usuarios de una entidad (solo ADMIN)",
+    summary="Listar usuarios de una entidad (ADMIN, o ENTIDAD viendo su propia entidad)",
     response_model=UsuariosDeEntidadResponse,
-    responses={404: {"description": "Entidad no encontrada"}},
+    responses={404: {"description": "Entidad no encontrada"}, 403: {"description": "Sin permiso"}},
 )
 def usuarios_de_entidad(
-    id_entidad: int, user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))
+    id_entidad: int, user: dict[str, Any] = Depends(require_active_user)
 ) -> dict[str, Any]:
     """
     Lista todos los usuarios asignados a una entidad específica.
+
+    ADMIN: cualquier entidad (lo usa para vincular/desvincular cuentas).
+    ENTIDAD: solo puede ver la lista de SU PROPIA entidad -- la necesita
+    para elegir a qué compañero asignarle un reporte (ver
+    reportesAPI.asignarUsuario), nunca la de otra entidad.
     """
+    if user["id_rol"] == Rol.ENTIDAD and user.get("id_entidad") != id_entidad:
+        raise HTTPException(status_code=403, detail="Solo puedes ver los usuarios de tu propia entidad")
+    if user["id_rol"] not in (Rol.ADMIN, Rol.ENTIDAD):
+        raise HTTPException(status_code=403, detail="No tienes permisos para ver usuarios de una entidad")
+
     conn = get_connection()
     try:
         with conn.cursor() as cursor:

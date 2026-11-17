@@ -15,6 +15,7 @@ import { construirFormFoto, uriImagenServidor } from '../../utils/fotoEvidencia'
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
+import AsignarTrabajadorModal from '../../components/andi/AsignarTrabajadorModal';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation, andiStatusPill, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
@@ -173,12 +174,29 @@ function EstandarDetalleView({
   const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
   const [comentario, setComentario] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [asignarVisible, setAsignarVisible] = useState(false);
+  const [asignando, setAsignando] = useState(false);
   // "Entity/moderator report detail screen" (canChangeStatus ya excluye a
   // Ciudadano en esta vista compartida) -- Ciudadano nunca ve el
   // diagnóstico oficial de su propia zona en su propia pantalla.
   const siasarDetalle = useSiasarDiagnostico(
     canChangeStatus ? reporte.vereda_siasar?.id_siasar : undefined
   );
+
+  const handleAsignar = async (idUsuarioAsignado: number | null) => {
+    try {
+      setAsignando(true);
+      const res = await reportesAPI.asignarUsuario(reporte.id_reporte, { id_usuario_asignado: idUsuarioAsignado });
+      onUpdated(res.data.reporte);
+      toast.success(idUsuarioAsignado ? 'Asignado' : 'Desasignado', idUsuarioAsignado ? 'El reporte quedó asignado.' : 'El reporte vuelve al pool de la entidad.');
+      setAsignarVisible(false);
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      toast.error('Error', msg || 'No se pudo asignar el reporte.');
+    } finally {
+      setAsignando(false);
+    }
+  };
 
   const handleUpdateEstado = async () => {
     const seleccionado = estadosDisponibles.find(e => e.id_estado === idEstadoNuevo);
@@ -257,8 +275,30 @@ function EstandarDetalleView({
             <AndiDetailRow andiType={andiType} styles={andiStyles} label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
             <AndiDetailRow andiType={andiType} styles={andiStyles} label="Dirección" value={reporte.direccion || 'No especificada'} />
             <AndiDetailRow andiType={andiType} styles={andiStyles} label="Reportado por" value={reporte.usuario || '—'} />
-            <AndiDetailRow andiType={andiType} styles={andiStyles} label="Fecha reporte" value={formatDate(reporte.created_at)} last />
+            <AndiDetailRow andiType={andiType} styles={andiStyles} label="Fecha reporte" value={formatDate(reporte.created_at)} last={!canChangeStatus || !reporte.id_entidad} />
           </View>
+
+          {canChangeStatus && reporte.id_entidad != null && (
+            <View style={andiStyles.section}>
+              <View style={andiStyles.asignadoRow}>
+                <View>
+                  <Text style={[andiType.overline, andiStyles.sectionLabel]}>Asignado a</Text>
+                  <Text style={[andiType.body, andiStyles.asignadoNombre]}>{reporte.usuario_asignado || 'Sin asignar · pool de la entidad'}</Text>
+                </View>
+                <TouchableOpacity accessibilityRole="button" style={andiStyles.asignarLink} onPress={() => setAsignarVisible(true)}>
+                  <Text style={andiStyles.asignarLinkText}>{reporte.usuario_asignado ? 'Cambiar' : 'Asignar'}</Text>
+                </TouchableOpacity>
+              </View>
+              <AsignarTrabajadorModal
+                visible={asignarVisible}
+                onClose={() => setAsignarVisible(false)}
+                idEntidad={reporte.id_entidad}
+                idUsuarioActual={reporte.id_usuario_asignado ?? null}
+                onElegir={handleAsignar}
+                asignando={asignando}
+              />
+            </View>
+          )}
 
           {hasCoords ? (
             <View style={andiStyles.section}>
@@ -367,6 +407,25 @@ function EntidadCierreView({
   const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [fotoSubida, setFotoSubida] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+
+  const { user } = useContext(AuthContext);
+  const [asignarVisible, setAsignarVisible] = useState(false);
+  const [asignando, setAsignando] = useState(false);
+
+  const handleAsignar = async (idUsuarioAsignado: number | null) => {
+    try {
+      setAsignando(true);
+      const res = await reportesAPI.asignarUsuario(reporte.id_reporte, { id_usuario_asignado: idUsuarioAsignado });
+      onUpdated(res.data.reporte);
+      toast.success(idUsuarioAsignado ? 'Asignado' : 'Desasignado', idUsuarioAsignado ? 'El reporte quedó asignado.' : 'El reporte vuelve al pool de la entidad.');
+      setAsignarVisible(false);
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      toast.error('Error', msg || 'No se pudo asignar el reporte.');
+    } finally {
+      setAsignando(false);
+    }
+  };
 
   const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
     if (result.canceled) return;
@@ -529,6 +588,29 @@ function EntidadCierreView({
           <View style={andiStyles.siasarCard}>
             <Text style={[andiType.label, andiStyles.siasarCardTitle]}>Diagnóstico oficial de la zona (SIASAR)</Text>
             <SiasarComunidadInfo data={siasarDetalle} />
+          </View>
+        )}
+
+        {reporte.id_entidad != null && (
+          <View style={andiStyles.section}>
+            <View style={andiStyles.asignadoRow}>
+              <View>
+                <Text style={[andiType.overline, andiStyles.sectionLabel]}>Asignado a</Text>
+                <Text style={[andiType.body, andiStyles.asignadoNombre]}>{reporte.usuario_asignado || 'Sin asignar · pool de la entidad'}</Text>
+              </View>
+              <TouchableOpacity accessibilityRole="button" style={andiStyles.asignarLink} onPress={() => setAsignarVisible(true)}>
+                <Text style={andiStyles.asignarLinkText}>{reporte.usuario_asignado ? 'Cambiar' : 'Asignar'}</Text>
+              </TouchableOpacity>
+            </View>
+            <AsignarTrabajadorModal
+              visible={asignarVisible}
+              onClose={() => setAsignarVisible(false)}
+              idEntidad={reporte.id_entidad}
+              idUsuarioActual={reporte.id_usuario_asignado ?? null}
+              idUsuarioPropio={user?.id_usuario}
+              onElegir={handleAsignar}
+              asignando={asignando}
+            />
           </View>
         )}
 
@@ -706,6 +788,11 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   },
   detailLabel: { color: andiColors.onSurfaceVariant, flex: 1 },
   detailValue: { color: andiColors.onSurface, fontWeight: '500', flex: 1.5, textAlign: 'right' },
+
+  asignadoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  asignadoNombre: { color: andiColors.onSurface, marginTop: 2 },
+  asignarLink: { minHeight: 36, paddingHorizontal: andiSpace[3], borderRadius: andiRadius.full, borderWidth: 1, borderColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center' },
+  asignarLinkText: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.primary600 },
 
   fieldLabel: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[2] },
   chipsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2], marginBottom: andiSpace[4] },

@@ -20,6 +20,7 @@ from app.core.policies import (
 from app.core.roles import EstadoCuenta, Rol
 from app.db.database import get_connection, transaccion
 from app.schemas.reportes import (
+    AsignarUsuarioReporteResponse,
     CambiarEstadoResponse,
     CrearReporteResponse,
     EditarReporteResponse,
@@ -118,10 +119,22 @@ class CambiarEstadoRequest(BaseModel):
     # distinta (historial_reportes.imagen_url, migración 0005): esta es la
     # foto de CÓMO quedó, no la foto original del reporte.
     imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+    # Opcional: permite que "Tomar" sea una sola llamada (cambia estado Y
+    # asigna a quien lo tomó) en vez de dos requests separadas. None =
+    # no toca el reparto actual; ver AsignarUsuarioReporteRequest para
+    # asignar/reasignar sin cambiar el estado.
+    id_usuario_asignado: int | None = Field(None, ge=1)
 
 
 class AsignarEntidadRequest(BaseModel):
     id_entidad: int = Field(..., ge=1)
+
+
+class AsignarUsuarioReporteRequest(BaseModel):
+    """Body de PUT /reportes/{id_reporte}/asignar-usuario. None desasigna
+    (vuelve al pool compartido de la entidad)."""
+
+    id_usuario_asignado: int | None = Field(..., ge=1)
 
 
 # =========================
@@ -152,6 +165,28 @@ def _get_usuario_entidad(cursor, id_usuario: int) -> int | None:
     return row.get("id_entidad")
 
 
+def _validar_usuario_asignado(cursor, id_usuario_asignado: int, id_entidad_reporte: int | None) -> None:
+    """
+    El trabajador a asignar debe ser ENTIDAD y pertenecer a la MISMA entidad
+    que el reporte -- nunca se valida solo contra el id_entidad del que hace
+    la petición, porque un ADMIN puede asignar reportes de cualquier
+    entidad. Se valida siempre en el servidor aunque el picker del cliente
+    ya solo ofrezca compañeros de la misma entidad.
+    """
+    cursor.execute(
+        "SELECT id_rol, id_entidad FROM usuarios WHERE id_usuario = %s;",
+        (id_usuario_asignado,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="El usuario a asignar no existe")
+    if row["id_rol"] != Rol.ENTIDAD or row["id_entidad"] != id_entidad_reporte:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo puedes asignar el reporte a un trabajador de la misma entidad",
+        )
+
+
 def _select_reporte_detalle_sql() -> str:
     return """
     SELECT
@@ -180,7 +215,9 @@ def _select_reporte_detalle_sql() -> str:
       sc.municipio      AS vereda_municipio,
       sc.calificacion   AS vereda_calificacion,
       sc.fecha_encuesta AS vereda_fecha_encuesta,
-      r.distancia_siasar_m AS vereda_distancia_m
+      r.distancia_siasar_m AS vereda_distancia_m,
+      r.id_usuario_asignado,
+      ua.nombre_completo AS usuario_asignado
     FROM reportes r
     JOIN usuarios      u  ON r.id_usuario        = u.id_usuario
     JOIN estado_reporte er ON r.id_estado         = er.id_estado
@@ -189,6 +226,7 @@ def _select_reporte_detalle_sql() -> str:
     LEFT JOIN tipo_incidente_entidad tie ON r.id_tipo_incidente = tie.id_tipo_incidente
     LEFT JOIN entidades esug ON tie.id_entidad = esug.id_entidad
     LEFT JOIN siasar_comunidad sc ON r.id_siasar_comunidad = sc.id_siasar
+    LEFT JOIN usuarios ua ON r.id_usuario_asignado = ua.id_usuario
     """
 
 
@@ -221,10 +259,13 @@ def _anidar_vereda_siasar(row: dict[str, Any]) -> dict[str, Any]:
 def _reporte_a_comunidad(row: dict[str, Any]) -> dict[str, Any]:
     """
     Reduce una fila de _select_reporte_detalle_sql() (ya anidada por
-    _anidar_vereda_siasar) a la vista comunitaria: sin id_usuario ni usuario
-    (nombre del creador) -- ver puede_ver_detalle_comunitario().
+    _anidar_vereda_siasar) a la vista comunitaria: sin id_usuario/usuario
+    (nombre del creador) ni id_usuario_asignado/usuario_asignado (reparto
+    interno de la entidad, no es información para el ciudadano) -- ver
+    puede_ver_detalle_comunitario().
     """
-    return {k: v for k, v in row.items() if k not in ("id_usuario", "usuario")}
+    ocultos = ("id_usuario", "usuario", "id_usuario_asignado", "usuario_asignado")
+    return {k: v for k, v in row.items() if k not in ocultos}
 
 
 def _extension_imagen(data: bytes) -> str | None:
@@ -763,11 +804,18 @@ def cambiar_estado(
                 raise HTTPException(status_code=400, detail="id_estado_nuevo no existe")
             nombre_estado_nuevo = nuevo_estado_row["nombre"]
 
-            # Actualizar estado del reporte
-            cursor.execute(
-                "UPDATE reportes SET id_estado = %s, updated_at = NOW() WHERE id_reporte = %s;",
-                (payload.id_estado_nuevo, id_reporte),
-            )
+            if payload.id_usuario_asignado is not None:
+                _validar_usuario_asignado(cursor, payload.id_usuario_asignado, rep["id_entidad"])
+                cursor.execute(
+                    "UPDATE reportes SET id_estado = %s, id_usuario_asignado = %s, updated_at = NOW() "
+                    "WHERE id_reporte = %s;",
+                    (payload.id_estado_nuevo, payload.id_usuario_asignado, id_reporte),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE reportes SET id_estado = %s, updated_at = NOW() WHERE id_reporte = %s;",
+                    (payload.id_estado_nuevo, id_reporte),
+                )
 
             # ✅ REGISTRAR EN HISTORIAL: cambio de estado
             _insertar_historial(
@@ -857,6 +905,79 @@ def asignar_entidad(
                 cursor,
                 id_usuario=user["id_usuario"],
                 accion=Accion.ASIGNAR_ENTIDAD,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
+            sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
+            cursor.execute(sql, (id_reporte,))
+            row = _anidar_vereda_siasar(cursor.fetchone())
+
+        return {"message": "updated", "reporte": row}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
+
+
+@router.put(
+    "/{id_reporte}/asignar-usuario",
+    summary="Asignar/reasignar un reporte a un trabajador de la entidad (ENTIDAD propia / MODERADOR / ADMIN)",
+    response_model=AsignarUsuarioReporteResponse,
+    responses={
+        404: {"description": "Reporte o usuario a asignar no encontrado"},
+        403: {"description": "Sin permiso"},
+        400: {"description": "El usuario a asignar no es ENTIDAD de la misma entidad del reporte"},
+    },
+)
+def asignar_usuario_reporte(
+    id_reporte: int,
+    payload: AsignarUsuarioReporteRequest,
+    user: dict[str, Any] = Depends(require_active_user),
+    ip: str | None = Depends(get_client_ip),
+) -> dict[str, Any]:
+    """
+    Reparto interno dentro de una misma entidad -- distinto de asignar_entidad
+    (que decide A QUÉ ENTIDAD pertenece el reporte, siempre MODERADOR/ADMIN).
+    Aquí usa el mismo gate de fila que cambiar_estado: la propia entidad del
+    reporte puede repartir su propio trabajo entre sus compañeros, sin
+    necesitar a un ADMIN para cada asignación; MODERADOR/ADMIN también pueden
+    hacerlo (p.ej. para intervenir si una entidad no se está organizando).
+    """
+    try:
+        with transaccion() as cursor:
+            cursor.execute(
+                "SELECT id_reporte, id_entidad, id_usuario FROM reportes WHERE id_reporte = %s;",
+                (id_reporte,),
+            )
+            rep = cursor.fetchone()
+            if not rep:
+                raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+            if not puede_cambiar_estado(user, rep):
+                if user["id_rol"] == Rol.ENTIDAD and not user.get("id_entidad"):
+                    raise HTTPException(
+                        status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
+                    )
+                raise HTTPException(
+                    status_code=403, detail="No puedes asignar reportes de otra entidad"
+                )
+
+            if payload.id_usuario_asignado is not None:
+                _validar_usuario_asignado(cursor, payload.id_usuario_asignado, rep["id_entidad"])
+
+            cursor.execute(
+                "UPDATE reportes SET id_usuario_asignado = %s, updated_at = NOW() WHERE id_reporte = %s;",
+                (payload.id_usuario_asignado, id_reporte),
+            )
+
+            # No se toca historial_reportes: igual que asignar_entidad, esto
+            # no es una transición de estado -- el rastro es la auditoría.
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ASIGNAR_TRABAJADOR,
                 modulo=Modulo.REPORTES,
                 ip=ip,
             )

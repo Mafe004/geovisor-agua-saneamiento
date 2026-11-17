@@ -282,6 +282,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reportes/{id_reporte}/asignar-usuario": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Asignar/reasignar un reporte a un trabajador de la entidad (ENTIDAD propia / MODERADOR / ADMIN)
+         * @description Reparto interno dentro de una misma entidad -- distinto de asignar_entidad
+         *     (que decide A QUÉ ENTIDAD pertenece el reporte, siempre MODERADOR/ADMIN).
+         *     Aquí usa el mismo gate de fila que cambiar_estado: la propia entidad del
+         *     reporte puede repartir su propio trabajo entre sus compañeros, sin
+         *     necesitar a un ADMIN para cada asignación; MODERADOR/ADMIN también pueden
+         *     hacerlo (p.ej. para intervenir si una entidad no se está organizando).
+         */
+        put: operations["asignar_usuario_reporte_reportes__id_reporte__asignar_usuario_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reportes/{id_reporte}/historial": {
         parameters: {
             query?: never;
@@ -769,8 +794,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Listar usuarios de una entidad (solo ADMIN)
+         * Listar usuarios de una entidad (ADMIN, o ENTIDAD viendo su propia entidad)
          * @description Lista todos los usuarios asignados a una entidad específica.
+         *
+         *     ADMIN: cualquier entidad (lo usa para vincular/desvincular cuentas).
+         *     ENTIDAD: solo puede ver la lista de SU PROPIA entidad -- la necesita
+         *     para elegir a qué compañero asignarle un reporte (ver
+         *     reportesAPI.asignarUsuario), nunca la de otra entidad.
          */
         get: operations["usuarios_de_entidad_entidades__id_entidad__usuarios_get"];
         put?: never;
@@ -1125,6 +1155,24 @@ export interface components {
             /** Id Entidad */
             id_entidad: number;
         };
+        /**
+         * AsignarUsuarioReporteRequest
+         * @description Body de PUT /reportes/{id_reporte}/asignar-usuario. None desasigna
+         *     (vuelve al pool compartido de la entidad).
+         */
+        AsignarUsuarioReporteRequest: {
+            /** Id Usuario Asignado */
+            id_usuario_asignado: number | null;
+        };
+        /**
+         * AsignarUsuarioReporteResponse
+         * @description Respuesta de PUT /reportes/{id_reporte}/asignar-usuario.
+         */
+        AsignarUsuarioReporteResponse: {
+            /** Message */
+            message: string;
+            reporte: components["schemas"]["ReporteDetalle"];
+        };
         /** AsignarUsuarioResponse */
         AsignarUsuarioResponse: {
             /** Message */
@@ -1180,6 +1228,8 @@ export interface components {
             comentario?: string | null;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Id Usuario Asignado */
+            id_usuario_asignado?: number | null;
         };
         /** CambiarEstadoResponse */
         CambiarEstadoResponse: {
@@ -2090,6 +2140,10 @@ export interface components {
             /** Entidad Sugerida */
             entidad_sugerida: string | null;
             vereda_siasar?: components["schemas"]["VeredaSiasarResumen"] | null;
+            /** Id Usuario Asignado */
+            id_usuario_asignado: number | null;
+            /** Usuario Asignado */
+            usuario_asignado: string | null;
         };
         /**
          * ReporteMapaPunto
@@ -3148,6 +3202,62 @@ export interface operations {
             };
         };
     };
+    asignar_usuario_reporte_reportes__id_reporte__asignar_usuario_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AsignarUsuarioReporteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsignarUsuarioReporteResponse"];
+                };
+            };
+            /** @description El usuario a asignar no es ENTIDAD de la misma entidad del reporte */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reporte o usuario a asignar no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     historial_reporte_reportes__id_reporte__historial_get: {
         parameters: {
             query?: never;
@@ -4161,6 +4271,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UsuariosDeEntidadResponse"];
                 };
+            };
+            /** @description Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Entidad no encontrada */
             404: {

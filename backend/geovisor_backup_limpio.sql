@@ -248,6 +248,7 @@ CREATE TABLE `reportes` (
   `fecha_reporte`     datetime     DEFAULT CURRENT_TIMESTAMP,
   `created_at`        datetime     DEFAULT CURRENT_TIMESTAMP,
   `updated_at`        datetime     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `id_usuario_asignado` int DEFAULT NULL,
   PRIMARY KEY (`id_reporte`),
   KEY `fk_reportes_entidad`   (`id_entidad`),
   KEY `fk_reportes_tipo`      (`id_tipo_incidente`),
@@ -258,7 +259,8 @@ CREATE TABLE `reportes` (
   CONSTRAINT `fk_reportes_entidad`   FOREIGN KEY (`id_entidad`)        REFERENCES `entidades`     (`id_entidad`),
   CONSTRAINT `fk_reportes_tipo`      FOREIGN KEY (`id_tipo_incidente`) REFERENCES `tipo_incidente`(`id_tipo_incidente`),
   CONSTRAINT `fk_reportes_severidad` FOREIGN KEY (`id_severidad`)      REFERENCES `severidad`     (`id_severidad`),
-  CONSTRAINT `fk_reportes_estado`    FOREIGN KEY (`id_estado`)         REFERENCES `estado_reporte`(`id_estado`)
+  CONSTRAINT `fk_reportes_estado`    FOREIGN KEY (`id_estado`)         REFERENCES `estado_reporte`(`id_estado`),
+  CONSTRAINT `fk_reportes_usuario_asignado` FOREIGN KEY (`id_usuario_asignado`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Solo reportes válidos con coordenadas reales (Zipaquirá, Cundinamarca)
@@ -266,27 +268,27 @@ INSERT INTO `reportes` VALUES
   (1,1,1,1,1,1,
    'Fuga de agua constante en la vía principal',
    'Calle 10 # 5-20, Zipaquirá',
-   5.0222000,-74.0048000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0222000,-74.0048000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (2,1,1,1,3,4,
    'Fuga de agua en la vía principal (reporte resuelto)',
    'Calle 10 # 5-20, Zipaquirá',
-   5.0220000,-74.0040000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0220000,-74.0040000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (3,4,NULL,3,2,1,
    'Taponamiento del alcantarillado frente al parque central',
    'Carrera 7 # 3-15, Zipaquirá',
-   5.0231000,-74.0062000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0231000,-74.0062000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (4,4,NULL,5,3,2,
    'El agua que sale del grifo tiene color amarillento y mal olor',
    'Barrio Centro, Zipaquirá',
-   5.0215000,-74.0055000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0215000,-74.0055000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (5,1,NULL,2,1,1,
    'La presión del agua ha bajado mucho en los últimos días',
    'Calle 5 # 8-30, Zipaquirá',
-   5.0240000,-74.0030000,NULL,'CIUDADANO',NOW(),NOW(),NOW());
+   5.0240000,-74.0030000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL);
 
 -- ============================================================
 -- SOPORTE / TRAZABILIDAD

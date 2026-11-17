@@ -7,6 +7,8 @@ import type {
   ActualizarPerfil,
   ActualizarPerfilResponse,
   AsignarEntidadRequest,
+  AsignarUsuarioReporteRequest,
+  AsignarUsuarioReporteResponse,
   AsignarUsuarioResponse,
   CambiarEstadoCuenta,
   CambiarEstadoEntidad,
@@ -149,6 +151,11 @@ export const reportesAPI = {
     client.put<CambiarEstadoResponse>(`/reportes/${id}/estado`, data),
   asignarEntidad: (id: number, data: AsignarEntidadRequest) =>
     client.put<CambiarEstadoResponse>(`/reportes/${id}/entidad`, data),
+  // Reparto interno: a qué TRABAJADOR de la entidad (no a qué entidad, eso
+  // es asignarEntidad) se asigna un reporte. id_usuario_asignado: null
+  // desasigna, vuelve al pool compartido de la entidad.
+  asignarUsuario: (id: number, data: AsignarUsuarioReporteRequest) =>
+    client.put<AsignarUsuarioReporteResponse>(`/reportes/${id}/asignar-usuario`, data),
   mapa: () => client.get<ReporteMapaPunto[]>('/reportes/mapa'),
   estadisticas: () => client.get<EstadisticasResponse>('/reportes/estadisticas'),
   // Mismo criterio que obtener(): reducido para un CIUDADANO viendo el

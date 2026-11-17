@@ -38,6 +38,13 @@ class ReporteDetalle(BaseModel):
     # reporte no cayó dentro de los 2km de ninguna comunidad SIASAR
     # registrada al crearse -- nunca se recalcula después.
     vereda_siasar: VeredaSiasarResumen | None = None
+    # Reparto interno de la entidad (migración 0006): None = todavía sin
+    # asignar a un trabajador específico, el pool de la entidad sigue
+    # viéndolo como disponible. No confundir con id_entidad/entidad_sugerida
+    # (a qué ENTIDAD pertenece/se sugiere el reporte) -- esto es a qué
+    # TRABAJADOR dentro de esa entidad.
+    id_usuario_asignado: int | None
+    usuario_asignado: str | None
 
 
 class ReporteComunidadDetalle(BaseModel):
@@ -103,6 +110,13 @@ class SubirImagenResponse(BaseModel):
 
 
 class CambiarEstadoResponse(BaseModel):
+    message: str
+    reporte: ReporteDetalle
+
+
+class AsignarUsuarioReporteResponse(BaseModel):
+    """Respuesta de PUT /reportes/{id_reporte}/asignar-usuario."""
+
     message: str
     reporte: ReporteDetalle
 

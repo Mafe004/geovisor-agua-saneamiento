@@ -166,7 +166,10 @@ export default function PerfilScreen({ navigation }: Props) {
               <Text style={styles.avatarText}>{initials(user.nombre_completo || '?')}</Text>
             </View>
             <Text style={styles.name} numberOfLines={1}>{user.nombre_completo || '—'}</Text>
-            <Text style={styles.roleLabel}>{(ROL_LABEL[user.id_rol] || 'Usuario').toUpperCase()}</Text>
+            <Text style={styles.roleLabel}>
+              {(ROL_LABEL[user.id_rol] || 'Usuario').toUpperCase()}
+              {user.id_rol === Rol.ENTIDAD ? (user.es_titular_entidad ? ' · TITULAR' : ' · TRABAJADOR') : ''}
+            </Text>
           </View>
         </LinearGradient>
 
@@ -186,7 +189,7 @@ export default function PerfilScreen({ navigation }: Props) {
               <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
             </TouchableOpacity>
 
-            {user.id_rol === Rol.ENTIDAD && (
+            {user.id_rol === Rol.ENTIDAD && user.es_titular_entidad && (
               <TouchableOpacity accessibilityRole="button" style={styles.sectionRow} activeOpacity={0.8} onPress={() => setAgregarVisible(true)}>
                 <Feather name="user-plus" size={18} color={andiColors.onSurface} />
                 <Text style={styles.sectionRowLabel}>Agregar trabajador</Text>
@@ -381,7 +384,7 @@ export default function PerfilScreen({ navigation }: Props) {
         </View>
       </Modal>
 
-      {user.id_rol === Rol.ENTIDAD && !!user.id_entidad && (
+      {user.id_rol === Rol.ENTIDAD && user.es_titular_entidad && !!user.id_entidad && (
         <AgregarTrabajadorModal
           visible={agregarVisible}
           onClose={() => setAgregarVisible(false)}

@@ -110,6 +110,12 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
     );
   }
 
+  // El titular ve todo el pool de la entidad y reparte trabajo; un
+  // trabajador normal (migración 0007) solo ve lo suyo -- el backend ya
+  // filtra reportesAPI.listar() así para él, así que "Equipo" ni siquiera
+  // se muestra en ese caso (ver JSX más abajo).
+  const esTitular = !!user?.es_titular_entidad;
+
   // "Mis reportes" = los que tengo asignados a mí; "Equipo" = todo el pool
   // de la entidad, igual que antes de que existiera el reparto por
   // trabajador (migración 0006) -- sigue sirviendo para ver qué está sin
@@ -178,14 +184,16 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
       />
 
       <AndiBody>
-        <View style={styles.vistaRow}>
-          <TouchableOpacity accessibilityRole="button" style={[styles.vistaTab, vista === 'mios' && styles.vistaTabActive]} onPress={() => setVista('mios')}>
-            <Text style={[styles.vistaTabText, vista === 'mios' && styles.vistaTabTextActive]}>Mis reportes</Text>
-          </TouchableOpacity>
-          <TouchableOpacity accessibilityRole="button" style={[styles.vistaTab, vista === 'equipo' && styles.vistaTabActive]} onPress={() => setVista('equipo')}>
-            <Text style={[styles.vistaTabText, vista === 'equipo' && styles.vistaTabTextActive]}>Equipo · {entidadNombre || 'tu entidad'}</Text>
-          </TouchableOpacity>
-        </View>
+        {esTitular && (
+          <View style={styles.vistaRow}>
+            <TouchableOpacity accessibilityRole="button" style={[styles.vistaTab, vista === 'mios' && styles.vistaTabActive]} onPress={() => setVista('mios')}>
+              <Text style={[styles.vistaTabText, vista === 'mios' && styles.vistaTabTextActive]}>Mis reportes</Text>
+            </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={[styles.vistaTab, vista === 'equipo' && styles.vistaTabActive]} onPress={() => setVista('equipo')}>
+              <Text style={[styles.vistaTabText, vista === 'equipo' && styles.vistaTabTextActive]}>Equipo · {entidadNombre || 'tu entidad'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.chipsRow}>
           <AndiChip label={`Abiertos · ${abiertos.length}`} variant={filtro === 'abiertos' ? 'solid' : 'outline'} onPress={() => setFiltro('abiertos')} />
@@ -247,9 +255,11 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
                   onPress={() => navigation.navigate('DetalleReporte', { reporte: item })}
                   footerRight={
                     <View style={styles.footerActions}>
-                      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Asignar a un compañero" style={styles.asignarBtn} onPress={() => setAsignandoReporte(item)}>
-                        <Feather name="user-plus" size={14} color={andiColors.onSurfaceVariant} />
-                      </TouchableOpacity>
+                      {esTitular && (
+                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Asignar a un compañero" style={styles.asignarBtn} onPress={() => setAsignandoReporte(item)}>
+                          <Feather name="user-plus" size={14} color={andiColors.onSurfaceVariant} />
+                        </TouchableOpacity>
+                      )}
                       {puedeTomar && (
                         tomandoId === item.id_reporte ? (
                           <ActivityIndicator size="small" color={andiColors.primary} />

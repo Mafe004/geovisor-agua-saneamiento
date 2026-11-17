@@ -598,19 +598,23 @@ function EntidadCierreView({
                 <Text style={[andiType.overline, andiStyles.sectionLabel]}>Asignado a</Text>
                 <Text style={[andiType.body, andiStyles.asignadoNombre]}>{reporte.usuario_asignado || 'Sin asignar · pool de la entidad'}</Text>
               </View>
-              <TouchableOpacity accessibilityRole="button" style={andiStyles.asignarLink} onPress={() => setAsignarVisible(true)}>
-                <Text style={andiStyles.asignarLinkText}>{reporte.usuario_asignado ? 'Cambiar' : 'Asignar'}</Text>
-              </TouchableOpacity>
+              {!!user?.es_titular_entidad && (
+                <TouchableOpacity accessibilityRole="button" style={andiStyles.asignarLink} onPress={() => setAsignarVisible(true)}>
+                  <Text style={andiStyles.asignarLinkText}>{reporte.usuario_asignado ? 'Cambiar' : 'Asignar'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <AsignarTrabajadorModal
-              visible={asignarVisible}
-              onClose={() => setAsignarVisible(false)}
-              idEntidad={reporte.id_entidad}
-              idUsuarioActual={reporte.id_usuario_asignado ?? null}
-              idUsuarioPropio={user?.id_usuario}
-              onElegir={handleAsignar}
-              asignando={asignando}
-            />
+            {!!user?.es_titular_entidad && (
+              <AsignarTrabajadorModal
+                visible={asignarVisible}
+                onClose={() => setAsignarVisible(false)}
+                idEntidad={reporte.id_entidad}
+                idUsuarioActual={reporte.id_usuario_asignado ?? null}
+                idUsuarioPropio={user?.id_usuario}
+                onElegir={handleAsignar}
+                asignando={asignando}
+              />
+            )}
           </View>
         )}
 

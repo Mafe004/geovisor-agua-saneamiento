@@ -55,6 +55,8 @@ class UsuarioDeEntidadItem(BaseModel):
     nombre_completo: str
     correo: str
     telefono: str | None
+    # Solo es significativo cuando rol="Entidad" -- ver migración 0007.
+    es_titular_entidad: bool
     rol: str
     estado_cuenta: str
 

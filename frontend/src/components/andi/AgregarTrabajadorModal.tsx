@@ -43,7 +43,7 @@ export default function AgregarTrabajadorModal({ visible, onClose, idEntidad }: 
     if (!nombre.trim()) { toast.warning('Requerido', 'Ingresa el nombre del trabajador.'); return; }
     try {
       setGenerando(true);
-      const res = await invitacionesAPI.crear({ id_rol: Rol.ENTIDAD, id_entidad: idEntidad });
+      const res = await invitacionesAPI.crear({ id_rol: Rol.ENTIDAD, id_entidad: idEntidad, es_titular: false });
       setToken(res.data.token);
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;

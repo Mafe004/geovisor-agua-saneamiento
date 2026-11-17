@@ -50,7 +50,7 @@ def _generar_token() -> str:
 
 
 def crear_token_invitacion(
-    cursor, *, id_rol: int, id_entidad: int | None, creado_por: int
+    cursor, *, id_rol: int, id_entidad: int | None, creado_por: int, es_titular: bool = False
 ) -> tuple[str, datetime]:
     """
     INSERT en `invitaciones` con reintento ante colisión de token, usando un
@@ -60,6 +60,8 @@ def crear_token_invitacion(
     Compartido entre crear_invitacion (acá abajo) y aprobar_solicitud
     (app/routers/solicitudes_acceso.py) para no duplicar la lógica de
     reintento -- ver su comentario original para el porqué del retry.
+    `es_titular` solo es relevante cuando id_rol=ENTIDAD (migración 0007);
+    aprobar_solicitud invita siempre a ADMIN, así que lo deja en su default.
     """
     expira_en = datetime.now() + timedelta(days=INVITACION_VIGENCIA_DIAS)
 
@@ -69,10 +71,10 @@ def crear_token_invitacion(
             cursor.execute(
                 """
                 INSERT INTO invitaciones
-                    (token, id_rol, id_entidad, creado_por, expira_en, usado)
-                VALUES (%s, %s, %s, %s, %s, 0);
+                    (token, id_rol, id_entidad, creado_por, expira_en, usado, es_titular)
+                VALUES (%s, %s, %s, %s, %s, 0, %s);
                 """,
-                (candidato, id_rol, id_entidad, creado_por, expira_en),
+                (candidato, id_rol, id_entidad, creado_por, expira_en, es_titular),
             )
             return candidato, expira_en
         except pymysql.err.IntegrityError as e:
@@ -101,18 +103,29 @@ def crear_invitacion(
     user: dict[str, Any] = Depends(require_active_user),
 ) -> dict[str, Any]:
     """
-    ADMIN puede invitar a cualquier rol invitable, para cualquier entidad.
-    ENTIDAD solo puede invitar a un nuevo compañero (id_rol=ENTIDAD) de SU
-    PROPIA entidad -- así una entidad da de alta a sus propios trabajadores
-    sin depender de que un ADMIN lo haga por ella cada vez. Ningún otro rol
-    genera invitaciones.
+    ADMIN puede invitar a cualquier rol invitable, para cualquier entidad, y
+    decide libremente es_titular (p.ej. al dar de alta el primer contacto de
+    una entidad nueva). ENTIDAD solo puede invitar (id_rol=ENTIDAD) a un
+    trabajador de SU PROPIA entidad, y solo si ella misma es titular -- un
+    trabajador normal no da de alta a nadie, y nadie que no sea ADMIN puede
+    crear OTRO titular (si el titular se va, es ADMIN quien designa uno
+    nuevo, vía PUT /entidades/{id}/asignar-usuario). Ningún otro rol genera
+    invitaciones.
     """
     if user["id_rol"] == Rol.ENTIDAD:
+        if not user.get("es_titular_entidad"):
+            raise HTTPException(
+                status_code=403,
+                detail="Solo el titular de tu entidad puede agregar trabajadores",
+            )
         if data.id_rol != Rol.ENTIDAD or data.id_entidad != user.get("id_entidad"):
             raise HTTPException(
                 status_code=403,
-                detail="Solo puedes invitar a un nuevo compañero de tu propia entidad",
+                detail="Solo puedes invitar a un nuevo trabajador de tu propia entidad",
             )
+        # Un titular agrega trabajadores, nunca otro titular -- se fuerza
+        # sin importar qué mande el cliente.
+        data.es_titular = False
     elif user["id_rol"] != Rol.ADMIN:
         raise HTTPException(status_code=403, detail="No tienes permisos para generar invitaciones")
 
@@ -131,6 +144,11 @@ def crear_invitacion(
             status_code=400,
             detail="id_entidad solo aplica a invitaciones de rol ENTIDAD",
         )
+    if data.id_rol != Rol.ENTIDAD and data.es_titular:
+        raise HTTPException(
+            status_code=400,
+            detail="es_titular solo aplica a invitaciones de rol ENTIDAD",
+        )
 
     conn = get_connection()
     try:
@@ -148,12 +166,14 @@ def crear_invitacion(
                 id_rol=data.id_rol,
                 id_entidad=data.id_entidad,
                 creado_por=user["id_usuario"],
+                es_titular=data.es_titular,
             )
 
         return {
             "token": token,
             "id_rol": data.id_rol,
             "id_entidad": data.id_entidad,
+            "es_titular": data.es_titular,
             "expira_en": expira_en,
         }
     except HTTPException:

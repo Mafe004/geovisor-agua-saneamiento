@@ -769,7 +769,7 @@ def cambiar_estado(
             # Obtener reporte actual con su estado actual
             cursor.execute(
                 """
-                SELECT r.id_reporte, r.id_entidad, r.id_usuario,
+                SELECT r.id_reporte, r.id_entidad, r.id_usuario, r.id_usuario_asignado,
                        er.nombre AS estado_actual
                 FROM reportes r
                 JOIN estado_reporte er ON r.id_estado = er.id_estado
@@ -805,6 +805,20 @@ def cambiar_estado(
             nombre_estado_nuevo = nuevo_estado_row["nombre"]
 
             if payload.id_usuario_asignado is not None:
+                # Un trabajador (ENTIDAD no titular) solo puede usar este
+                # campo para auto-asignarse ("Tomar") -- repartir hacia
+                # OTRO compañero es exclusivo de asignar_usuario_reporte,
+                # que sí exige ser titular. Sin este chequeo, cambiar_estado
+                # sería una puerta de atrás para saltarse esa restricción.
+                if (
+                    user["id_rol"] == Rol.ENTIDAD
+                    and not user.get("es_titular_entidad")
+                    and payload.id_usuario_asignado != user["id_usuario"]
+                ):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Solo puedes asignarte el reporte a ti mismo",
+                    )
                 _validar_usuario_asignado(cursor, payload.id_usuario_asignado, rep["id_entidad"])
                 cursor.execute(
                     "UPDATE reportes SET id_estado = %s, id_usuario_asignado = %s, updated_at = NOW() "
@@ -940,26 +954,30 @@ def asignar_usuario_reporte(
     """
     Reparto interno dentro de una misma entidad -- distinto de asignar_entidad
     (que decide A QUÉ ENTIDAD pertenece el reporte, siempre MODERADOR/ADMIN).
-    Aquí usa el mismo gate de fila que cambiar_estado: la propia entidad del
-    reporte puede repartir su propio trabajo entre sus compañeros, sin
-    necesitar a un ADMIN para cada asignación; MODERADOR/ADMIN también pueden
-    hacerlo (p.ej. para intervenir si una entidad no se está organizando).
+    Repartir trabajo es decisión del TITULAR de la entidad (o de MODERADOR/
+    ADMIN, p.ej. para intervenir si una entidad no se está organizando) --
+    un trabajador normal nunca reparte, ni siquiera su propio reporte
+    asignado (eso sería re-asignárselo a otro sin que el titular lo decida).
     """
     try:
         with transaccion() as cursor:
             cursor.execute(
-                "SELECT id_reporte, id_entidad, id_usuario FROM reportes WHERE id_reporte = %s;",
+                "SELECT id_reporte, id_entidad, id_usuario, id_usuario_asignado FROM reportes WHERE id_reporte = %s;",
                 (id_reporte,),
             )
             rep = cursor.fetchone()
             if not rep:
                 raise HTTPException(status_code=404, detail="Reporte no encontrado")
 
+            if user["id_rol"] == Rol.ENTIDAD and not user.get("id_entidad"):
+                raise HTTPException(
+                    status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
+                )
+            if user["id_rol"] == Rol.ENTIDAD and not user.get("es_titular_entidad"):
+                raise HTTPException(
+                    status_code=403, detail="Solo el titular de tu entidad puede repartir reportes"
+                )
             if not puede_cambiar_estado(user, rep):
-                if user["id_rol"] == Rol.ENTIDAD and not user.get("id_entidad"):
-                    raise HTTPException(
-                        status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
-                    )
                 raise HTTPException(
                     status_code=403, detail="No puedes asignar reportes de otra entidad"
                 )

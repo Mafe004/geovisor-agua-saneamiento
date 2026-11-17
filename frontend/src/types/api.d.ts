@@ -294,10 +294,10 @@ export interface paths {
          * Asignar/reasignar un reporte a un trabajador de la entidad (ENTIDAD propia / MODERADOR / ADMIN)
          * @description Reparto interno dentro de una misma entidad -- distinto de asignar_entidad
          *     (que decide A QUÉ ENTIDAD pertenece el reporte, siempre MODERADOR/ADMIN).
-         *     Aquí usa el mismo gate de fila que cambiar_estado: la propia entidad del
-         *     reporte puede repartir su propio trabajo entre sus compañeros, sin
-         *     necesitar a un ADMIN para cada asignación; MODERADOR/ADMIN también pueden
-         *     hacerlo (p.ej. para intervenir si una entidad no se está organizando).
+         *     Repartir trabajo es decisión del TITULAR de la entidad (o de MODERADOR/
+         *     ADMIN, p.ej. para intervenir si una entidad no se está organizando) --
+         *     un trabajador normal nunca reparte, ni siquiera su propio reporte
+         *     asignado (eso sería re-asignárselo a otro sin que el titular lo decida).
          */
         put: operations["asignar_usuario_reporte_reportes__id_reporte__asignar_usuario_put"];
         post?: never;
@@ -798,9 +798,10 @@ export interface paths {
          * @description Lista todos los usuarios asignados a una entidad específica.
          *
          *     ADMIN: cualquier entidad (lo usa para vincular/desvincular cuentas).
-         *     ENTIDAD: solo puede ver la lista de SU PROPIA entidad -- la necesita
-         *     para elegir a qué compañero asignarle un reporte (ver
-         *     reportesAPI.asignarUsuario), nunca la de otra entidad.
+         *     ENTIDAD: solo el TITULAR de SU PROPIA entidad -- la necesita para elegir
+         *     a qué trabajador asignarle un reporte (ver reportesAPI.asignarUsuario).
+         *     Un trabajador normal no reparte trabajo entre otros, así que no
+         *     necesita ver esta lista (ver migración 0007).
          */
         get: operations["usuarios_de_entidad_entidades__id_entidad__usuarios_get"];
         put?: never;
@@ -822,11 +823,14 @@ export interface paths {
         put?: never;
         /**
          * Generar un código de invitación (ADMINISTRADOR, o ENTIDAD invitando a su propia entidad)
-         * @description ADMIN puede invitar a cualquier rol invitable, para cualquier entidad.
-         *     ENTIDAD solo puede invitar a un nuevo compañero (id_rol=ENTIDAD) de SU
-         *     PROPIA entidad -- así una entidad da de alta a sus propios trabajadores
-         *     sin depender de que un ADMIN lo haga por ella cada vez. Ningún otro rol
-         *     genera invitaciones.
+         * @description ADMIN puede invitar a cualquier rol invitable, para cualquier entidad, y
+         *     decide libremente es_titular (p.ej. al dar de alta el primer contacto de
+         *     una entidad nueva). ENTIDAD solo puede invitar (id_rol=ENTIDAD) a un
+         *     trabajador de SU PROPIA entidad, y solo si ella misma es titular -- un
+         *     trabajador normal no da de alta a nadie, y nadie que no sea ADMIN puede
+         *     crear OTRO titular (si el titular se va, es ADMIN quien designa uno
+         *     nuevo, vía PUT /entidades/{id}/asignar-usuario). Ningún otro rol genera
+         *     invitaciones.
          */
         post: operations["crear_invitacion_invitaciones__post"];
         delete?: never;
@@ -1386,11 +1390,17 @@ export interface components {
              * @description Obligatorio (y solo válido) cuando id_rol=2 (ENTIDAD)
              */
             id_entidad?: number | null;
+            /**
+             * Es Titular
+             * @description Si la nueva cuenta ENTIDAD es la titular de la entidad (ve todo el pool) o un trabajador normal
+             * @default false
+             */
+            es_titular: boolean;
         };
         /**
          * CrearInvitacionResponse
          * @description Único lugar donde el token de 6 caracteres viaja en una respuesta
-         *     HTTP -- lo genera crear_invitacion() y lo entrega solo al ADMIN que lo
+         *     HTTP -- lo genera crear_invitacion() y lo entrega solo a quien lo
          *     solicitó, para que se lo comparta manualmente con la persona invitada.
          */
         CrearInvitacionResponse: {
@@ -1400,6 +1410,8 @@ export interface components {
             id_rol: number;
             /** Id Entidad */
             id_entidad: number | null;
+            /** Es Titular */
+            es_titular: boolean;
             /**
              * Expira En
              * Format: date-time
@@ -2433,6 +2445,8 @@ export interface components {
             nombre_completo: string;
             /** Correo */
             correo: string;
+            /** Es Titular Entidad */
+            es_titular_entidad: boolean;
         };
         /** UsuarioDeEntidadItem */
         UsuarioDeEntidadItem: {
@@ -2444,6 +2458,8 @@ export interface components {
             correo: string;
             /** Telefono */
             telefono: string | null;
+            /** Es Titular Entidad */
+            es_titular_entidad: boolean;
             /** Rol */
             rol: string;
             /** Estado Cuenta */

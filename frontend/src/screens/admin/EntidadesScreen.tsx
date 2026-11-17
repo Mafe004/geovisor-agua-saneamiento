@@ -221,7 +221,12 @@ export default function EntidadesScreen({ navigation }: Props) {
 
           {entidades.map(entidad => {
             const chip = ESTADO_CHIP[entidad.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;
-            const ops = operadores[entidad.id_entidad] ?? [];
+            // El titular primero -- es quien representa a la entidad, se
+            // quiere ver de un vistazo aunque haya más trabajadores que
+            // MAX_CHIPS.
+            const ops = [...(operadores[entidad.id_entidad] ?? [])].sort(
+              (a, b) => Number(b.es_titular_entidad) - Number(a.es_titular_entidad)
+            );
             const shown = ops.slice(0, MAX_CHIPS);
             const extra = ops.length - shown.length;
             const activo = entidad.estado_cuenta === 'ACTIVO';
@@ -237,8 +242,10 @@ export default function EntidadesScreen({ navigation }: Props) {
                     <Text style={styles.entidadType} numberOfLines={1}>{entidad.correo_institucional}</Text>
                     <View style={styles.opsRow}>
                       {shown.map(op => (
-                        <View key={op.id_usuario} style={styles.opChip}>
-                          <Text style={styles.opChipText} numberOfLines={1}>{op.nombre_completo}</Text>
+                        <View key={op.id_usuario} style={[styles.opChip, op.es_titular_entidad && styles.opChipTitular]}>
+                          <Text style={styles.opChipText} numberOfLines={1}>
+                            {op.es_titular_entidad ? '★ ' : ''}{op.nombre_completo}
+                          </Text>
                         </View>
                       ))}
                       {extra > 0 && (
@@ -451,6 +458,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   entidadType: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: 1 },
   opsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[1], marginTop: andiSpace[2] },
   opChip: { backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.full, paddingHorizontal: andiSpace[2], paddingVertical: 2, maxWidth: 120 },
+  opChipTitular: { backgroundColor: andiColors.primary50 },
   opChipText: { ...andiType.caption, color: andiColors.onSurfaceVariant },
   cardRight: { alignItems: 'flex-end', gap: andiSpace[2] },
   stateChip: { borderRadius: andiRadius.full, paddingHorizontal: andiSpace[2], paddingVertical: 3 },

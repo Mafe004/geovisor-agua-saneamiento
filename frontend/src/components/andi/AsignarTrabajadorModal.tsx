@@ -86,7 +86,7 @@ export default function AsignarTrabajadorModal({
                     <Text style={styles.avatarText}>{(item.nombre_completo || '?').charAt(0).toUpperCase()}</Text>
                   </View>
                   <Text style={styles.nombre}>
-                    {item.nombre_completo}{item.id_usuario === idUsuarioPropio ? ' (tú)' : ''}
+                    {item.es_titular_entidad ? '★ ' : ''}{item.nombre_completo}{item.id_usuario === idUsuarioPropio ? ' (tú)' : ''}
                     {item.id_usuario === idUsuarioActual ? ' · asignado actual' : ''}
                   </Text>
                   {asignando && <ActivityIndicator size="small" color={andiColors.primary} />}

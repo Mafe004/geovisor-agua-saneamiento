@@ -191,6 +191,7 @@ CREATE TABLE `usuarios` (
   `direccion`        varchar(150) DEFAULT NULL,
   `created_at`       datetime     DEFAULT CURRENT_TIMESTAMP,
   `updated_at`       datetime     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `es_titular_entidad` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_usuario`),
   UNIQUE KEY `correo`           (`correo`),
   UNIQUE KEY `numero_documento` (`numero_documento`),
@@ -205,27 +206,29 @@ CREATE TABLE `usuarios` (
 -- Contraseña de todos los usuarios de prueba: demo2025
 -- OJO: VALUES posicional, sin lista de columnas -- el orden acá tiene que
 -- calzar exacto con el de la CREATE TABLE de arriba (cargo va justo
--- después de nombre_completo).
+-- después de nombre_completo). es_titular_entidad=1 solo en la fila 2
+-- (único ENTIDAD con id_entidad ya asignado en este seed) -- mismo
+-- criterio que el backfill de la migración 0007.
 INSERT INTO `usuarios` VALUES
   (1,1,1,NULL,'Juan Pérez',              NULL,'juan@test.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','123456789',NULL,NULL,NULL,NULL,NOW(),NOW()),
+   NULL,'CC','123456789',NULL,NULL,NULL,NULL,NOW(),NOW(),0),
 
   (2,2,1,1,'Operador Entidad - Acueducto',NULL,'operador.acueducto@demo.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','900000001','3001112233','Colombia','Zipaquirá','Oficina principal',NOW(),NOW()),
+   NULL,'CC','900000001','3001112233','Colombia','Zipaquirá','Oficina principal',NOW(),NOW(),1),
 
   (3,3,1,NULL,'Moderador Prueba',         NULL,'moderador@demo.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','900000002','3001112244','Colombia','Zipaquirá','Oficina moderación',NOW(),NOW()),
+   NULL,'CC','900000002','3001112244','Colombia','Zipaquirá','Oficina moderación',NOW(),NOW(),0),
 
   (4,1,1,NULL,'Maria Test',              NULL,'maria.test@correo.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','987654321','3009876543','Colombia','Zipaquirá',NULL,NOW(),NOW()),
+   NULL,'CC','987654321','3009876543','Colombia','Zipaquirá',NULL,NOW(),NOW(),0),
 
   (5,4,1,NULL,'Admin Geovisor',           NULL,'admin@geovisor.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','111111111',NULL,NULL,NULL,NULL,NOW(),NOW());
+   NULL,'CC','111111111',NULL,NULL,NULL,NULL,NOW(),NOW(),0);
 
 -- ============================================================
 -- OPERACIÓN CENTRAL
@@ -404,6 +407,7 @@ CREATE TABLE `invitaciones` (
   `expira_en`  datetime     NOT NULL,
   `usado`      tinyint(1)   NOT NULL DEFAULT 0,
   `creado_en`  datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `es_titular` tinyint(1)   NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `token` (`token`),
   KEY `fk_invitaciones_rol` (`id_rol`),

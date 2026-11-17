@@ -8,12 +8,14 @@ import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { entidadesAPI, usuariosAPI } from '../../api/services';
+import { entidadesAPI, usuariosAPI, invitacionesAPI } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import type { EntidadDetalle, UsuarioDeEntidadItem, UsuarioListItem } from '../../types/domain';
+import { Rol } from '../../types/models';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { useToast } from '../../components/andi/Toast';
 import AndiErrorState from '../../components/andi/AndiErrorState';
+import InvitacionTokenModal from '../../components/andi/InvitacionTokenModal';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
@@ -62,6 +64,10 @@ export default function EntidadesScreen({ navigation }: Props) {
   const [usuariosEntidad, setUsuariosEntidad] = useState<UsuarioListItem[]>([]);
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false);
   const [vinculandoId, setVinculandoId] = useState<number | null>(null);
+
+  // ── Invitar nuevo trabajador ──
+  const [invitandoId, setInvitandoId] = useState<number | null>(null);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
 
   const loadEntidades = async () => {
     try {
@@ -168,6 +174,23 @@ export default function EntidadesScreen({ navigation }: Props) {
     }
   };
 
+  // "Vincular usuario" (arriba) requiere que la cuenta ya exista con rol
+  // ENTIDAD y sin entidad asignada -- pero esa cuenta nunca pudo haberse
+  // creado sin pasar antes por un código de invitación, y hasta ahora no
+  // había ninguna pantalla que generara uno. Esto es lo que lo genera.
+  const handleInvitarNuevo = async (entidad: EntidadDetalle) => {
+    setInvitandoId(entidad.id_entidad);
+    try {
+      const res = await invitacionesAPI.crear({ id_rol: Rol.ENTIDAD, id_entidad: entidad.id_entidad });
+      setInviteToken(res.data.token);
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      toast.error('Error', msg || 'No se pudo generar el código de invitación.');
+    } finally {
+      setInvitandoId(null);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
@@ -261,9 +284,22 @@ export default function EntidadesScreen({ navigation }: Props) {
                   </View>
                 </View>
 
-                <TouchableOpacity accessibilityRole="button" style={styles.linkBtn} activeOpacity={0.85} onPress={() => abrirVincularModal(entidad)}>
-                  <Text style={styles.linkBtnText}>Vincular usuario</Text>
-                </TouchableOpacity>
+                <View style={styles.cardBtnRow}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.linkBtn} activeOpacity={0.85} onPress={() => abrirVincularModal(entidad)}>
+                    <Text style={styles.linkBtnText}>Vincular usuario</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    style={[styles.linkBtn, styles.inviteBtn]}
+                    activeOpacity={0.85}
+                    onPress={() => handleInvitarNuevo(entidad)}
+                    disabled={invitandoId !== null}
+                  >
+                    {invitandoId === entidad.id_entidad
+                      ? <ActivityIndicator size="small" color={andiColors.success700} />
+                      : <Text style={[styles.linkBtnText, styles.inviteBtnText]}>Invitar nuevo</Text>}
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })}
@@ -388,6 +424,13 @@ export default function EntidadesScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
+
+      <InvitacionTokenModal
+        visible={!!inviteToken}
+        onClose={() => setInviteToken(null)}
+        token={inviteToken}
+        mensaje="Quien se registre con este código entra directo como Entidad, ya vinculado a esta entidad."
+      />
     </View>
   );
 }
@@ -435,11 +478,15 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   stateChipText: { ...andiType.caption, fontWeight: '700' },
   switchLoading: { minHeight: 31, justifyContent: 'center' },
 
+  cardBtnRow: { flexDirection: 'row', gap: andiSpace[2], marginTop: andiSpace[3] },
   linkBtn: {
-    alignSelf: 'flex-start', marginTop: andiSpace[3], borderWidth: 1.5, borderColor: andiColors.primary600,
+    borderWidth: 1.5, borderColor: andiColors.primary600,
     borderRadius: andiRadius.full, paddingHorizontal: andiSpace[4], paddingVertical: andiSpace[1],
+    minHeight: 30, justifyContent: 'center',
   },
   linkBtnText: { ...andiType.labelSm, color: andiColors.primary600 },
+  inviteBtn: { borderColor: andiColors.success600 },
+  inviteBtnText: { color: andiColors.success700 },
 
   emptyState: { alignItems: 'center', paddingVertical: andiSpace[10] },
   emptyStateText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3] },

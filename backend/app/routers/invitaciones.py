@@ -1,7 +1,8 @@
 """
 Códigos de invitación para altas de ENTIDAD/MODERADOR/ADMINISTRADOR.
 
-Un ADMIN genera un token de 6 caracteres (POST /) que le comparte
+Un ADMIN (cualquier rol/entidad) o una ENTIDAD (solo rol ENTIDAD, solo su
+propia entidad) genera un token de 6 caracteres (POST /) que comparte
 manualmente a la persona invitada; esa persona lo valida (GET /{token},
 público) y lo consume en POST /usuarios/registro-invitacion
 (app/routers/usuarios.py) para crear su cuenta ya ACTIVA, sin pasar por el
@@ -17,7 +18,7 @@ from typing import Any
 import pymysql
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.deps import require_roles
+from app.core.deps import require_active_user
 from app.core.errors import handle_db_error
 from app.core.roles import Rol
 from app.db.database import get_connection
@@ -88,16 +89,33 @@ def crear_token_invitacion(
 @router.post(
     "/",
     status_code=201,
-    summary="Generar un código de invitación (solo ADMINISTRADOR)",
+    summary="Generar un código de invitación (ADMINISTRADOR, o ENTIDAD invitando a su propia entidad)",
     response_model=CrearInvitacionResponse,
     responses={
-        400: {"description": "id_rol inválido, o id_entidad faltante/no permitido para ese rol"}
+        400: {"description": "id_rol inválido, o id_entidad faltante/no permitido para ese rol"},
+        403: {"description": "Sin permiso"},
     },
 )
 def crear_invitacion(
     data: CrearInvitacionRequest,
-    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    user: dict[str, Any] = Depends(require_active_user),
 ) -> dict[str, Any]:
+    """
+    ADMIN puede invitar a cualquier rol invitable, para cualquier entidad.
+    ENTIDAD solo puede invitar a un nuevo compañero (id_rol=ENTIDAD) de SU
+    PROPIA entidad -- así una entidad da de alta a sus propios trabajadores
+    sin depender de que un ADMIN lo haga por ella cada vez. Ningún otro rol
+    genera invitaciones.
+    """
+    if user["id_rol"] == Rol.ENTIDAD:
+        if data.id_rol != Rol.ENTIDAD or data.id_entidad != user.get("id_entidad"):
+            raise HTTPException(
+                status_code=403,
+                detail="Solo puedes invitar a un nuevo compañero de tu propia entidad",
+            )
+    elif user["id_rol"] != Rol.ADMIN:
+        raise HTTPException(status_code=403, detail="No tienes permisos para generar invitaciones")
+
     if data.id_rol not in ROLES_INVITABLES:
         raise HTTPException(
             status_code=400,

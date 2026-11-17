@@ -218,7 +218,8 @@ export const entidadesAPI = {
 // INVITACIONES
 // ========================
 export const invitacionesAPI = {
-  // Solo ADMIN (require_roles(Rol.ADMIN) en el backend).
+  // ADMIN (cualquier rol/entidad) o ENTIDAD (solo id_rol=ENTIDAD, solo su
+  // propia id_entidad) -- ver crear_invitacion() en el backend.
   crear: (data: CrearInvitacionRequest) =>
     client.post<CrearInvitacionResponse>('/invitaciones/', data),
   // Público, sin JWT -- validación del código antes de mostrar el

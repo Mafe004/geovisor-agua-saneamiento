@@ -9,10 +9,12 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { AuthContext } from '../../context/AuthContext';
-import { usuariosAPI } from '../../api/services';
+import { usuariosAPI, invitacionesAPI } from '../../api/services';
 import type { UserPublic } from '../../types/domain';
+import { Rol } from '../../types/models';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 import { useToast } from '../../components/andi/Toast';
+import InvitacionTokenModal from '../../components/andi/InvitacionTokenModal';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiSpace } from '../../theme/andi';
 
 // user (AuthContext) es UserPublic -- nunca trae `telefono` (ver
@@ -67,7 +69,25 @@ export default function PerfilScreen({ navigation }: Props) {
 
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
+  // ── Invitar a un compañero (solo ENTIDAD, de su propia entidad) ──
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [invitando, setInvitando] = useState(false);
+
   if (!user) return null;
+
+  const handleInvitar = async () => {
+    if (!user.id_entidad) return;
+    try {
+      setInvitando(true);
+      const res = await invitacionesAPI.crear({ id_rol: Rol.ENTIDAD, id_entidad: user.id_entidad });
+      setInviteToken(res.data.token);
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      toast.error('Error', msg || 'No se pudo generar el código de invitación.');
+    } finally {
+      setInvitando(false);
+    }
+  };
 
   const abrirDatosModal = () => {
     setNombreEdit(user.nombre_completo || '');
@@ -180,6 +200,17 @@ export default function PerfilScreen({ navigation }: Props) {
               <View style={{ flex: 1 }} />
               <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />
             </TouchableOpacity>
+
+            {user.id_rol === Rol.ENTIDAD && (
+              <TouchableOpacity accessibilityRole="button" style={styles.sectionRow} activeOpacity={0.8} onPress={handleInvitar} disabled={invitando}>
+                <Feather name="user-plus" size={18} color={andiColors.onSurface} />
+                <Text style={styles.sectionRowLabel}>Invitar a un compañero</Text>
+                <View style={{ flex: 1 }} />
+                {invitando
+                  ? <ActivityIndicator size="small" color={andiColors.primary600} />
+                  : <Feather name="chevron-right" size={18} color={andiColors.onSurfaceVariant} />}
+              </TouchableOpacity>
+            )}
           </View>
 
           <Text style={styles.groupLabel}>Información de cuenta</Text>
@@ -366,6 +397,13 @@ export default function PerfilScreen({ navigation }: Props) {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <InvitacionTokenModal
+        visible={!!inviteToken}
+        onClose={() => setInviteToken(null)}
+        token={inviteToken}
+        mensaje="Tu nuevo compañero lo usa al registrarse para unirse a tu entidad con rol Entidad."
+      />
     </View>
   );
 }

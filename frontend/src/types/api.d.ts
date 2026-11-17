@@ -820,7 +820,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generar un código de invitación (solo ADMINISTRADOR) */
+        /**
+         * Generar un código de invitación (ADMINISTRADOR, o ENTIDAD invitando a su propia entidad)
+         * @description ADMIN puede invitar a cualquier rol invitable, para cualquier entidad.
+         *     ENTIDAD solo puede invitar a un nuevo compañero (id_rol=ENTIDAD) de SU
+         *     PROPIA entidad -- así una entidad da de alta a sus propios trabajadores
+         *     sin depender de que un ADMIN lo haga por ella cada vez. Ningún otro rol
+         *     genera invitaciones.
+         */
         post: operations["crear_invitacion_invitaciones__post"];
         delete?: never;
         options?: never;
@@ -4321,6 +4328,13 @@ export interface operations {
             };
             /** @description id_rol inválido, o id_entidad faltante/no permitido para ese rol */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sin permiso */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

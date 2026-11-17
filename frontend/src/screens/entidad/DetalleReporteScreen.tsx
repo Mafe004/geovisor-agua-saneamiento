@@ -1,15 +1,17 @@
 import React, { useState, useContext, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet, ScrollView, Image,
   TouchableOpacity, ActivityIndicator, TextInput,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { reportesAPI, catalogosAPI, siasarAPI, historialAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import MapaWebView from '../../components/MapaWebView';
 import { useToast } from '../../components/andi/Toast';
+import { construirFormFoto, uriImagenServidor } from '../../utils/fotoEvidencia';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
@@ -243,6 +245,13 @@ function EstandarDetalleView({
             <Text style={[andiType.bodyLg, andiStyles.description]}>{reporte.descripcion || '—'}</Text>
           </View>
 
+          {!!uriImagenServidor(reporte.imagen_url) && (
+            <View style={andiStyles.section}>
+              <Text style={[andiType.overline, andiStyles.sectionLabel, andiStyles.sectionLabelSpaced]}>Foto del reporte</Text>
+              <Image source={{ uri: uriImagenServidor(reporte.imagen_url) as string }} style={andiStyles.reporteFoto} resizeMode="cover" />
+            </View>
+          )}
+
           <View style={andiStyles.section}>
             <Text style={[andiType.overline, andiStyles.sectionLabel, andiStyles.sectionLabelSpaced]}>Detalles</Text>
             <AndiDetailRow andiType={andiType} styles={andiStyles} label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
@@ -351,6 +360,35 @@ function EntidadCierreView({
   const siasarDetalle = useSiasarDiagnostico(reporte.vereda_siasar?.id_siasar);
   const { historial, cargando: cargandoHistorial } = useHistorialReporte(reporte.id_reporte);
 
+  // Foto del arreglo, opcional. fotoSubida = ruta ya devuelta por
+  // /reportes/imagen para esta misma foto: si Guardar falla después de
+  // subir la imagen, un reintento no la vuelve a subir -- mismo patrón que
+  // ciudadano/CrearReporteScreen.tsx.
+  const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [fotoSubida, setFotoSubida] = useState<string | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+
+  const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
+    if (result.canceled) return;
+    setFoto(result.assets[0] ?? null);
+    setFotoSubida(null);
+  };
+
+  const tomarFoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.');
+      return;
+    }
+    elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
+  };
+
+  const elegirDeGaleria = async () => {
+    elegirFoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 }));
+  };
+
+  const quitarFoto = () => { setFoto(null); setFotoSubida(null); };
+
   const hasCoords =
     reporte.latitud != null && reporte.longitud != null &&
     !(reporte.latitud === 0 && reporte.longitud === 0);
@@ -374,11 +412,31 @@ function EntidadCierreView({
     if (!resuelto) return;
 
     setErrorMsg(null);
+
+    // Si hay foto nueva sin subir todavía, subirla primero -- un fallo acá
+    // no debe perder el comentario ya escrito (mismo motivo que el catch
+    // de abajo no lo limpia), así que se separa del try de cambiarEstado.
+    let imagenUrl = fotoSubida;
+    if (foto && !imagenUrl) {
+      try {
+        setSubiendoFoto(true);
+        imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
+        setFotoSubida(imagenUrl);
+      } catch (_) {
+        toast.error('No se pudo subir la foto', 'Puedes reintentar o guardar el cambio sin foto.');
+        setSubiendoFoto(false);
+        return;
+      } finally {
+        setSubiendoFoto(false);
+      }
+    }
+
     try {
       setSaving(true);
       const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
         id_estado_nuevo: resuelto.id_estado,
         comentario: comentario.trim(),
+        imagen_url: imagenUrl || undefined,
       });
       onUpdated(res.data.reporte);
       // Tiempo de atención: se calcula en el cliente desde el último
@@ -463,6 +521,10 @@ function EntidadCierreView({
         )}
         <Text style={[andiType.body, andiStyles.description]}>{reporte.descripcion}</Text>
 
+        {!!uriImagenServidor(reporte.imagen_url) && (
+          <Image source={{ uri: uriImagenServidor(reporte.imagen_url) as string }} style={andiStyles.reporteFoto} resizeMode="cover" />
+        )}
+
         {siasarDetalle && (
           <View style={andiStyles.siasarCard}>
             <Text style={[andiType.label, andiStyles.siasarCardTitle]}>Diagnóstico oficial de la zona (SIASAR)</Text>
@@ -484,6 +546,9 @@ function EntidadCierreView({
                   {'  ·  '}{h.usuario_accion} · {formatDate(h.fecha_cambio)}
                 </Text>
                 {h.comentario && <Text style={[andiType.caption, andiStyles.historialComment]}>&quot;{h.comentario}&quot;</Text>}
+                {!!uriImagenServidor(h.imagen_url) && (
+                  <Image source={{ uri: uriImagenServidor(h.imagen_url) as string }} style={andiStyles.historialFoto} resizeMode="cover" />
+                )}
               </View>
             ))
           )}
@@ -536,11 +601,35 @@ function EntidadCierreView({
           </Text>
         </View>
 
-        <View style={andiStyles.photoRow}>
-          <View style={andiStyles.photoIcon}>
-            <Feather name="camera" size={16} color={andiColors.onSurfaceVariant} />
-          </View>
-          <Text style={[andiType.caption, andiStyles.photoText]}>Foto del arreglo · opcional</Text>
+        <View style={andiStyles.section}>
+          <Text style={[andiType.overline, andiStyles.sectionLabel]}>Foto del arreglo · opcional</Text>
+          {foto ? (
+            <View style={andiStyles.fotoCard}>
+              <Image source={{ uri: foto.uri }} style={andiStyles.fotoPreview} resizeMode="cover" />
+              <View style={andiStyles.fotoActions}>
+                <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={elegirDeGaleria} disabled={saving || subiendoFoto}>
+                  <Text style={andiStyles.fotoBtnText}>Cambiar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={tomarFoto} disabled={saving || subiendoFoto}>
+                  <Text style={andiStyles.fotoBtnText}>Tomar otra</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={quitarFoto} disabled={saving || subiendoFoto}>
+                  <Text style={andiStyles.fotoBtnRemoveText}>Quitar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={andiStyles.photoRow}>
+              <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={tomarFoto}>
+                <Feather name="camera" size={14} color={andiColors.primary600} />
+                <Text style={andiStyles.fotoBtnText}>Tomar foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={elegirDeGaleria}>
+                <Feather name="image" size={14} color={andiColors.primary600} />
+                <Text style={andiStyles.fotoBtnText}>Galería</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {errorMsg && (
@@ -551,11 +640,11 @@ function EntidadCierreView({
         )}
 
         <TouchableOpacity accessibilityRole="button"
-          style={[andiStyles.saveBtn, andiElevation[2], saving && andiStyles.saveBtnDisabled]}
+          style={[andiStyles.saveBtn, andiElevation[2], (saving || subiendoFoto) && andiStyles.saveBtnDisabled]}
           onPress={handleGuardar}
-          disabled={saving}
+          disabled={saving || subiendoFoto}
         >
-          {saving
+          {saving || subiendoFoto
             ? <ActivityIndicator color={andiColors.n0} />
             : <Text style={andiStyles.saveBtnText}>{errorMsg ? 'Reintentar' : (resolviendo ? 'Marcar como resuelto' : 'Guardar cambio')}</Text>}
         </TouchableOpacity>
@@ -589,6 +678,7 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
   map: { height: r.scaleHeight(160), borderRadius: andiRadius.lg, overflow: 'hidden', marginBottom: andiSpace[3] },
   description: { color: andiColors.onSurface, marginBottom: andiSpace[4] },
+  reporteFoto: { width: '100%', height: 180, borderRadius: andiRadius.lg, marginBottom: andiSpace[4] },
 
   siasarCard: {
     backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg,
@@ -639,6 +729,7 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   historialTransition: { color: andiColors.onSurfaceVariant },
   historialTransitionStrong: { color: andiColors.onSurface, fontWeight: '700' },
   historialComment: { color: andiColors.onSurface, marginTop: 2 },
+  historialFoto: { width: 120, height: 90, borderRadius: andiRadius.md, marginTop: andiSpace[2] },
 
   errorBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2],
@@ -664,16 +755,16 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   },
   helperText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2] },
 
-  photoRow: {
-    flexDirection: 'row', alignItems: 'center', gap: andiSpace[3],
-    backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg, padding: andiSpace[3],
-    marginBottom: andiSpace[5],
+  photoRow: { flexDirection: 'row', gap: andiSpace[2] },
+  fotoCard: { borderRadius: andiRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: andiColors.outlineVariant, backgroundColor: andiColors.surface },
+  fotoPreview: { width: '100%', height: 180 },
+  fotoActions: { flexDirection: 'row', gap: andiSpace[2], padding: andiSpace[3] },
+  fotoBtn: {
+    flex: 1, minHeight: 44, flexDirection: 'row', gap: 6, paddingHorizontal: andiSpace[3],
+    borderRadius: andiRadius.full, backgroundColor: andiColors.primary50, alignItems: 'center', justifyContent: 'center',
   },
-  photoIcon: {
-    width: 44, height: 44, borderRadius: andiRadius.sm, borderWidth: 1, borderStyle: 'dashed', borderColor: andiColors.outline,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  photoText: { color: andiColors.onSurfaceVariant, flex: 1 },
+  fotoBtnText: { color: andiColors.primary700, fontWeight: '600', fontSize: 12 },
+  fotoBtnRemoveText: { color: andiColors.error600, fontWeight: '600', fontSize: 12 },
 
   saveBtn: { minHeight: 56, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.6 },

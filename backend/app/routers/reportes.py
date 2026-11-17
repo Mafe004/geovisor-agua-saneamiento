@@ -112,7 +112,12 @@ class ReporteUpdateRequest(BaseModel):
 class CambiarEstadoRequest(BaseModel):
     id_estado_nuevo: int = Field(..., ge=1)
     comentario: str | None = Field(None, max_length=500)
-    imagen_url: str | None = Field(None, max_length=500)
+    # Evidencia de la atención (p.ej. foto del arreglo) -- mismo contrato que
+    # ReporteCreateRequest.imagen_url: solo rutas devueltas por POST
+    # /reportes/imagen, nunca un file:// local ni una URL externa. Columna
+    # distinta (historial_reportes.imagen_url, migración 0005): esta es la
+    # foto de CÓMO quedó, no la foto original del reporte.
+    imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
 
 
 class AsignarEntidadRequest(BaseModel):

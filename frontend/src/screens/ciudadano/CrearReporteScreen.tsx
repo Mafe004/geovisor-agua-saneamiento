@@ -11,7 +11,6 @@ import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-n
 import axios from 'axios';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapCenterChange } from '../../components/MapaWebView.types';
-import { API_URL } from '../../api/client';
 import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SeverityPicker, { type SeveridadKey } from '../../components/ciudadano/SeverityPicker';
@@ -19,6 +18,7 @@ import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
+import { construirFormFoto, uriImagenServidor } from '../../utils/fotoEvidencia';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -51,13 +51,6 @@ function severidadInicial(reporte: Reporte | null): SeveridadKey | null {
   return SEVERIDADES_PICKER.includes(s) ? (s as SeveridadKey) : null;
 }
 
-// Misma regla que DetalleReporteScreen: imagen_url llega relativa al mount
-// /uploads del backend; una URL absoluta (filas antiguas) se usa tal cual.
-function uriImagenServidor(path: string | null): string | null {
-  if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-}
 
 // Edición: el mapa informa su centro al cargar y cada vez que queda quieto.
 // Dentro de esta tolerancia (~0,1 m) se considera el mismo punto guardado y
@@ -86,22 +79,6 @@ const PRELLENADO: Record<string, string> = {
 };
 
 type Mode = 'form' | 'draft-saved' | 'success';
-
-// En móvil el FormData de React Native acepta {uri, name, type} y lee el
-// archivo él mismo; en web ese objeto no sirve y hay que adjuntar el Blob.
-async function construirFormFoto(foto: ImagePicker.ImagePickerAsset): Promise<FormData> {
-  const form = new FormData();
-  const name = foto.fileName || 'foto.jpg';
-  const type = foto.mimeType || 'image/jpeg';
-  if (Platform.OS === 'web') {
-    const blob = await (await fetch(foto.uri)).blob();
-    form.append('archivo', blob, name);
-  } else {
-    // El tipo TS de FormData es el del DOM y no conoce la forma {uri,name,type}.
-    form.append('archivo', { uri: foto.uri, name, type } as unknown as Blob);
-  }
-  return form;
-}
 
 export default function CrearReporteScreen(props: Props) {
   const r = useResponsive();

@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import axios from 'axios';
-import { API_URL } from '../../api/client';
 import { reportesAPI } from '../../api/services';
+import { uriImagenServidor } from '../../utils/fotoEvidencia';
 import { AuthContext } from '../../context/AuthContext';
 import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
@@ -95,15 +95,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
 
   useFocusEffect(useCallback(() => { loadHistorial(); }, [loadHistorial]));
 
-  // imagen_url llega relativa al mount /uploads del backend
-  // (/uploads/reportes/<uuid>.jpg) -- se antepone el mismo API_URL que usa
-  // axios. Una URL absoluta (filas antiguas) se usa tal cual.
-  const imagenPath = reporte.imagen_url?.trim();
-  const imagenUri = imagenPath
-    ? /^https?:\/\//i.test(imagenPath)
-      ? imagenPath
-      : `${API_URL}${imagenPath.startsWith('/') ? '' : '/'}${imagenPath}`
-    : null;
+  const imagenUri = uriImagenServidor(reporte.imagen_url);
   const [fotoRatio, setFotoRatio] = useState<number | null>(null);
   const [fotoError, setFotoError] = useState(false);
 

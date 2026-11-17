@@ -176,20 +176,20 @@ export default function DashboardScreen() {
         }
       >
         <View style={{ width: '100%', maxWidth: r.maxContentWidth(900) }}>
-        {/* KPI tiles */}
+        {/* KPI tiles -- cada una navega a su propia pantalla de administración */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kpiRow}>
-          <View style={styles.kpiTile}>
+          <TouchableOpacity accessibilityRole="button" style={styles.kpiTile} onPress={() => navigation.navigate('Reportes')} activeOpacity={0.8}>
             <Text style={styles.kpiNum}>{totalReportes}</Text>
             <Text style={styles.kpiLabel}>Reportes</Text>
-          </View>
-          <View style={styles.kpiTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.kpiTile} onPress={() => navigation.navigate('Usuarios')} activeOpacity={0.8}>
             <Text style={styles.kpiNum}>{usuariosCount ?? '—'}</Text>
             <Text style={styles.kpiLabel}>Usuarios</Text>
-          </View>
-          <View style={styles.kpiTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.kpiTile} onPress={() => navigation.navigate('Entidades')} activeOpacity={0.8}>
             <Text style={styles.kpiNum}>{entidadesCount ?? '—'}</Text>
             <Text style={styles.kpiLabel}>{entidadesCount === 1 ? 'Entidad' : 'Entidades'}</Text>
-          </View>
+          </TouchableOpacity>
         </ScrollView>
 
         {/* Alerta de cuentas pendientes -- solo si hay alguna */}

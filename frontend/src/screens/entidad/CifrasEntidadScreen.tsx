@@ -132,15 +132,21 @@ export default function CifrasEntidadScreen({ navigation }: Props) {
             <View style={styles.mesChart}>
               {porMes.map((m, i) => (
                 <View key={i} style={styles.mesCol}>
-                  <View style={[
-                    styles.mesBar,
-                    {
-                      height: `${Math.max(6, Math.round((m.total / maxMes) * 100))}%`,
-                      backgroundColor: interpolatePrimary(m.total / maxMes),
-                    },
-                  ]} />
-                  <Text style={[andiType.overline, styles.mesLabel]}>{mesLabel(m.mes)}</Text>
+                  <View
+                    style={[
+                      styles.mesBar,
+                      {
+                        height: `${Math.max(6, Math.round((m.total / maxMes) * 100))}%`,
+                        backgroundColor: interpolatePrimary(m.total / maxMes),
+                      },
+                    ]}
+                  />
                 </View>
+              ))}
+            </View>
+            <View style={styles.mesLabelRow}>
+              {porMes.map((m, i) => (
+                <Text key={i} style={[andiType.overline, styles.mesLabel]}>{mesLabel(m.mes)}</Text>
               ))}
             </View>
 
@@ -181,9 +187,10 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   severidadLabel: { color: andiColors.onSurfaceVariant },
 
   mesChart: { flexDirection: 'row', alignItems: 'flex-end', gap: andiSpace[2], height: r.scaleHeight(120) },
-  mesCol: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 6 },
+  mesCol: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   mesBar: { width: '100%', borderTopLeftRadius: andiRadius.sm, borderTopRightRadius: andiRadius.sm },
-  mesLabel: { color: andiColors.onSurfaceVariant },
+  mesLabelRow: { flexDirection: 'row', gap: andiSpace[2], marginTop: andiSpace[2] },
+  mesLabel: { flex: 1, textAlign: 'center', color: andiColors.onSurfaceVariant },
 
   footerNote: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[5] },
 });

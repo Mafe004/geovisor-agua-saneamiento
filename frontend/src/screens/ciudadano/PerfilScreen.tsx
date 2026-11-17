@@ -151,6 +151,7 @@ export default function PerfilScreen({ navigation }: Props) {
   const confirmLogout = async () => {
     setLogoutModal(false);
     await logout();
+    toast.success('Sesión cerrada', 'Vuelve cuando quieras.');
   };
 
   return (

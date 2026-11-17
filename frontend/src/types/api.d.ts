@@ -973,6 +973,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/uploads/imagen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subir una foto de evidencia (reporte o cambio de estado) */
+        post: operations["subir_imagen_uploads_imagen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/": {
         parameters: {
             query?: never;
@@ -1087,6 +1104,14 @@ export interface components {
             /** Entidad */
             entidad: string;
         };
+        /** Body_subir_imagen_uploads_imagen_post */
+        Body_subir_imagen_uploads_imagen_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
         /**
          * Calificacion
          * @enum {string}
@@ -1123,6 +1148,8 @@ export interface components {
             id_estado_nuevo: number;
             /** Comentario */
             comentario?: string | null;
+            /** Imagen Url */
+            imagen_url?: string | null;
         };
         /** CambiarEstadoResponse */
         CambiarEstadoResponse: {
@@ -1489,6 +1516,8 @@ export interface components {
             estado_nuevo: string;
             /** Comentario */
             comentario: string | null;
+            /** Imagen Url */
+            imagen_url: string | null;
             /** Id Usuario Accion */
             id_usuario_accion: number;
             /** Usuario Accion */
@@ -1524,6 +1553,8 @@ export interface components {
             estado_nuevo: string;
             /** Comentario */
             comentario: string | null;
+            /** Imagen Url */
+            imagen_url: string | null;
             /** Rol Usuario Accion */
             rol_usuario_accion: string;
             /**
@@ -4393,6 +4424,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumenModuloItem"][];
+                };
+            };
+        };
+    };
+    subir_imagen_uploads_imagen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_imagen_uploads_imagen_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Formato no soportado o archivo demasiado grande */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

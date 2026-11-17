@@ -52,6 +52,7 @@ class ReporteCreateRequest(BaseModel):
 class CambiarEstadoRequest(BaseModel):
     id_estado_nuevo: int = Field(..., ge=1)
     comentario: str | None = Field(None, max_length=500)
+    imagen_url: str | None = Field(None, max_length=500)
 
 
 class AsignarEntidadRequest(BaseModel):
@@ -168,18 +169,22 @@ def _insertar_historial(
     estado_nuevo: str,
     id_usuario_accion: int,
     comentario: str | None = None,
+    imagen_url: str | None = None,
 ):
     """
     Inserta un registro en historial_reportes.
     Se llama tanto al CREAR un reporte como al CAMBIAR su estado.
+    `imagen_url` es la evidencia de la atención (p.ej. foto del arreglo),
+    distinta de reportes.imagen_url (la foto del reporte original) -- ver
+    migrations/0005_historial_evidencia.sql.
     """
     cursor.execute(
         """
         INSERT INTO historial_reportes
-            (id_reporte, estado_anterior, estado_nuevo, comentario, id_usuario_accion, fecha_cambio)
-        VALUES (%s, %s, %s, %s, %s, NOW());
+            (id_reporte, estado_anterior, estado_nuevo, comentario, imagen_url, id_usuario_accion, fecha_cambio)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW());
     """,
-        (id_reporte, estado_anterior, estado_nuevo, comentario, id_usuario_accion),
+        (id_reporte, estado_anterior, estado_nuevo, comentario, imagen_url, id_usuario_accion),
     )
 
 
@@ -658,6 +663,7 @@ def cambiar_estado(
                 estado_nuevo=nombre_estado_nuevo,
                 id_usuario_accion=user["id_usuario"],
                 comentario=payload.comentario,
+                imagen_url=payload.imagen_url,
             )
 
             # ✅ NOTIFICACIÓN: avisar al dueño del reporte

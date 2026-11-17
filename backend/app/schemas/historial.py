@@ -13,6 +13,7 @@ class HistorialEntry(BaseModel):
     estado_anterior: str
     estado_nuevo: str
     comentario: str | None
+    imagen_url: str | None
     id_usuario_accion: int
     usuario_accion: str
     rol_usuario_accion: str
@@ -37,5 +38,6 @@ class HistorialEntryComunidad(BaseModel):
     estado_anterior: str
     estado_nuevo: str
     comentario: str | None
+    imagen_url: str | None
     rol_usuario_accion: str
     fecha_cambio: datetime

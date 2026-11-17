@@ -22,6 +22,7 @@ def _select_historial_sql() -> str:
             h.estado_anterior,
             h.estado_nuevo,
             h.comentario,
+            h.imagen_url,
             h.id_usuario_accion,
             u.nombre_completo AS usuario_accion,
             r.nombre          AS rol_usuario_accion,

@@ -301,6 +301,7 @@ CREATE TABLE `historial_reportes` (
   `comentario`        varchar(255) DEFAULT NULL,
   `id_usuario_accion` int          NOT NULL,
   `fecha_cambio`      datetime     DEFAULT CURRENT_TIMESTAMP,
+  `imagen_url`        varchar(500) DEFAULT NULL,
   PRIMARY KEY (`id_historial`),
   KEY `fk_historial_usuario`   (`id_usuario_accion`),
   KEY `idx_historial_reporte`  (`id_reporte`),
@@ -309,15 +310,15 @@ CREATE TABLE `historial_reportes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `historial_reportes` VALUES
-  (1,1,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW()),
-  (2,2,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW()),
-  (3,2,'PENDIENTE',   'EN_REVISION', 'Reporte validado por moderador',                    3,NOW()),
-  (4,2,'EN_REVISION', 'EN_PROCESO',  'Iniciamos atención del reporte',                    2,NOW()),
-  (5,2,'EN_PROCESO',  'RESUELTO',    'Reporte solucionado: se reparó la fuga',            2,NOW()),
-  (6,3,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW()),
-  (7,4,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW()),
-  (8,4,'PENDIENTE',   'EN_REVISION', 'Clasificación y asignación a Acueducto Municipal',  3,NOW()),
-  (9,5,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW());
+  (1,1,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW(),NULL),
+  (2,2,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW(),NULL),
+  (3,2,'PENDIENTE',   'EN_REVISION', 'Reporte validado por moderador',                    3,NOW(),NULL),
+  (4,2,'EN_REVISION', 'EN_PROCESO',  'Iniciamos atención del reporte',                    2,NOW(),NULL),
+  (5,2,'EN_PROCESO',  'RESUELTO',    'Reporte solucionado: se reparó la fuga',            2,NOW(),NULL),
+  (6,3,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW(),NULL),
+  (7,4,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW(),NULL),
+  (8,4,'PENDIENTE',   'EN_REVISION', 'Clasificación y asignación a Acueducto Municipal',  3,NOW(),NULL),
+  (9,5,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW(),NULL);
 
 -- ------------------------------------------------------------
 

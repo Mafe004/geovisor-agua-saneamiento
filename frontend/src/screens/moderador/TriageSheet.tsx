@@ -104,9 +104,14 @@ export default function TriageSheet({
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.handle} />
 
-              <View style={styles.titleBlock}>
-                <Text style={andiType.section}>Triar reporte</Text>
-                <Text style={[andiType.caption, styles.caption]}>Queda registrado en el historial con tu nombre.</Text>
+              <View style={[styles.titleBlock, styles.titleBlockRow]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={andiType.section}>Triar reporte</Text>
+                  <Text style={[andiType.caption, styles.caption]}>Queda registrado en el historial con tu nombre.</Text>
+                </View>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onClose} style={styles.closeBtn}>
+                  <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.section}>
@@ -227,6 +232,8 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   },
   handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center', marginBottom: andiSpace[4] },
   titleBlock: { marginBottom: andiSpace[4] },
+  titleBlockRow: { flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2] },
+  closeBtn: { padding: andiSpace[1] },
   caption: { color: andiColors.onSurfaceVariant, marginTop: 2 },
 
   section: { marginBottom: andiSpace[4] },

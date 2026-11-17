@@ -4,6 +4,7 @@ import {
   Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import { infraestructuraAPI } from '../../api/services';
 import AndiHeader, { AndiHeaderIconButton } from '../../components/andi/AndiHeader';
@@ -223,8 +224,11 @@ function InfraestructuraForm({
           <View style={[styles.formCard, andiElevation[4]]}>
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.handle} />
-              <View style={styles.formHeader}>
+              <View style={[styles.formHeader, styles.formHeaderRow]}>
                 <Text style={andiType.section}>Nueva infraestructura</Text>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => { reset(); onClose(); }} style={styles.closeBtn}>
+                  <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.formLabel}>Nombre *</Text>
@@ -324,6 +328,8 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   },
   handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center', marginBottom: andiSpace[4] },
   formHeader: { marginBottom: andiSpace[2] },
+  formHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  closeBtn: { padding: andiSpace[1] },
   formLabel: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.onSurface, marginBottom: andiSpace[2], marginTop: andiSpace[3] },
   input: {
     borderWidth: 1, borderColor: andiColors.outlineVariant, borderRadius: andiRadius.full,

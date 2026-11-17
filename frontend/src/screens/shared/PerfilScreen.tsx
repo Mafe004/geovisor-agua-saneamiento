@@ -136,6 +136,7 @@ export default function PerfilScreen({ navigation }: Props) {
     await logout();
     // AppNavigator cambia a la pila de Login solo cuando user pasa a null
     // (ver AuthContext) -- no hace falta navegar manualmente acá.
+    toast.success('Sesión cerrada', 'Vuelve cuando quieras.');
   };
 
   const passMismatch = passConfirm.length > 0 && passNueva !== passConfirm;

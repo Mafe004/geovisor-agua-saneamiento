@@ -105,6 +105,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
     await logout();
     // AppNavigator cambia a la pila de Login solo cuando user pasa a null
     // (ver AuthContext) -- no hace falta navegar manualmente acá.
+    toast.success('Sesión cerrada', 'Vuelve cuando quieras.');
   };
 
   return (

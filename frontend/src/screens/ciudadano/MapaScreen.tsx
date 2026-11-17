@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { reportesAPI, siasarAPI } from '../../api/services';
+import { reportesAPI, siasarAPI, catalogosAPI } from '../../api/services';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
@@ -12,12 +12,12 @@ import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { StatusChip, SeverityChip } from '../../components/ciudadano/Chip';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
-import { useToast } from '../../components/andi/Toast';
+import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
   ReporteMapaPunto, MunicipioSiasar, ComunidadMapa, SistemaMapa,
-  ComunidadDetalle, SistemaDetalle,
+  ComunidadDetalle, SistemaDetalle, TipoIncidenteItem,
 } from '../../types/domain';
 import type { CiudadanoTabParamList, RootStackParamList } from '../../navigation/types';
 import {
@@ -42,6 +42,42 @@ const FILTERS = [
   { key: 'RESUELTO', label: 'Resuelto' },
 ];
 
+type FiltroFecha = '' | 'HOY' | '7D' | '30D' | 'RANGO';
+const FECHA_OPCIONES: { key: FiltroFecha; label: string }[] = [
+  { key: '', label: 'Todas las fechas' },
+  { key: 'HOY', label: 'Hoy' },
+  { key: '7D', label: 'Últimos 7 días' },
+  { key: '30D', label: 'Últimos 30 días' },
+  { key: 'RANGO', label: 'Rango personalizado' },
+];
+
+type SelectorReporte = 'tipo' | 'fecha';
+
+// Las fechas se comparan como claves 'AAAA-MM-DD' (orden de texto = orden
+// cronológico). fecha_reporte es un DATETIME de MySQL sin zona horaria: se
+// toma su parte de fecha tal cual en vez de pasarla por Date, que la
+// reinterpretaría en UTC o en la zona del teléfono según el formato.
+const diaDeReporte = (fecha?: string | null): string | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha || '');
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+};
+
+const diaLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const haceDias = (n: number) => {
+  const hoy = new Date();
+  return diaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - n));
+};
+
+// null si el texto no es una fecha AAAA-MM-DD real (p. ej. 2025-02-30).
+const parsearDia = (texto: string): string | null => {
+  const t = texto.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (!m) return null;
+  return diaLocal(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) === t ? t : null;
+};
+
 type SiasarSeleccion =
   | { tipo: 'comunidad'; data: ComunidadDetalle }
   | { tipo: 'sistema'; data: SistemaDetalle };
@@ -49,8 +85,8 @@ type SiasarSeleccion =
 export default function MapaScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
-  const toast = useToast();
   const [pines, setPines] = useState<ReporteMapaPunto[]>([]);
+  const { showDialog, dialog } = useAndiDialog();
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [query, setQuery] = useState('');
@@ -59,6 +95,14 @@ export default function MapaScreen({ navigation }: Props) {
   const [self, setSelf] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locStatus, setLocStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [selectedPin, setSelectedPin] = useState<MapMarker | null>(null);
+
+  // ── Filtros de reportes comunitarios (independientes de las capas SIASAR) ──
+  const [tiposIncidente, setTiposIncidente] = useState<TipoIncidenteItem[]>([]);
+  const [tipoFiltro, setTipoFiltro] = useState('');
+  const [fechaFiltro, setFechaFiltro] = useState<FiltroFecha>('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [selectorReporte, setSelectorReporte] = useState<SelectorReporte | null>(null);
 
   // ── Capas SIASAR ──
   const [capaReportes, setCapaReportes] = useState(true);
@@ -85,6 +129,13 @@ export default function MapaScreen({ navigation }: Props) {
   }, []);
 
   useFocusEffect(useCallback(() => { loadPines(); }, [loadPines]));
+
+  useEffect(() => {
+    catalogosAPI.tiposIncidente()
+      .then((res) => setTiposIncidente(res.data || []))
+      // Sin catálogo el selector solo ofrece "Todos los tipos".
+      .catch(() => setTiposIncidente([]));
+  }, []);
 
   const requestLocation = useCallback(async () => {
     try {
@@ -168,7 +219,7 @@ export default function MapaScreen({ navigation }: Props) {
       navigation.navigate('DetalleReporte', { reporte: res.data });
       setSelectedPin(null);
     } catch (_) {
-      toast.error('Error', 'No se pudo cargar el detalle del reporte.');
+      showDialog('Error', 'No se pudo cargar el detalle del reporte.', { tone: 'error' });
     }
   };
 
@@ -181,7 +232,7 @@ export default function MapaScreen({ navigation }: Props) {
         const res = await siasarAPI.comunidad(Number(id.slice(4)));
         setSelectedSiasar({ tipo: 'comunidad', data: res.data });
       } catch (_) {
-        toast.error('Error', 'No se pudo cargar el diagnóstico de esta vereda.');
+        showDialog('Error', 'No se pudo cargar el diagnóstico de esta vereda.', { tone: 'error' });
       } finally {
         setCargandoDetalleSiasar(false);
       }
@@ -194,7 +245,7 @@ export default function MapaScreen({ navigation }: Props) {
         const res = await siasarAPI.sistema(Number(id.slice(4)));
         setSelectedSiasar({ tipo: 'sistema', data: res.data });
       } catch (_) {
-        toast.error('Error', 'No se pudo cargar el diagnóstico de este acueducto.');
+        showDialog('Error', 'No se pudo cargar el diagnóstico de este acueducto.', { tone: 'error' });
       } finally {
         setCargandoDetalleSiasar(false);
       }
@@ -204,9 +255,69 @@ export default function MapaScreen({ navigation }: Props) {
     setSelectedPin(marker);
   };
 
+  // Límites inclusivos del filtro de fecha; null = sin límite por ese lado.
+  const rangoFecha = (): { desde: string | null; hasta: string | null } => {
+    const hoy = diaLocal(new Date());
+    switch (fechaFiltro) {
+      case 'HOY': return { desde: hoy, hasta: hoy };
+      case '7D': return { desde: haceDias(6), hasta: hoy };
+      case '30D': return { desde: haceDias(29), hasta: hoy };
+      case 'RANGO': return { desde: parsearDia(fechaDesde), hasta: parsearDia(fechaHasta) };
+      default: return { desde: null, hasta: null };
+    }
+  };
+  const { desde, hasta } = rangoFecha();
+
+  const errorRango = fechaFiltro !== 'RANGO' ? null
+    : (fechaDesde.trim() && !desde) || (fechaHasta.trim() && !hasta)
+      ? 'Usa el formato AAAA-MM-DD con una fecha válida.'
+      : desde && hasta && desde > hasta
+        ? 'La fecha inicial es posterior a la final.'
+        : null;
+
+  // Con un rango inválido no se filtra por fecha (solo se muestra el aviso).
+  const filtraFecha = !errorRango && (desde !== null || hasta !== null);
+
   const pinesFiltrados = pines
     .filter((p) => !filter || (p.estado || '').toUpperCase() === filter)
-    .filter((p) => !query.trim() || `${p.direccion || ''} ${p.tipo_incidente || ''}`.toLowerCase().includes(query.trim().toLowerCase()));
+    .filter((p) => !query.trim() || `${p.direccion || ''} ${p.tipo_incidente || ''}`.toLowerCase().includes(query.trim().toLowerCase()))
+    .filter((p) => !tipoFiltro || p.tipo_incidente === tipoFiltro)
+    .filter((p) => {
+      if (!filtraFecha) return true;
+      const dia = diaDeReporte(p.fecha_reporte);
+      return !!dia && (!desde || dia >= desde) && (!hasta || dia <= hasta);
+    });
+
+  const hayFiltrosActivos = !!(filter || query.trim() || tipoFiltro || fechaFiltro);
+
+  const limpiarFiltros = () => {
+    setFilter('');
+    setQuery('');
+    setTipoFiltro('');
+    setFechaFiltro('');
+    setFechaDesde('');
+    setFechaHasta('');
+    setSelectorReporte(null);
+  };
+
+  const toggleSelector = (s: SelectorReporte) => setSelectorReporte((cur) => (cur === s ? null : s));
+
+  const opcionesSelector: { key: string; label: string }[] =
+    selectorReporte === 'tipo'
+      ? [{ key: '', label: 'Todos los tipos' }, ...tiposIncidente.map((t) => ({ key: t.nombre, label: t.nombre }))]
+      : selectorReporte === 'fecha'
+        ? FECHA_OPCIONES
+        : [];
+
+  const valorSelector = selectorReporte === 'tipo' ? tipoFiltro : fechaFiltro;
+
+  const elegirOpcion = (key: string) => {
+    if (selectorReporte === 'tipo') setTipoFiltro(key);
+    else if (selectorReporte === 'fecha') setFechaFiltro(key as FiltroFecha);
+    setSelectorReporte(null);
+  };
+
+  const etiquetaFecha = FECHA_OPCIONES.find((o) => o.key === fechaFiltro)?.label;
 
   const reporteMarkers: MapMarker[] = capaReportes
     ? pinesFiltrados
@@ -298,6 +409,67 @@ export default function MapaScreen({ navigation }: Props) {
           ))}
         </View>
 
+        {/* Filtros de reportes comunitarios: se combinan (AND) con estado y texto */}
+        <View style={styles.reportFilterBar}>
+          <TouchableOpacity
+            style={[styles.reportFilterChip, !!tipoFiltro && styles.reportFilterChipActive]}
+            onPress={() => toggleSelector('tipo')}
+          >
+            <Text style={[styles.reportFilterText, !!tipoFiltro && styles.filterTextActive]} numberOfLines={1}>
+              {tipoFiltro || 'Tipo'} ▾
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.reportFilterChip, !!fechaFiltro && styles.reportFilterChipActive]}
+            onPress={() => toggleSelector('fecha')}
+          >
+            <Text style={[styles.reportFilterText, !!fechaFiltro && styles.filterTextActive]} numberOfLines={1}>
+              {fechaFiltro ? etiquetaFecha : 'Fecha'} ▾
+            </Text>
+          </TouchableOpacity>
+          {hayFiltrosActivos && (
+            <TouchableOpacity style={styles.clearChip} onPress={limpiarFiltros}>
+              <Text style={styles.clearChipText}>✕ Limpiar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {fechaFiltro === 'RANGO' && (
+          <View style={styles.rangoWrap}>
+            <View style={styles.rangoRow}>
+              <TextInput
+                style={styles.rangoInput}
+                placeholder="Desde AAAA-MM-DD"
+                placeholderTextColor={ANDI_COLORS.n400}
+                value={fechaDesde}
+                onChangeText={setFechaDesde}
+                maxLength={10}
+                keyboardType="numbers-and-punctuation"
+              />
+              <TextInput
+                style={styles.rangoInput}
+                placeholder="Hasta AAAA-MM-DD"
+                placeholderTextColor={ANDI_COLORS.n400}
+                value={fechaHasta}
+                onChangeText={setFechaHasta}
+                maxLength={10}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+            {errorRango && <Text style={styles.rangoError}>{errorRango}</Text>}
+          </View>
+        )}
+
+        {selectorReporte && (
+          <ScrollView style={styles.selectorList} nestedScrollEnabled>
+            {opcionesSelector.map((o) => (
+              <TouchableOpacity key={o.key || '__todos'} style={styles.selectorItem} onPress={() => elegirOpcion(o.key)}>
+                <Text style={[styles.selectorItemText, o.key === valorSelector && styles.selectorItemActive]}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         {/* Capas SIASAR (datos oficiales, capa de solo lectura) */}
         <View style={styles.layerBar}>
           <TouchableOpacity accessibilityRole="button"
@@ -384,7 +556,8 @@ export default function MapaScreen({ navigation }: Props) {
 
               {markers.length === 0 && (
                 <View pointerEvents="none" style={styles.emptyOverlay}>
-                  <MascotAndi size={90} />
+                  {/* Mascota oculta temporalmente (este estado también aparece cuando falla la carga). */}
+                  {/* <MascotAndi size={90} /> */}
                   <Text style={styles.emptyText}>Nada por aquí todavía</Text>
                 </View>
               )}
@@ -431,6 +604,7 @@ export default function MapaScreen({ navigation }: Props) {
           </ScrollView>
         )}
       </LiftSurface>
+      {dialog}
     </View>
   );
 }
@@ -506,6 +680,26 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   filterChipActive: { backgroundColor: ANDI_COLORS.primary600, borderColor: ANDI_COLORS.primary600 },
   filterText: { fontSize: r.scaleFont(12), fontWeight: '600', color: ANDI_COLORS.onSurface },
   filterTextActive: { color: '#fff' },
+
+  reportFilterBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, paddingHorizontal: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s2 },
+  reportFilterChip: { minHeight: 36, maxWidth: 200, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surface, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },
+  reportFilterChipActive: { backgroundColor: ANDI_COLORS.primary600, borderColor: ANDI_COLORS.primary600 },
+  reportFilterText: { fontSize: 12, fontWeight: '600', color: ANDI_COLORS.onSurface },
+  clearChip: { minHeight: 36, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
+  clearChipText: { fontSize: 12, fontWeight: '700', color: ANDI_COLORS.primary700 },
+
+  rangoWrap: { paddingHorizontal: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s2 },
+  rangoRow: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
+  rangoInput: {
+    flex: 1, minHeight: 40, borderRadius: ANDI_RADIUS.md, borderWidth: 1, borderColor: ANDI_COLORS.outline,
+    backgroundColor: ANDI_COLORS.surface, paddingHorizontal: ANDI_SPACING.s3, fontSize: 13, color: ANDI_COLORS.onSurface,
+  },
+  rangoError: { ...ANDI_TYPE.caption, color: ANDI_COLORS.error, marginTop: ANDI_SPACING.s1 },
+
+  selectorList: { maxHeight: 220, backgroundColor: ANDI_COLORS.surface, borderTopWidth: 1, borderTopColor: ANDI_COLORS.outlineVariant },
+  selectorItem: { minHeight: 44, justifyContent: 'center', paddingHorizontal: ANDI_SPACING.s4, borderBottomWidth: 1, borderBottomColor: ANDI_COLORS.surfaceMid },
+  selectorItemText: { fontSize: 13, fontWeight: '600', color: ANDI_COLORS.onSurface },
+  selectorItemActive: { color: ANDI_COLORS.primary600, fontWeight: '700' },
 
   layerBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, paddingHorizontal: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s3 },
   layerChip: { minHeight: 32, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },

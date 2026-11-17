@@ -13,6 +13,7 @@ import { usuariosAPI, reportesAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { useToast } from '../../components/andi/Toast';
+import AndiDialog, { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import { getDrafts, type ReporteDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
@@ -57,6 +58,7 @@ export default function PerfilScreen({ navigation }: Props) {
   const [savingPass, setSavingPass] = useState(false);
 
   const [logoutModal, setLogoutModal] = useState(false);
+  const { showDialog, dialog } = useAndiDialog();
 
   const [stats, setStats] = useState({ total: 0, resueltos: 0, pendientes: 0 });
   const [drafts, setDrafts] = useState<ReporteDraft[]>([]);
@@ -92,7 +94,7 @@ export default function PerfilScreen({ navigation }: Props) {
   const initials = ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || '?';
 
   const handleSave = async () => {
-    if (!nombre.trim()) { toast.warning('Requerido', 'El nombre no puede estar vacío.'); return; }
+    if (!nombre.trim()) { showDialog('Requerido', 'El nombre no puede estar vacío.', { tone: 'warning' }); return; }
     try {
       setSaving(true);
       await usuariosAPI.actualizarPerfil({
@@ -113,7 +115,7 @@ export default function PerfilScreen({ navigation }: Props) {
       setSuccessBanner({ title: 'Perfil actualizado', message: 'Tus datos fueron guardados correctamente.' });
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      toast.error('Error', msg || 'No se pudo actualizar el perfil.');
+      showDialog('Error', msg || 'No se pudo actualizar el perfil.', { tone: 'error' });
     } finally {
       setSaving(false);
     }
@@ -128,9 +130,9 @@ export default function PerfilScreen({ navigation }: Props) {
   };
 
   const handleChangePass = async () => {
-    if (!passActual || !passNueva || !passConfirm) { toast.warning('Requerido', 'Completa todos los campos.'); return; }
-    if (passNueva.length < 6) { toast.warning('Contraseña débil', 'La nueva contraseña debe tener al menos 6 caracteres.'); return; }
-    if (passNueva !== passConfirm) { toast.warning('No coinciden', 'La nueva contraseña y su confirmación no son iguales.'); return; }
+    if (!passActual || !passNueva || !passConfirm) { showDialog('Requerido', 'Completa todos los campos.', { tone: 'warning' }); return; }
+    if (passNueva.length < 6) { showDialog('Contraseña débil', 'La nueva contraseña debe tener al menos 6 caracteres.', { tone: 'warning' }); return; }
+    if (passNueva !== passConfirm) { showDialog('No coinciden', 'La nueva contraseña y su confirmación no son iguales.', { tone: 'warning' }); return; }
     try {
       setSavingPass(true);
       await usuariosAPI.cambiarPassword({ password_actual: passActual, password_nueva: passNueva });
@@ -140,7 +142,7 @@ export default function PerfilScreen({ navigation }: Props) {
     } catch (e) {
       const msg = (axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail)
         || 'No se pudo cambiar la contraseña.';
-      toast.error('Error', msg);
+      showDialog('Error', msg, { tone: 'error' });
     } finally {
       setSavingPass(false);
     }
@@ -289,27 +291,19 @@ export default function PerfilScreen({ navigation }: Props) {
         </View>
       </Modal>
 
-      <Modal visible={logoutModal} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cerrar sesión</Text>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setLogoutModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalMessage}>¿Seguro que quieres salir de tu cuenta?</Text>
-            <View style={styles.editActions}>
-              <TouchableOpacity accessibilityRole="button" style={styles.editCancelBtn} onPress={() => setLogoutModal(false)}>
-                <Text style={styles.editCancelText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, styles.logoutConfirmBtn]} onPress={confirmLogout}>
-                <Text style={styles.saveBtnText}>Salir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <AndiDialog
+        visible={logoutModal}
+        tone="warning"
+        title="Cerrar sesión"
+        message="¿Seguro que quieres salir de tu cuenta?"
+        onClose={() => setLogoutModal(false)}
+        buttons={[
+          { text: 'Cancelar', style: 'cancel', onPress: () => setLogoutModal(false) },
+          { text: 'Salir', style: 'destructive', onPress: confirmLogout },
+        ]}
+      />
+
+      {dialog}
     </KeyboardAvoidingView>
   );
 }
@@ -403,8 +397,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface },
   modalClose: { fontSize: 20, color: ANDI_COLORS.onSurfaceVariant, padding: 4 },
-  modalMessage: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s2 },
-  logoutConfirmBtn: { backgroundColor: ANDI_COLORS.error },
   passWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, backgroundColor: ANDI_COLORS.surfaceMid, paddingRight: 8 },
   passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface },
   eyeBtn: { padding: 6 },

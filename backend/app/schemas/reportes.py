@@ -93,9 +93,35 @@ class CrearReporteResponse(BaseModel):
     reporte: ReporteDetalle
 
 
+class SubirImagenResponse(BaseModel):
+    """Respuesta de POST /reportes/imagen: ruta relativa (sin host) que el
+    cliente manda luego como imagen_url al crear el reporte -- el host lo
+    pone el frontend al mostrarla (API_URL), así una IP LAN que cambie no
+    deja URLs rotas guardadas en la base."""
+
+    imagen_url: str
+
+
 class CambiarEstadoResponse(BaseModel):
     message: str
     reporte: ReporteDetalle
+
+
+class EditarReporteResponse(BaseModel):
+    """Respuesta de PUT /reportes/{id_reporte}: el reporte ya editado, con
+    la misma forma completa que devuelve crear_reporte()."""
+
+    message: str
+    reporte: ReporteDetalle
+
+
+class EliminarReporteResponse(BaseModel):
+    """Respuesta de DELETE /reportes/{id_reporte}: el reporte ya no existe,
+    así que solo se devuelve su id para que el cliente lo saque de sus
+    listas/mapa."""
+
+    message: str
+    id_reporte: int
 
 
 class EstadisticaEstadoItem(BaseModel):

@@ -1,13 +1,17 @@
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.audit import Accion, Modulo, registrar_auditoria
 from app.core.deps import get_client_ip, require_active_user, require_roles
 from app.core.errors import handle_db_error
 from app.core.policies import (
+    ESTADO_EDITABLE,
     puede_cambiar_estado,
+    puede_editar_reporte,
     puede_ver_detalle_comunitario,
     puede_ver_reporte,
     scope_reportes,
@@ -18,14 +22,26 @@ from app.db.database import get_connection, transaccion
 from app.schemas.reportes import (
     CambiarEstadoResponse,
     CrearReporteResponse,
+    EditarReporteResponse,
+    EliminarReporteResponse,
     EstadisticasResponse,
     ReporteComunidadDetalle,
     ReporteDetalle,
     ReporteMapaPunto,
+    SubirImagenResponse,
 )
 from app.services.siasar import buscar_comunidad_cercana
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
+
+# Evidencia fotográfica: main.py crea IMAGENES_REPORTES_DIR al arrancar y
+# monta UPLOADS_DIR en /uploads con StaticFiles -- por eso la ruta que se
+# guarda en reportes.imagen_url es relativa a ese mount, nunca un path de
+# disco ni una URL con host.
+UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
+IMAGENES_REPORTES_DIR = UPLOADS_DIR / "reportes"
+MAX_IMAGEN_BYTES = 5 * 1024 * 1024
+IMAGEN_URL_PATTERN = r"^/uploads/reportes/[0-9a-f]{32}\.(jpg|png|webp)$"
 
 
 # =========================
@@ -45,8 +61,52 @@ class ReporteCreateRequest(BaseModel):
     direccion: str | None = Field(None, max_length=255)
     latitud: float | None = None
     longitud: float | None = None
-    imagen_url: str | None = Field(None, max_length=500)
+    # varchar(300) en MySQL. Solo acepta rutas devueltas por POST
+    # /reportes/imagen -- nunca un file:// local del teléfono ni una URL
+    # externa.
+    imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
     fuente_reporte: str = Field("CIUDADANO", max_length=50)
+
+
+class ReporteUpdateRequest(BaseModel):
+    """
+    Body de PUT /reportes/{id_reporte} (ciudadano dueño, ver
+    puede_editar_reporte). Reemplazo completo de los campos editables:
+    todos son obligatorios salvo imagen_url.
+
+    extra="forbid": cualquier campo protegido o desconocido (id_usuario,
+    id_entidad, id_estado, fuente_reporte, id_siasar_comunidad, ...) se
+    rechaza con 422 en vez de ignorarse en silencio.
+
+    imagen_url tiene tres casos, distinguidos con model_fields_set:
+      - clave ausente              -> se conserva la imagen actual
+      - "imagen_url": null         -> se quita la imagen
+      - "imagen_url": "/uploads/…" -> se reemplaza (ruta devuelta por
+                                      POST /reportes/imagen, mismo patrón
+                                      que al crear)
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id_tipo_incidente: int = Field(..., ge=1)
+    id_severidad: int = Field(..., ge=1)
+    descripcion: str = Field(..., min_length=1, max_length=5000)
+    # varchar(200) en MySQL (ReporteCreateRequest permite 255; aquí se
+    # respeta el límite real de la columna). Obligatoria pero anulable:
+    # null = sin dirección.
+    direccion: str | None = Field(..., max_length=200)
+    # decimal(10,7) NOT NULL en MySQL: obligatorias, finitas y dentro de
+    # rangos geográficos válidos.
+    latitud: float = Field(..., ge=-90, le=90, allow_inf_nan=False)
+    longitud: float = Field(..., ge=-180, le=180, allow_inf_nan=False)
+    imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+
+    @field_validator("descripcion")
+    @classmethod
+    def _descripcion_no_vacia(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("La descripción no puede estar vacía")
+        return v
 
 
 class CambiarEstadoRequest(BaseModel):
@@ -160,6 +220,20 @@ def _reporte_a_comunidad(row: dict[str, Any]) -> dict[str, Any]:
     (nombre del creador) -- ver puede_ver_detalle_comunitario().
     """
     return {k: v for k, v in row.items() if k not in ("id_usuario", "usuario")}
+
+
+def _extension_imagen(data: bytes) -> str | None:
+    """
+    Detecta el formato por magic bytes (no por filename ni content-type,
+    que los controla el cliente). None si no es JPG, PNG ni WEBP.
+    """
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    return None
 
 
 def _insertar_historial(
@@ -476,6 +550,41 @@ def obtener_reporte(
 
 
 @router.post(
+    "/imagen",
+    status_code=201,
+    summary="Subir evidencia fotográfica (CIUDADANO / ENTIDAD)",
+    response_model=SubirImagenResponse,
+    responses={
+        413: {"description": "La imagen supera 5 MB"},
+        415: {"description": "Formato no permitido"},
+    },
+)
+def subir_imagen(
+    archivo: UploadFile = File(...),
+    user: dict[str, Any] = Depends(require_roles(Rol.CIUDADANO, Rol.ENTIDAD)),
+) -> dict[str, Any]:
+    """
+    Paso previo (opcional) a POST /reportes/: guarda la foto y devuelve la
+    ruta relativa que el cliente envía como imagen_url. Mismos roles que
+    pueden crear reportes. El nombre en disco es siempre un UUID generado
+    acá -- el filename del cliente nunca se usa, así no hay path traversal.
+    """
+    # Lee como máximo un byte de más: basta para saber si se pasó del
+    # límite sin cargar en memoria un archivo arbitrariamente grande.
+    data = archivo.file.read(MAX_IMAGEN_BYTES + 1)
+    if len(data) > MAX_IMAGEN_BYTES:
+        raise HTTPException(status_code=413, detail="La imagen supera el máximo de 5 MB")
+
+    ext = _extension_imagen(data)
+    if not ext:
+        raise HTTPException(status_code=415, detail="Formato no permitido. Usa JPG, PNG o WEBP")
+
+    nombre = f"{uuid4().hex}.{ext}"
+    (IMAGENES_REPORTES_DIR / nombre).write_bytes(data)
+    return {"imagen_url": f"/uploads/reportes/{nombre}"}
+
+
+@router.post(
     "/",
     status_code=201,
     summary="Crear Reporte",
@@ -752,6 +861,242 @@ def asignar_entidad(
             row = _anidar_vereda_siasar(cursor.fetchone())
 
         return {"message": "updated", "reporte": row}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
+
+
+def _bloquear_reporte_editable(cursor, id_reporte: int, user: dict[str, Any]) -> dict[str, Any]:
+    """
+    Lee el reporte con SELECT ... FOR UPDATE (cursor de transaccion()) y
+    exige puede_editar_reporte(). Devuelve la fila bloqueada, con `estado`
+    como nombre.
+
+    El bloqueo es solo sobre la fila de `reportes` (sin JOIN en la lectura
+    bloqueante): así no se toma un lock exclusivo sobre la fila compartida
+    de estado_reporte, que frenaría las escrituras de cualquier otro
+    reporte que referencie ese mismo estado. El nombre del estado se
+    resuelve aparte, con una lectura normal del catálogo.
+
+    Mientras dure la transacción, un asignar_entidad / cambiar_estado
+    concurrente sobre este reporte espera a que termine; si alguno ya
+    hizo commit antes, esta lectura bloqueante ve su versión y la
+    política lo rechaza.
+
+    puede_editar_reporte() es la única autoridad: aquí solo se elige el
+    código HTTP cuando ya dijo que no -- 403 si no es el dueño (o falla
+    rol/cuenta), 409 si el reporte es suyo pero ya fue asignado o dejó de
+    estar PENDIENTE.
+    """
+    cursor.execute(
+        """
+        SELECT id_reporte, id_usuario, id_entidad, id_estado,
+               latitud, longitud, imagen_url
+        FROM reportes
+        WHERE id_reporte = %s
+        FOR UPDATE;
+        """,
+        (id_reporte,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+    cursor.execute(
+        "SELECT nombre FROM estado_reporte WHERE id_estado = %s;", (row["id_estado"],)
+    )
+    estado_row = cursor.fetchone()
+    reporte = {**row, "estado": estado_row["nombre"] if estado_row else None}
+
+    if puede_editar_reporte(user, reporte):
+        return reporte
+
+    if reporte["id_usuario"] != user.get("id_usuario"):
+        raise HTTPException(
+            status_code=403, detail="No puedes modificar reportes de otro usuario"
+        )
+    if reporte["id_entidad"] is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="El reporte ya fue asignado a una entidad y no puede modificarse",
+        )
+    if reporte["estado"] != ESTADO_EDITABLE:
+        raise HTTPException(
+            status_code=409,
+            detail="El reporte ya no está PENDIENTE y no puede modificarse",
+        )
+    raise HTTPException(status_code=403, detail="No tienes permisos para modificar este reporte")
+
+
+@router.put(
+    "/{id_reporte}",
+    summary="Editar reporte propio (CIUDADANO, solo PENDIENTE y sin entidad)",
+    response_model=EditarReporteResponse,
+    responses={
+        400: {"description": "Tipo de incidente o severidad no existe"},
+        403: {"description": "No es el dueño o sin permiso"},
+        404: {"description": "Reporte no encontrado"},
+        409: {"description": "Ya asignado a una entidad o ya no está PENDIENTE"},
+    },
+)
+def editar_reporte(
+    id_reporte: int,
+    payload: ReporteUpdateRequest,
+    user: dict[str, Any] = Depends(require_roles(Rol.CIUDADANO)),
+    ip: str | None = Depends(get_client_ip),
+) -> dict[str, Any]:
+    """
+    Reemplaza los campos editables del reporte (ver ReporteUpdateRequest,
+    incluido el contrato de imagen_url). Nunca cambia id_usuario,
+    id_entidad, id_estado ni fuente_reporte.
+
+    Independiente de SIASAR: no consulta comunidades cercanas ni modifica
+    id_siasar_comunidad / distancia_siasar_m, aunque cambie la ubicación --
+    el vínculo calculado al crear el reporte se conserva tal cual. (La
+    respuesta solo LEE ese vínculo, con el mismo LEFT JOIN que cualquier
+    detalle de reporte.)
+
+    Sin fila en historial_reportes: esa tabla registra transiciones de
+    estado y una edición no cambia el estado (mismo criterio que
+    asignar_entidad) -- el rastro queda en auditoría (EDITAR_REPORTE).
+    """
+    try:
+        with transaccion() as cursor:
+            rep = _bloquear_reporte_editable(cursor, id_reporte, user)
+
+            cursor.execute(
+                "SELECT id_tipo_incidente FROM tipo_incidente WHERE id_tipo_incidente = %s;",
+                (payload.id_tipo_incidente,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=400, detail="id_tipo_incidente no existe")
+
+            cursor.execute(
+                "SELECT id_severidad FROM severidad WHERE id_severidad = %s;",
+                (payload.id_severidad,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=400, detail="id_severidad no existe")
+
+            # Clave ausente -> se conserva; null -> se quita; ruta -> se
+            # reemplaza. Los archivos en disco nunca se borran aquí.
+            if "imagen_url" in payload.model_fields_set:
+                imagen_url = payload.imagen_url
+            else:
+                imagen_url = rep["imagen_url"]
+
+            # Doble guarda en el WHERE (dueño, sin entidad, mismo estado
+            # que se bloqueó): con el FOR UPDATE ya no puede cambiar, pero
+            # si alguien quita el bloqueo en el futuro, el UPDATE sigue sin
+            # tocar un reporte que dejó de cumplir la regla.
+            cursor.execute(
+                """
+                UPDATE reportes
+                SET id_tipo_incidente = %s,
+                    id_severidad      = %s,
+                    descripcion       = %s,
+                    direccion         = %s,
+                    latitud           = %s,
+                    longitud          = %s,
+                    imagen_url        = %s,
+                    updated_at        = NOW()
+                WHERE id_reporte = %s
+                  AND id_usuario = %s
+                  AND id_entidad IS NULL
+                  AND id_estado  = %s;
+                """,
+                (
+                    payload.id_tipo_incidente,
+                    payload.id_severidad,
+                    payload.descripcion,
+                    payload.direccion,
+                    payload.latitud,
+                    payload.longitud,
+                    imagen_url,
+                    id_reporte,
+                    user["id_usuario"],
+                    rep["id_estado"],
+                ),
+            )
+
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.EDITAR_REPORTE,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
+            sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
+            cursor.execute(sql, (id_reporte,))
+            row = _anidar_vereda_siasar(cursor.fetchone())
+
+        return {"message": "updated", "reporte": row}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
+
+
+@router.delete(
+    "/{id_reporte}",
+    summary="Eliminar reporte propio (CIUDADANO, solo PENDIENTE y sin entidad)",
+    response_model=EliminarReporteResponse,
+    responses={
+        403: {"description": "No es el dueño o sin permiso"},
+        404: {"description": "Reporte no encontrado"},
+        409: {"description": "Ya asignado a una entidad o ya no está PENDIENTE"},
+    },
+)
+def eliminar_reporte(
+    id_reporte: int,
+    user: dict[str, Any] = Depends(require_roles(Rol.CIUDADANO)),
+    ip: str | None = Depends(get_client_ip),
+) -> dict[str, Any]:
+    """
+    Borrado definitivo, todo en una transacción: primero las filas hijas
+    de ESTE reporte (notificaciones, historial_reportes -- sus FK hacia
+    reportes no tienen ON DELETE CASCADE), luego el reporte. La fila de
+    auditoría (ELIMINAR_REPORTE) no referencia al reporte, así que
+    sobrevive al borrado. La foto en disco no se borra.
+    """
+    try:
+        with transaccion() as cursor:
+            rep = _bloquear_reporte_editable(cursor, id_reporte, user)
+
+            cursor.execute("DELETE FROM notificaciones WHERE id_reporte = %s;", (id_reporte,))
+            cursor.execute(
+                "DELETE FROM historial_reportes WHERE id_reporte = %s;", (id_reporte,)
+            )
+            cursor.execute(
+                """
+                DELETE FROM reportes
+                WHERE id_reporte = %s
+                  AND id_usuario = %s
+                  AND id_entidad IS NULL
+                  AND id_estado  = %s;
+                """,
+                (id_reporte, user["id_usuario"], rep["id_estado"]),
+            )
+            if cursor.rowcount != 1:
+                # No debería ocurrir con la fila bloqueada; si ocurre, el
+                # raise hace rollback y las filas hijas no se pierden.
+                raise HTTPException(
+                    status_code=409, detail="El reporte cambió y no puede eliminarse"
+                )
+
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ELIMINAR_REPORTE,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
+        return {"message": "deleted", "id_reporte": id_reporte}
 
     except HTTPException:
         raise

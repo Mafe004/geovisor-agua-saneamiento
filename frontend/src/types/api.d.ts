@@ -185,8 +185,55 @@ export interface paths {
         };
         /** Obtener Reporte */
         get: operations["obtener_reporte_reportes__id_reporte__get"];
-        put?: never;
+        /**
+         * Editar reporte propio (CIUDADANO, solo PENDIENTE y sin entidad)
+         * @description Reemplaza los campos editables del reporte (ver ReporteUpdateRequest,
+         *     incluido el contrato de imagen_url). Nunca cambia id_usuario,
+         *     id_entidad, id_estado ni fuente_reporte.
+         *
+         *     Independiente de SIASAR: no consulta comunidades cercanas ni modifica
+         *     id_siasar_comunidad / distancia_siasar_m, aunque cambie la ubicación --
+         *     el vínculo calculado al crear el reporte se conserva tal cual. (La
+         *     respuesta solo LEE ese vínculo, con el mismo LEFT JOIN que cualquier
+         *     detalle de reporte.)
+         *
+         *     Sin fila en historial_reportes: esa tabla registra transiciones de
+         *     estado y una edición no cambia el estado (mismo criterio que
+         *     asignar_entidad) -- el rastro queda en auditoría (EDITAR_REPORTE).
+         */
+        put: operations["editar_reporte_reportes__id_reporte__put"];
         post?: never;
+        /**
+         * Eliminar reporte propio (CIUDADANO, solo PENDIENTE y sin entidad)
+         * @description Borrado definitivo, todo en una transacción: primero las filas hijas
+         *     de ESTE reporte (notificaciones, historial_reportes -- sus FK hacia
+         *     reportes no tienen ON DELETE CASCADE), luego el reporte. La fila de
+         *     auditoría (ELIMINAR_REPORTE) no referencia al reporte, así que
+         *     sobrevive al borrado. La foto en disco no se borra.
+         */
+        delete: operations["eliminar_reporte_reportes__id_reporte__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reportes/imagen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subir evidencia fotográfica (CIUDADANO / ENTIDAD)
+         * @description Paso previo (opcional) a POST /reportes/: guarda la foto y devuelve la
+         *     ruta relativa que el cliente envía como imagen_url. Mismos roles que
+         *     pueden crear reportes. El nombre en disco es siempre un UUID generado
+         *     acá -- el filename del cliente nunca se usa, así no hay path traversal.
+         */
+        post: operations["subir_imagen_reportes_imagen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -973,23 +1020,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/uploads/imagen": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Subir una foto de evidencia (reporte o cambio de estado) */
-        post: operations["subir_imagen_uploads_imagen_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/": {
         parameters: {
             query?: never;
@@ -1104,13 +1134,13 @@ export interface components {
             /** Entidad */
             entidad: string;
         };
-        /** Body_subir_imagen_uploads_imagen_post */
-        Body_subir_imagen_uploads_imagen_post: {
+        /** Body_subir_imagen_reportes_imagen_post */
+        Body_subir_imagen_reportes_imagen_post: {
             /**
-             * File
+             * Archivo
              * Format: binary
              */
-            file: string;
+            archivo: string;
         };
         /**
          * Calificacion
@@ -1355,6 +1385,28 @@ export interface components {
             message: string;
             /** Usuario */
             usuario: string;
+        };
+        /**
+         * EditarReporteResponse
+         * @description Respuesta de PUT /reportes/{id_reporte}: el reporte ya editado, con
+         *     la misma forma completa que devuelve crear_reporte().
+         */
+        EditarReporteResponse: {
+            /** Message */
+            message: string;
+            reporte: components["schemas"]["ReporteDetalle"];
+        };
+        /**
+         * EliminarReporteResponse
+         * @description Respuesta de DELETE /reportes/{id_reporte}: el reporte ya no existe,
+         *     así que solo se devuelve su id para que el cliente lo saque de sus
+         *     listas/mapa.
+         */
+        EliminarReporteResponse: {
+            /** Message */
+            message: string;
+            /** Id Reporte */
+            id_reporte: number;
         };
         /** EntidadCreate */
         EntidadCreate: {
@@ -2064,6 +2116,39 @@ export interface components {
              */
             fecha_reporte: string;
         };
+        /**
+         * ReporteUpdateRequest
+         * @description Body de PUT /reportes/{id_reporte} (ciudadano dueño, ver
+         *     puede_editar_reporte). Reemplazo completo de los campos editables:
+         *     todos son obligatorios salvo imagen_url.
+         *
+         *     extra="forbid": cualquier campo protegido o desconocido (id_usuario,
+         *     id_entidad, id_estado, fuente_reporte, id_siasar_comunidad, ...) se
+         *     rechaza con 422 en vez de ignorarse en silencio.
+         *
+         *     imagen_url tiene tres casos, distinguidos con model_fields_set:
+         *       - clave ausente              -> se conserva la imagen actual
+         *       - "imagen_url": null         -> se quita la imagen
+         *       - "imagen_url": "/uploads/…" -> se reemplaza (ruta devuelta por
+         *                                       POST /reportes/imagen, mismo patrón
+         *                                       que al crear)
+         */
+        ReporteUpdateRequest: {
+            /** Id Tipo Incidente */
+            id_tipo_incidente: number;
+            /** Id Severidad */
+            id_severidad: number;
+            /** Descripcion */
+            descripcion: string;
+            /** Direccion */
+            direccion: string | null;
+            /** Latitud */
+            latitud: number;
+            /** Longitud */
+            longitud: number;
+            /** Imagen Url */
+            imagen_url?: string | null;
+        };
         /** RestablecerContrasena */
         RestablecerContrasena: {
             /** Token */
@@ -2248,6 +2333,17 @@ export interface components {
             revisado_en: string | null;
             /** Revisado Por Nombre */
             revisado_por_nombre: string | null;
+        };
+        /**
+         * SubirImagenResponse
+         * @description Respuesta de POST /reportes/imagen: ruta relativa (sin host) que el
+         *     cliente manda luego como imagen_url al crear el reporte -- el host lo
+         *     pone el frontend al mostrarla (API_URL), así una IP LAN que cambie no
+         *     deja URLs rotas guardadas en la base.
+         */
+        SubirImagenResponse: {
+            /** Imagen Url */
+            imagen_url: string;
         };
         /** TipoIncidenteItem */
         TipoIncidenteItem: {
@@ -2769,6 +2865,168 @@ export interface operations {
             };
             /** @description Reporte no encontrado */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    editar_reporte_reportes__id_reporte__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReporteUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditarReporteResponse"];
+                };
+            };
+            /** @description Tipo de incidente o severidad no existe */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No es el dueño o sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reporte no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ya asignado a una entidad o ya no está PENDIENTE */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eliminar_reporte_reportes__id_reporte__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EliminarReporteResponse"];
+                };
+            };
+            /** @description No es el dueño o sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reporte no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ya asignado a una entidad o ya no está PENDIENTE */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subir_imagen_reportes_imagen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_imagen_reportes_imagen_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubirImagenResponse"];
+                };
+            };
+            /** @description La imagen supera 5 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Formato no permitido */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4424,48 +4682,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumenModuloItem"][];
-                };
-            };
-        };
-    };
-    subir_imagen_uploads_imagen_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_subir_imagen_uploads_imagen_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
-                };
-            };
-            /** @description Formato no soportado o archivo demasiado grande */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -5,6 +5,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.deps import require_roles
 from app.core.roles import Rol
@@ -17,6 +18,7 @@ from app.routers.historial import router as historial_router
 from app.routers.infraestructura import router as infraestructura_router
 from app.routers.invitaciones import router as invitaciones_router
 from app.routers.notificaciones import router as notificaciones_router
+from app.routers.reportes import IMAGENES_REPORTES_DIR, UPLOADS_DIR
 from app.routers.reportes import router as reportes_router
 from app.routers.siasar import router as siasar_router
 from app.routers.solicitudes_acceso import router as solicitudes_acceso_router
@@ -71,6 +73,12 @@ app.include_router(invitaciones_router)
 app.include_router(solicitudes_acceso_router)
 app.include_router(siasar_router)
 app.include_router(auditoria.router)
+
+# Evidencia fotográfica de reportes (POST /reportes/imagen). StaticFiles
+# falla al arrancar si el directorio no existe, por eso se crea antes.
+# uploads/ está en .gitignore -- las fotos nunca van al repositorio.
+os.makedirs(IMAGENES_REPORTES_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
 @app.get("/", tags=["Health"], response_model=RootResponse)

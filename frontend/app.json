@@ -32,7 +32,15 @@
       "expo-asset",
       "expo-font",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GeoVisor Agua usa tus fotos para adjuntar evidencia a tus reportes.",
+          "cameraPermission": "GeoVisor Agua usa la cámara para tomar fotos de evidencia de tus reportes.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }

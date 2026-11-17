@@ -15,6 +15,10 @@ class Modulo(str, Enum):
 class Accion(str, Enum):
     LOGIN = "LOGIN"
     CREAR_REPORTE = "CREAR_REPORTE"
+    # Ciudadano dueño editando/eliminando su reporte (ver
+    # policies.puede_editar_reporte).
+    EDITAR_REPORTE = "EDITAR_REPORTE"
+    ELIMINAR_REPORTE = "ELIMINAR_REPORTE"
     CAMBIAR_ESTADO = "CAMBIAR_ESTADO"
     CAMBIAR_ESTADO_CUENTA = "CAMBIAR_ESTADO_CUENTA"
     REGISTRO = "REGISTRO"

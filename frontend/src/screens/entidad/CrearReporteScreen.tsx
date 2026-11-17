@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
+  View, Text, TextInput, TouchableOpacity, Image,
   ScrollView, ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import axios from 'axios';
 import type { CompositeNavigationProp, ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -18,6 +20,7 @@ import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor } from '../../theme/andi';
+import { construirFormFoto } from '../../utils/fotoEvidencia';
 import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
@@ -56,6 +59,13 @@ export default function CrearReporteScreen({ navigation }: Props) {
   const [locLoading, setLocLoading] = useState(false);
   const [proximidadSiasar, setProximidadSiasar] = useState<CercanaResponse | null>(null);
 
+  // Foto del reporte, opcional. fotoSubida = ruta ya devuelta por
+  // /reportes/imagen para esta misma foto: si Enviar falla, un reintento
+  // no la vuelve a subir -- mismo patrón que ciudadano/CrearReporteScreen.tsx.
+  const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [fotoSubida, setFotoSubida] = useState<string | null>(null);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+
   useEffect(() => {
     // Inline (no una función nombrada aparte, que no se reusa en ningún
     // otro lado) -- así el linter puede ver que todo setState ocurre
@@ -88,28 +98,47 @@ export default function CrearReporteScreen({ navigation }: Props) {
     return () => clearTimeout(id);
   }, [coordenadas]);
 
-  // Obtener ubicación del dispositivo usando la API del navegador (funciona en WebView + Expo Go)
-  const getMyLocation = () => {
+  // navigator.geolocation (polyfill web) no está disponible de forma
+  // confiable en Expo Go/RN moderno -- expo-location es la API real para
+  // esto, mismo paquete que ya usa ciudadano/CrearReporteScreen.tsx y
+  // ciudadano/MapaScreen.tsx.
+  const getMyLocation = async () => {
     setLocLoading(true);
-    // navigator.geolocation funciona en WebView vía JavaScript
-    // En React Native también está disponible como polyfill
-    if (navigator && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCoordenadas({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-          setLocLoading(false);
-        },
-        (_err) => {
-          toast.warning('Permiso denegado', 'Activa la ubicación para usar esta función.');
-          setLocLoading(false);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } else {
-      toast.warning('No disponible', 'La geolocalización no está disponible en este dispositivo.');
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        toast.warning('Permiso denegado', 'Activa la ubicación o marca el punto arrastrando el mapa.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setCoordenadas({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+    } catch (_) {
+      toast.warning('No disponible', 'No se pudo obtener tu ubicación. Marca el punto en el mapa.');
+    } finally {
       setLocLoading(false);
     }
   };
+
+  const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
+    if (result.canceled) return;
+    setFoto(result.assets[0] ?? null);
+    setFotoSubida(null);
+  };
+
+  const tomarFoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.');
+      return;
+    }
+    elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
+  };
+
+  const elegirDeGaleria = async () => {
+    elegirFoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 }));
+  };
+
+  const quitarFoto = () => { setFoto(null); setFotoSubida(null); };
 
   // Callback del pin central de MapaWebView
   const handleCenterChange = ({ latitude, longitude }: MapCenterChange) => {
@@ -122,6 +151,23 @@ export default function CrearReporteScreen({ navigation }: Props) {
     if (!idTipo) { toast.warning('Requerido', 'Selecciona el tipo de incidente.'); return; }
     if (!idSeveridad) { toast.warning('Requerido', 'Selecciona la severidad.'); return; }
 
+    // Si hay foto nueva sin subir todavía, subirla primero -- un fallo acá
+    // no debe perder el resto del formulario ya lleno.
+    let imagenUrl = fotoSubida;
+    if (foto && !imagenUrl) {
+      try {
+        setSubiendoFoto(true);
+        imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
+        setFotoSubida(imagenUrl);
+      } catch (_) {
+        toast.error('No se pudo subir la foto', 'Puedes reintentar o enviar el reporte sin foto.');
+        setSubiendoFoto(false);
+        return;
+      } finally {
+        setSubiendoFoto(false);
+      }
+    }
+
     try {
       setLoading(true);
       const payload: ReporteCreateRequest = {
@@ -131,6 +177,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
         direccion: direccion.trim() || null,
         id_tipo_incidente: idTipo,
         id_severidad: idSeveridad,
+        imagen_url: imagenUrl || null,
         // El backend ignora este campo y deriva la fuente real del rol del
         // token (ver crear_reporte en reportes.py) -- se envía el valor
         // honesto de todos modos, por documentación, sin cambiar el
@@ -146,6 +193,8 @@ export default function CrearReporteScreen({ navigation }: Props) {
       setProximidadSiasar(null);
       setIdTipo(null);
       setIdSeveridad(null);
+      setFoto(null);
+      setFotoSubida(null);
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
       toast.error('Error', msg || 'No se pudo enviar el reporte.');
@@ -281,15 +330,45 @@ export default function CrearReporteScreen({ navigation }: Props) {
               )}
             </View>
 
+            {/* ── Foto ── */}
+            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Foto (opcional)</Text>
+            {foto ? (
+              <View style={styles.fotoCard}>
+                <Image source={{ uri: foto.uri }} style={styles.fotoPreview} resizeMode="cover" />
+                <View style={styles.fotoActions}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={elegirDeGaleria} disabled={loading || subiendoFoto}>
+                    <Text style={styles.fotoBtnText}>Cambiar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={tomarFoto} disabled={loading || subiendoFoto}>
+                    <Text style={styles.fotoBtnText}>Tomar otra</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={quitarFoto} disabled={loading || subiendoFoto}>
+                    <Text style={styles.fotoBtnRemoveText}>Quitar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.chipRow}>
+                <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={tomarFoto}>
+                  <Feather name="camera" size={14} color={andiColors.primary600} />
+                  <Text style={styles.fotoBtnText}>Tomar foto</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={elegirDeGaleria}>
+                  <Feather name="image" size={14} color={andiColors.primary600} />
+                  <Text style={styles.fotoBtnText}>Galería</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* ── Botón enviar ── */}
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel="Enviar reporte"
-              style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+              style={[styles.saveBtn, (loading || subiendoFoto) && styles.saveBtnDisabled]}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || subiendoFoto}
             >
-              {loading
+              {loading || subiendoFoto
                 ? <ActivityIndicator color={andiColors.n0} />
                 : <Text style={styles.saveBtnText}>Enviar reporte</Text>}
             </TouchableOpacity>
@@ -320,6 +399,17 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2] },
   emptyChip: { color: andiColors.onSurfaceVariant, fontStyle: 'italic' },
+
+  fotoCard: { borderRadius: andiRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: andiColors.outlineVariant, backgroundColor: andiColors.surface },
+  fotoPreview: { width: '100%', height: 180 },
+  fotoActions: { flexDirection: 'row', gap: andiSpace[2], padding: andiSpace[3] },
+  fotoBtn: {
+    flex: 1, minHeight: 44, flexDirection: 'row', gap: 6, paddingHorizontal: andiSpace[3],
+    borderRadius: andiRadius.full, backgroundColor: andiColors.primary50, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: andiColors.primary200,
+  },
+  fotoBtnText: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.primary600 },
+  fotoBtnRemoveText: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.error600 },
 
   mapSection: { marginTop: andiSpace[2] },
   mapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

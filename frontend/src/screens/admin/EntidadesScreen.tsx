@@ -8,14 +8,13 @@ import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { entidadesAPI, usuariosAPI, invitacionesAPI } from '../../api/services';
+import { entidadesAPI, usuariosAPI } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import type { EntidadDetalle, UsuarioDeEntidadItem, UsuarioListItem } from '../../types/domain';
-import { Rol } from '../../types/models';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { useToast } from '../../components/andi/Toast';
 import AndiErrorState from '../../components/andi/AndiErrorState';
-import InvitacionTokenModal from '../../components/andi/InvitacionTokenModal';
+import AgregarTrabajadorModal from '../../components/andi/AgregarTrabajadorModal';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
@@ -65,9 +64,8 @@ export default function EntidadesScreen({ navigation }: Props) {
   const [cargandoUsuarios, setCargandoUsuarios] = useState(false);
   const [vinculandoId, setVinculandoId] = useState<number | null>(null);
 
-  // ── Invitar nuevo trabajador ──
-  const [invitandoId, setInvitandoId] = useState<number | null>(null);
-  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  // ── Agregar trabajador ──
+  const [agregarTarget, setAgregarTarget] = useState<EntidadDetalle | null>(null);
 
   const loadEntidades = async () => {
     try {
@@ -174,23 +172,6 @@ export default function EntidadesScreen({ navigation }: Props) {
     }
   };
 
-  // "Vincular usuario" (arriba) requiere que la cuenta ya exista con rol
-  // ENTIDAD y sin entidad asignada -- pero esa cuenta nunca pudo haberse
-  // creado sin pasar antes por un código de invitación, y hasta ahora no
-  // había ninguna pantalla que generara uno. Esto es lo que lo genera.
-  const handleInvitarNuevo = async (entidad: EntidadDetalle) => {
-    setInvitandoId(entidad.id_entidad);
-    try {
-      const res = await invitacionesAPI.crear({ id_rol: Rol.ENTIDAD, id_entidad: entidad.id_entidad });
-      setInviteToken(res.data.token);
-    } catch (e) {
-      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      toast.error('Error', msg || 'No se pudo generar el código de invitación.');
-    } finally {
-      setInvitandoId(null);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
@@ -292,12 +273,9 @@ export default function EntidadesScreen({ navigation }: Props) {
                     accessibilityRole="button"
                     style={[styles.linkBtn, styles.inviteBtn]}
                     activeOpacity={0.85}
-                    onPress={() => handleInvitarNuevo(entidad)}
-                    disabled={invitandoId !== null}
+                    onPress={() => setAgregarTarget(entidad)}
                   >
-                    {invitandoId === entidad.id_entidad
-                      ? <ActivityIndicator size="small" color={andiColors.success700} />
-                      : <Text style={[styles.linkBtnText, styles.inviteBtnText]}>Invitar nuevo</Text>}
+                    <Text style={[styles.linkBtnText, styles.inviteBtnText]}>Agregar trabajador</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -425,12 +403,13 @@ export default function EntidadesScreen({ navigation }: Props) {
         </View>
       </Modal>
 
-      <InvitacionTokenModal
-        visible={!!inviteToken}
-        onClose={() => setInviteToken(null)}
-        token={inviteToken}
-        mensaje="Quien se registre con este código entra directo como Entidad, ya vinculado a esta entidad."
-      />
+      {agregarTarget && (
+        <AgregarTrabajadorModal
+          visible={agregarTarget !== null}
+          onClose={() => setAgregarTarget(null)}
+          idEntidad={agregarTarget.id_entidad}
+        />
+      )}
     </View>
   );
 }

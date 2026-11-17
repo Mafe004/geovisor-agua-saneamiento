@@ -29,7 +29,19 @@ function initials(nombre: string) {
   return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase() || '?';
 }
 
-export default function PerfilScreen() {
+// Pantalla compartida: Moderador la usa como tab ("Perfil" en ModeradorTabs)
+// y Entidad la usa empujada en el stack raíz ("EntidadPerfil", abierta
+// desde la bolita de avatar del header -- ver AppNavigator.tsx). Tipado
+// estructural mínimo (no el ParamList exacto de ninguno de los dos) porque
+// React Navigation igual inyecta `navigation` con estos métodos sin
+// importar si el screen es un tab o un stack -- solo cambia lo que
+// devuelven: canGoBack() da false en un tab (sin historial propio), por
+// eso el botón de volver de abajo no se muestra en el caso de Moderador.
+interface Props {
+  navigation: { canGoBack: () => boolean; goBack: () => void };
+}
+
+export default function PerfilScreen({ navigation }: Props) {
   const r = useResponsive();
   const insets = useSafeAreaInsets();
   const andiType = useScaledType(andiTypeBase);
@@ -132,6 +144,17 @@ export default function PerfilScreen() {
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <LinearGradient colors={['#042F34', '#0A6F78']} style={[styles.header, { paddingTop: insets.top + andiSpace[6] }]}>
+          {navigation.canGoBack() && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Volver"
+              style={styles.backBtn}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Feather name="arrow-left" size={22} color={andiColors.surface} />
+            </TouchableOpacity>
+          )}
           <View style={styles.heroCenter}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{initials(user.nombre_completo || '?')}</Text>
@@ -377,6 +400,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: andiColors.surfaceMid },
   scroll: { flexGrow: 1 },
   header: { paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[6] },
+  backBtn: { alignSelf: 'flex-start', padding: andiSpace[1], marginBottom: andiSpace[1] },
   heroCenter: { alignItems: 'center' },
   avatar: {
     width: 72, height: 72, borderRadius: andiRadius.full,

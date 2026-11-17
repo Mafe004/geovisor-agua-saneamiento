@@ -4,9 +4,24 @@ import { historialAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { HistorialEntry } from '../../types/domain';
+import type { RootStackParamList } from '../../navigation/types';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { ParamListBase } from '@react-navigation/native';
+
+// Compartida por Entidad y Moderador -- la bolita de avatar (perfil de
+// Entidad, ver AppNavigator.tsx) solo aplica a Entidad. Moderador sigue
+// teniendo su propio tab "Perfil", así que acá no se muestra nada para él
+// (evita un botón que no tendría a dónde ir en su stack). `navigation` es
+// la del propio tab navigator (Entidad o Moderador, da igual cuál ya que
+// solo se usa .getParent() para subir al stack raíz).
+type Props = {
+  navigation: BottomTabNavigationProp<ParamListBase>;
+};
 
 function formatTime(d: string | undefined) {
   if (!d) return '—';
@@ -40,11 +55,11 @@ function esDeEstaSemana(fechaCambio: string): boolean {
 
 interface Group { label: string; items: HistorialEntry[] }
 
-export default function HistorialScreen() {
+export default function HistorialScreen({ navigation }: Props) {
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(r), [r]);
-  const { user } = useContext(AuthContext);
+  const { user, isEntidad } = useContext(AuthContext);
   const [historial, setHistorial] = useState<HistorialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -92,6 +107,12 @@ export default function HistorialScreen() {
             <Text style={[andiType.body, styles.weekLabel]}>cambios esta semana</Text>
           </View>
         }
+        rightElement={isEntidad ? (
+          <ProfileAvatarButton
+            name={user?.nombre_completo ?? '?'}
+            onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('EntidadPerfil')}
+          />
+        ) : undefined}
       />
 
       <AndiBody>

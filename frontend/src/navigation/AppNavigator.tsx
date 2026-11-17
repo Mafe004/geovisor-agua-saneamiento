@@ -226,7 +226,9 @@ function CiudadanoTabs() {
 function EntidadTabs() {
   const insets = useSafeAreaInsets();
   // 5 tabs con FAB central elevado -- necesita más espacio libre arriba
-  // (96px) que Moderador (88px, sin FAB).
+  // (96px) que Moderador (88px, sin FAB). "Perfil" ya no es un tab -- se
+  // llega a él desde la bolita de avatar en el header de cada tab (mismo
+  // patrón que AdminPerfil), así el tab bar no queda sobrecargado.
   const screenOptions = useMemo(() => makeAndiTabOptions(96, insets.bottom), [insets.bottom]);
   return (
     <Tab.Navigator screenOptions={screenOptions}>
@@ -235,7 +237,6 @@ function EntidadTabs() {
       <Tab.Screen name="Crear"     component={EntidadCrearReporteScreen} />
       <Tab.Screen name="Historial" component={HistorialScreen} />
       <Tab.Screen name="Mapa"      component={MapaEntidadScreen} />
-      <Tab.Screen name="Perfil"    component={PerfilScreen} />
     </Tab.Navigator>
   );
 }
@@ -306,6 +307,7 @@ export default function AppNavigator() {
         ) : user.id_rol === 2 ? (
           <>
             <Stack.Screen name="EntidadHome"    component={EntidadTabs} />
+            <Stack.Screen name="EntidadPerfil"  component={PerfilScreen} options={{ headerShown: false }} />
             <Stack.Screen name="DetalleReporte" component={DetalleReporteScreen} />
           </>
         ) : (

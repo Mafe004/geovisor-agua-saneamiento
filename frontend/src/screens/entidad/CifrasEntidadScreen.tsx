@@ -1,14 +1,25 @@
 import React, { useState, useContext, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { EstadisticasResponse } from '../../types/domain';
+import type { RootStackParamList } from '../../navigation/types';
+
+type Props = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<ParamListBase>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+};
 
 const MES_LABEL: Record<string, string> = {
   '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun',
@@ -24,7 +35,7 @@ function cap(s: string) {
   return s ? s.charAt(0) + s.slice(1).toLowerCase() : s;
 }
 
-export default function CifrasEntidadScreen() {
+export default function CifrasEntidadScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
   const andiType = useScaledType(andiTypeBase);
@@ -64,6 +75,7 @@ export default function CifrasEntidadScreen() {
       <AndiHeader
         title="Cifras"
         subtitle={`Solo ${entidadNombre || 'tu entidad'} · últimos 6 meses`}
+        rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
       />
 
       <AndiBody>

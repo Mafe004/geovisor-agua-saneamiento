@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity,
+  ScrollView, ActivityIndicator, StyleSheet,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import type { CompositeNavigationProp, ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -13,9 +13,14 @@ import type { MapCenterChange } from '../../components/MapaWebView.types';
 import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import { useToast } from '../../components/andi/Toast';
+import AndiHeader from '../../components/andi/AndiHeader';
+import AndiBody from '../../components/andi/AndiBody';
+import AndiChip from '../../components/andi/AndiChip';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor } from '../../theme/andi';
 import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
-import { useResponsive, type Responsive } from '../../theme/responsive';
+import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 
 // Tab "Crear" de Entidad (-> navega a 'Asignados' tras enviar). Hasta la
 // integración del rol Ciudadano de Ciudadano_V2_TS este archivo también
@@ -36,8 +41,9 @@ const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
 export default function CrearReporteScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const andiType = useScaledType(andiTypeBase);
   const toast = useToast();
-  const { isCiudadano } = useContext(AuthContext);
+  const { user, isCiudadano } = useContext(AuthContext);
   const destinoMisReportes = isCiudadano ? 'Reportes' : 'Asignados';
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
@@ -150,189 +156,198 @@ export default function CrearReporteScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.header}>
-        <Text style={styles.headerTitle}>➕ Nuevo Reporte</Text>
-        <Text style={styles.headerSub}>Reporta un problema de agua o saneamiento</Text>
-      </LinearGradient>
+      <AndiHeader
+        overline="Reportar un daño"
+        title="Nuevo reporte"
+        rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
+      />
 
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
-      >
-        <View style={styles.contentWrap}>
-        {/* ── Descripción ── */}
-        <Text style={styles.label}>Descripción *</Text>
-        <TextInput
-          style={styles.textarea}
-          placeholder="Describe el problema con detalle: qué observas, desde cuándo, qué tan grave es…"
-          placeholderTextColor="#9CA3AF"
-          multiline
-          numberOfLines={4}
-          value={descripcion}
-          onChangeText={setDescripcion}
-          textAlignVertical="top"
-        />
+      <AndiBody>
+        <ScrollView
+          contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          <View style={styles.contentWrap}>
+            {/* ── Descripción ── */}
+            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Descripción</Text>
+            <TextInput
+              style={styles.textarea}
+              placeholder="Describe el problema con detalle: qué observas, desde cuándo, qué tan grave es…"
+              placeholderTextColor={andiColors.onSurfaceVariant}
+              multiline
+              numberOfLines={4}
+              value={descripcion}
+              onChangeText={setDescripcion}
+              textAlignVertical="top"
+            />
 
-        {/* ── Dirección ── */}
-        <Text style={styles.label}>Dirección aproximada (opcional)</Text>
-        <TextInput
-          style={styles.inputField}
-          placeholder="Ej: Carrera 7 # 3-45, barrio Centro"
-          placeholderTextColor="#9CA3AF"
-          value={direccion}
-          onChangeText={setDireccion}
-        />
+            {/* ── Dirección ── */}
+            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Dirección (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej: Carrera 7 # 3-45, barrio Centro"
+              placeholderTextColor={andiColors.onSurfaceVariant}
+              value={direccion}
+              onChangeText={setDireccion}
+            />
 
-        {/* ── Tipo incidente ── */}
-        <Text style={styles.label}>Tipo de incidente *</Text>
-        <View style={styles.chipRow}>
-          {tipos.length === 0 && (
-            <Text style={styles.emptyChip}>Cargando tipos…</Text>
-          )}
-          {tipos.map(t => (
-            <TouchableOpacity accessibilityRole="button"
-              key={t.id_tipo_incidente}
-              style={[styles.chip, idTipo === t.id_tipo_incidente && styles.chipActive]}
-              onPress={() => setIdTipo(t.id_tipo_incidente)}
-            >
-              <Text style={[styles.chipText, idTipo === t.id_tipo_incidente && styles.chipTextActive]}>
-                {t.nombre}
+            {/* ── Tipo incidente ── */}
+            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Tipo de incidente</Text>
+            <View style={styles.chipRow}>
+              {tipos.length === 0 && (
+                <Text style={[andiType.caption, styles.emptyChip]}>Cargando tipos…</Text>
+              )}
+              {tipos.map(t => (
+                <AndiChip
+                  key={t.id_tipo_incidente}
+                  label={t.nombre}
+                  variant={idTipo === t.id_tipo_incidente ? 'solid' : 'outline'}
+                  onPress={() => setIdTipo(t.id_tipo_incidente)}
+                />
+              ))}
+            </View>
+
+            {/* ── Severidad ── */}
+            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Severidad</Text>
+            <View style={styles.chipRow}>
+              {severidades.length === 0 && (
+                <Text style={[andiType.caption, styles.emptyChip]}>Cargando severidades…</Text>
+              )}
+              {severidades.map(s => (
+                <AndiChip
+                  key={s.id_severidad}
+                  label={s.nombre}
+                  variant={idSeveridad === s.id_severidad ? 'solid' : 'outline'}
+                  onPress={() => setIdSeveridad(s.id_severidad)}
+                />
+              ))}
+            </View>
+
+            {/* ── Mapa con pin central ── */}
+            <View style={styles.mapSection}>
+              <View style={styles.mapHeader}>
+                <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel, { marginTop: 0 }]}>Ubicación</Text>
+                <TouchableOpacity accessibilityRole="button" style={styles.locBtn} onPress={getMyLocation} disabled={locLoading}>
+                  {locLoading ? (
+                    <ActivityIndicator size="small" color={andiColors.primary600} />
+                  ) : (
+                    <>
+                      <Feather name="crosshair" size={14} color={andiColors.primary600} />
+                      <Text style={styles.locBtnText}>Mi ubicación</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[andiType.caption, styles.mapHint]}>
+                Arrastra el mapa hasta que el pin quede sobre el lugar exacto del problema
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* ── Severidad ── */}
-        <Text style={styles.label}>Severidad *</Text>
-        <View style={styles.chipRow}>
-          {severidades.length === 0 && (
-            <Text style={styles.emptyChip}>Cargando severidades…</Text>
-          )}
-          {severidades.map(s => (
-            <TouchableOpacity accessibilityRole="button"
-              key={s.id_severidad}
-              style={[styles.chip, idSeveridad === s.id_severidad && styles.chipActive]}
-              onPress={() => setIdSeveridad(s.id_severidad)}
+              {/* MapaWebView con showCenterPin — NO necesita react-native-maps */}
+              <MapaWebView
+                style={styles.map}
+                latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
+                longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
+                zoom={15}
+                showCenterPin={true}
+                onCenterChange={handleCenterChange}
+                markers={[]}
+              />
+
+              {coordenadas ? (
+                <View style={styles.coordRow}>
+                  <Feather name="map-pin" size={12} color={andiColors.onSurfaceVariant} />
+                  <Text style={[andiType.caption, styles.coordText]}>
+                    Lat {coordenadas.latitude.toFixed(5)}, Lng {coordenadas.longitude.toFixed(5)}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.coordRow}>
+                  <Feather name="alert-triangle" size={12} color={andiColors.warning600} />
+                  <Text style={[andiType.caption, styles.coordTextPending]}>Aún no has seleccionado una ubicación</Text>
+                </View>
+              )}
+
+              {coordenadas && proximidadSiasar && (
+                <View style={styles.siasarCard}>
+                  <Feather name="bar-chart-2" size={14} color={andiColors.primary600} />
+                  <Text style={[andiType.caption, styles.siasarHint]}>
+                    {proximidadSiasar.comunidad
+                      ? `Cerca de la vereda ${proximidadSiasar.comunidad.nombre}, ${proximidadSiasar.comunidad.municipio} (a ${proximidadSiasar.distancia_m} m)`
+                      : 'Fuera de las veredas registradas en SIASAR'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* ── Botón enviar ── */}
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Enviar reporte"
+              style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+              onPress={handleSubmit}
+              disabled={loading}
             >
-              <Text style={[styles.chipText, idSeveridad === s.id_severidad && styles.chipTextActive]}>
-                {s.nombre}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── Mapa con pin central ── */}
-        <View style={styles.mapSection}>
-          <View style={styles.mapHeader}>
-            <Text style={styles.label}>Ubicación del problema *</Text>
-            <TouchableOpacity accessibilityRole="button" style={styles.locBtn} onPress={getMyLocation} disabled={locLoading}>
-              {locLoading
-                ? <ActivityIndicator size="small" color="#1565C0" />
-                : <Text style={styles.locBtnText}>📍 Mi ubicación</Text>
-              }
+              {loading
+                ? <ActivityIndicator color={andiColors.n0} />
+                : <Text style={styles.saveBtnText}>Enviar reporte</Text>}
             </TouchableOpacity>
           </View>
-
-          <Text style={styles.mapHint}>
-            Arrastra el mapa hasta que el pin rojo quede sobre el lugar exacto del problema
-          </Text>
-
-          {/* MapaWebView con showCenterPin — NO necesita react-native-maps */}
-          <MapaWebView
-            style={styles.map}
-            latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
-            longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
-            zoom={15}
-            showCenterPin={true}
-            onCenterChange={handleCenterChange}
-            markers={[]}
-          />
-
-          {coordenadas ? (
-            <Text style={styles.coordText}>
-              📌 Lat {coordenadas.latitude.toFixed(5)}, Lng {coordenadas.longitude.toFixed(5)}
-            </Text>
-          ) : (
-            <Text style={styles.coordTextPending}>
-              ⚠️ Aún no has seleccionado una ubicación
-            </Text>
-          )}
-
-          {coordenadas && proximidadSiasar && (
-            <Text style={styles.siasarHint}>
-              {proximidadSiasar.comunidad
-                ? `📊 Ubicación cerca de la vereda ${proximidadSiasar.comunidad.nombre}, ${proximidadSiasar.comunidad.municipio} (a ${proximidadSiasar.distancia_m} m)`
-                : '📊 Fuera de las veredas registradas en SIASAR'}
-            </Text>
-          )}
-        </View>
-
-        {/* ── Botón enviar ── */}
-        <TouchableOpacity accessibilityRole="button"
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          <LinearGradient
-            colors={['#1565C0', '#00ACC1']}
-            style={styles.btnGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          >
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnText}>Enviar reporte</Text>
-            }
-          </LinearGradient>
-        </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </AndiBody>
     </View>
   );
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  header: { paddingTop: 48, paddingBottom: 16, paddingHorizontal: 16 },
-  headerTitle: { color: '#fff', fontSize: r.scaleFont(20), fontWeight: '700' },
-  headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: r.scaleFont(12), marginTop: 2 },
-  scroll: { padding: 16, paddingBottom: 40 },
+  container: { flex: 1, backgroundColor: andiColors.surfaceDim },
+  scroll: { padding: andiSpace[5], paddingBottom: andiSpace[8] },
   contentWrap: { width: '100%', maxWidth: r.maxContentWidth(600) },
-  label: { fontSize: r.scaleFont(13), fontWeight: '700', color: '#374151', marginBottom: 8, marginTop: 16 },
+
+  sectionLabel: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[2], marginTop: andiSpace[4] },
+
   textarea: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(16), color: '#1F2937',
+    borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.lg,
+    backgroundColor: andiColors.surface, padding: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
     minHeight: 100,
   },
-  inputField: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    backgroundColor: '#fff', padding: 12, fontSize: r.scaleFont(16), color: '#1F2937', height: 48,
+  input: {
+    borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.lg,
+    backgroundColor: andiColors.surface, paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
+    minHeight: 48,
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  emptyChip: { fontSize: r.scaleFont(12), color: '#9CA3AF', fontStyle: 'italic' },
-  chip: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB',
-  },
-  chipActive: { backgroundColor: '#1565C0', borderColor: '#1565C0' },
-  chipText: { fontSize: r.scaleFont(13), color: '#374151', fontWeight: '600' },
-  chipTextActive: { color: '#fff' },
-  mapSection: { marginTop: 8 },
+
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2] },
+  emptyChip: { color: andiColors.onSurfaceVariant, fontStyle: 'italic' },
+
+  mapSection: { marginTop: andiSpace[2] },
   mapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mapHint: { fontSize: r.scaleFont(12), color: '#6B7280', marginBottom: 8, lineHeight: 16 },
+  mapHint: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[2] },
   locBtn: {
-    backgroundColor: '#EFF6FF', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#BFDBFE',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: andiColors.primary50, borderRadius: andiRadius.full,
+    paddingHorizontal: andiSpace[3], height: 32,
+    borderWidth: 1, borderColor: andiColors.primary200,
   },
-  locBtnText: { color: '#1565C0', fontSize: r.scaleFont(13), fontWeight: '600' },
-  map: { height: r.scaleHeight(240), borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: '#E5E7EB' },
-  coordText: { fontSize: r.scaleFont(11), color: '#6B7280', marginTop: 6, textAlign: 'center' },
-  coordTextPending: { fontSize: r.scaleFont(11), color: '#F59E0B', marginTop: 6, textAlign: 'center', fontWeight: '600' },
-  siasarHint: { fontSize: r.scaleFont(11), color: '#065F46', marginTop: 6, textAlign: 'center' },
-  btn: { marginTop: 24, borderRadius: 14, overflow: 'hidden' },
-  btnDisabled: { opacity: 0.6 },
-  btnGradient: { height: 52, justifyContent: 'center', alignItems: 'center' },
-  btnText: { color: '#fff', fontSize: r.scaleFont(16), fontWeight: '700' },
+  locBtnText: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.primary600 },
+  map: { height: r.scaleHeight(240), borderRadius: andiRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: andiColors.outlineVariant },
+
+  coordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: andiSpace[2] },
+  coordText: { color: andiColors.onSurfaceVariant },
+  coordTextPending: { color: andiColors.warning700, fontWeight: '600' },
+
+  siasarCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2],
+    backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg,
+    padding: andiSpace[3], marginTop: andiSpace[3],
+  },
+  siasarHint: { color: andiColors.onSurface, flex: 1 },
+
+  saveBtn: {
+    marginTop: andiSpace[6], minHeight: 56, borderRadius: andiRadius.full,
+    backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center',
+  },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: { fontSize: r.scaleFont(16), lineHeight: r.scaleFont(22), fontWeight: '600', color: andiColors.n0 },
 });

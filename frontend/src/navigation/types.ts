@@ -24,6 +24,9 @@ export type RootStackParamList = {
   AdminPerfil: undefined;
   // Admin-only, reached from AdminPerfil's section list.
   SolicitudesAcceso: undefined;
+  // Entidad profile, reached from the header avatar on every Entidad tab
+  // (not its own tab anymore -- same pattern as AdminPerfil).
+  EntidadPerfil: undefined;
   // ReporteComunidad: solo llega aquí desde el Mapa/Detalle de Ciudadano,
   // cuando el reporte abierto es de otro usuario (vista comunitaria, sin
   // id_usuario/usuario -- ver reportesAPI.obtener en api/services.ts).
@@ -53,7 +56,6 @@ export type EntidadTabParamList = {
   Crear: undefined;
   Historial: undefined;
   Mapa: undefined;
-  Perfil: undefined;
 };
 
 // AdminTabs (AppNavigator.tsx) -- DashboardScreen's "Revisarlas" button jumps

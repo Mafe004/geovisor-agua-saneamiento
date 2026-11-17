@@ -12,6 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, siasarAPI, usuariosAPI, entidadesAPI, auditoriaAPI } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { EstadisticasResponse, ResumenMunicipio } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, andiSeverityColor } from '../../theme/andi';
@@ -47,11 +48,6 @@ function severidadMunicipio(f: ResumenMunicipio): Severidad {
 function formatFecha(iso: string) {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
-}
-
-function initials(nombre: string) {
-  const parts = nombre.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
 function greeting() {
@@ -165,14 +161,10 @@ export default function DashboardScreen() {
             <Text style={styles.greeting}>{greeting()}</Text>
             <Text style={styles.adminName}>{user?.nombre_completo ?? 'Administrador'}</Text>
           </View>
-          <TouchableOpacity accessibilityRole="button"
+          <ProfileAvatarButton
+            name={user?.nombre_completo ?? '?'}
             onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials(user?.nombre_completo ?? 'A')}</Text>
-            </View>
-          </TouchableOpacity>
+          />
         </View>
         <Text style={styles.headerTitle}>Panel de administración</Text>
       </LinearGradient>
@@ -307,11 +299,6 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   headerTopRow: { flexDirection: 'row', alignItems: 'center' },
   greeting: { ...andiType.bodySm, color: andiColors.primary200, minHeight: 16 },
   adminName: { ...andiType.card, color: andiColors.surface, minHeight: 22 },
-  avatar: {
-    width: 44, height: 44, borderRadius: andiRadius.full,
-    backgroundColor: andiColors.primary400, justifyContent: 'center', alignItems: 'center',
-  },
-  avatarText: { ...andiType.label, color: andiColors.surface },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface, marginTop: andiSpace[3] },
 
   scroll: { padding: andiSpace[4], paddingBottom: andiSpace[10] },

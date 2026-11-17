@@ -7,6 +7,7 @@ import axios from 'axios';
 import { reportesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import MapaWebView from '../../components/MapaWebView';
@@ -62,7 +63,7 @@ export default function MapaEntidadScreen({ navigation }: Props) {
   if (!user?.id_entidad) {
     return (
       <View style={styles.container}>
-        <AndiHeader title="Mapa" />
+        <AndiHeader title="Mapa" rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />} />
         <AndiBody>
           <AndiErrorState
             icon="alert-triangle"
@@ -109,7 +110,11 @@ export default function MapaEntidadScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <AndiHeader title="Mapa" overline={`${puntos.length} reporte${puntos.length === 1 ? '' : 's'}`} />
+      <AndiHeader
+        title="Mapa"
+        overline={`${puntos.length} reporte${puntos.length === 1 ? '' : 's'}`}
+        rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
+      />
       <AndiBody style={styles.body}>
         <View style={styles.legendRow}>
           {LEGEND.map(l => (

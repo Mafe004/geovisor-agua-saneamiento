@@ -6,12 +6,21 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { entidadesAPI, usuariosAPI } from '../../api/services';
+import { useAuth } from '../../context/AuthContext';
 import type { EntidadDetalle, UsuarioDeEntidadItem, UsuarioListItem } from '../../types/domain';
+import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { useToast } from '../../components/andi/Toast';
 import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
+
+// Solo `navigation` -- ver nota en AuditoriaScreen.tsx sobre por qué
+// BottomTabScreenProps (que exige `route`) no tipa bien aquí.
+type Props = { navigation: BottomTabNavigationProp<AdminTabParamList, 'Entidades'> };
 
 // id_estado_cuenta: 1=ACTIVO, 2=INACTIVO, 3=SUSPENDIDO, 4=PENDIENTE (mismo
 // catálogo que usuarios -- ver backend/CLAUDE.md "Account states").
@@ -27,7 +36,8 @@ const ESTADO_CHIP: Record<string, { bg: string; fg: string; label: string }> = {
 
 const MAX_CHIPS = 3;
 
-export default function EntidadesScreen() {
+export default function EntidadesScreen({ navigation }: Props) {
+  const { user } = useAuth();
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(andiType), [andiType]);
@@ -163,10 +173,17 @@ export default function EntidadesScreen() {
       <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Entidades</Text>
-          <TouchableOpacity accessibilityRole="button" style={styles.newBtn} activeOpacity={0.85} onPress={() => setNuevaModalVisible(true)}>
-            <Feather name="plus" size={16} color={andiColors.surface} />
-            <Text style={styles.newBtnText}>Nueva entidad</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity accessibilityRole="button" style={styles.newBtn} activeOpacity={0.85} onPress={() => setNuevaModalVisible(true)}>
+              <Feather name="plus" size={16} color={andiColors.surface} />
+              <Text style={styles.newBtnText}>Nueva entidad</Text>
+            </TouchableOpacity>
+            <ProfileAvatarButton
+              name={user?.nombre_completo ?? '?'}
+              onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
+              size={36}
+            />
+          </View>
         </View>
       </LinearGradient>
 
@@ -379,6 +396,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[3] },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface },
   newBtn: {
     flexDirection: 'row', alignItems: 'center', gap: andiSpace[1],

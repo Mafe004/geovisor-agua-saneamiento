@@ -2,11 +2,23 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { auditoriaAPI } from '../../api/services';
+import { useAuth } from '../../context/AuthContext';
 import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { LogAuditoriaItem } from '../../types/domain';
+import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
+
+// Solo `navigation` (no BottomTabScreenProps completo) -- este archivo no
+// usa `route`, y tipar `route` acá choca con el Tab.Navigator sin genérico
+// de AdminTabs (ParamListBase), porque Auditoría: undefined no calza con lo
+// que ese Tab.Navigator infiere para esa ruta. Mismo patrón ya usado por
+// TodosReportesScreen/DashboardScreen en este mismo stack de tabs.
+type Props = { navigation: BottomTabNavigationProp<AdminTabParamList, 'Auditoría'> };
 
 type ModuloFilter = 'TODOS' | 'REPORTES' | 'AUTH' | 'USUARIOS';
 const FILTERS: { key: ModuloFilter; label: string }[] = [
@@ -59,7 +71,8 @@ function formatFecha(iso: string) {
   return `${fecha} ${hora}`;
 }
 
-export default function AuditoriaScreen() {
+export default function AuditoriaScreen({ navigation }: Props) {
+  const { user } = useAuth();
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(andiType), [andiType]);
@@ -98,7 +111,13 @@ export default function AuditoriaScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-        <Text style={styles.headerTitle}>Auditoría</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Auditoría</Text>
+          <ProfileAvatarButton
+            name={user?.nombre_completo ?? '?'}
+            onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
+          />
+        </View>
       </LinearGradient>
 
       <View style={styles.filterRow}>
@@ -176,6 +195,7 @@ export default function AuditoriaScreen() {
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface },
 
   filterRow: {

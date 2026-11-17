@@ -6,10 +6,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { usuariosAPI } from '../../api/services';
+import { useAuth } from '../../context/AuthContext';
 import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { UsuarioListItem } from '../../types/domain';
-import type { AdminTabParamList } from '../../navigation/types';
+import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
@@ -44,7 +47,8 @@ function initials(nombre: string) {
   return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase();
 }
 
-export default function UsuariosScreen({ route }: Props) {
+export default function UsuariosScreen({ route, navigation }: Props) {
+  const { user } = useAuth();
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(andiType), [andiType]);
@@ -184,6 +188,11 @@ export default function UsuariosScreen({ route }: Props) {
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{usuarios.length}</Text>
           </View>
+          <View style={{ flex: 1 }} />
+          <ProfileAvatarButton
+            name={user?.nombre_completo ?? '?'}
+            onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
+          />
         </View>
       </LinearGradient>
 

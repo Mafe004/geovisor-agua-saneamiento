@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, catalogosAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiReportCard from '../../components/andi/AndiReportCard';
@@ -83,7 +84,10 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
   if (!user?.id_entidad) {
     return (
       <View style={styles.container}>
-        <AndiHeader title="Asignados" />
+        <AndiHeader
+          title="Asignados"
+          rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
+        />
         <AndiBody>
           <AndiErrorState
             icon="alert-triangle"
@@ -139,6 +143,7 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
           { value: enProceso.length, label: 'En proceso' },
           { value: cerrados.length, label: 'Cerrados' },
         ]}
+        rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
       />
 
       <AndiBody>

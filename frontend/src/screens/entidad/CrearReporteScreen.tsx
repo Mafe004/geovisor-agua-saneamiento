@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, ActivityIndicator, StyleSheet,
@@ -11,7 +11,7 @@ import type { CompositeNavigationProp, ParamListBase } from '@react-navigation/n
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MapaWebView from '../../components/MapaWebView';
-import type { MapCenterChange } from '../../components/MapaWebView.types';
+import type { MapaWebViewHandle, MapCenterChange, MapMarker } from '../../components/MapaWebView.types';
 import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import { useToast } from '../../components/andi/Toast';
@@ -41,6 +41,8 @@ type Props = {
 
 // Coordenadas centro de Zipaquirá (Colombia)
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
+// Referencia estable -- ver la misma constante en ciudadano/CrearReporteScreen.tsx.
+const EMPTY_MARKERS: MapMarker[] = [];
 
 export default function CrearReporteScreen({ navigation }: Props) {
   const r = useResponsive();
@@ -52,6 +54,10 @@ export default function CrearReporteScreen({ navigation }: Props) {
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
+  // El mapa arranca siempre en ZIPAQUIRA (coordenadas es null al montar) y
+  // ya no reacciona a cambios de latitude/longitude después -- mover el
+  // centro de verdad (GPS) se pide con mapRef.current.panTo(...).
+  const mapRef = useRef<MapaWebViewHandle>(null);
   const [idTipo, setIdTipo] = useState<number | null>(null);
   const [idSeveridad, setIdSeveridad] = useState<number | null>(null);
   const [tipos, setTipos] = useState<TipoIncidenteItem[]>([]);
@@ -112,6 +118,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setCoordenadas({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      mapRef.current?.panTo(loc.coords.latitude, loc.coords.longitude);
     } catch (_) {
       toast.warning('No disponible', 'No se pudo obtener tu ubicación. Marca el punto en el mapa.');
     } finally {
@@ -278,13 +285,14 @@ export default function CrearReporteScreen({ navigation }: Props) {
 
               {/* MapaWebView con showCenterPin — NO necesita react-native-maps */}
               <MapaWebView
+                ref={mapRef}
                 style={styles.map}
-                latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
-                longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
+                latitude={ZIPAQUIRA.latitude}
+                longitude={ZIPAQUIRA.longitude}
                 zoom={15}
                 showCenterPin={true}
                 onCenterChange={handleCenterChange}
-                markers={[]}
+                markers={EMPTY_MARKERS}
               />
 
               {coordenadas ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Platform,
@@ -10,7 +10,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import axios from 'axios';
 import MapaWebView from '../../components/MapaWebView';
-import type { MapCenterChange } from '../../components/MapaWebView.types';
+import type { MapaWebViewHandle, MapCenterChange, MapMarker } from '../../components/MapaWebView.types';
 import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SeverityPicker, { type SeveridadKey } from '../../components/ciudadano/SeverityPicker';
@@ -41,6 +41,10 @@ type EditarProps = NativeStackScreenProps<RootStackParamList, 'EditarReporte'>;
 type Props = CrearProps | EditarProps;
 
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
+// Referencia estable -- un array literal nuevo en cada render dispararía
+// un window.setMarkers(...) de más en MapaWebView por simple cambio de
+// identidad, aunque el contenido (vacío) nunca cambie.
+const EMPTY_MARKERS: MapMarker[] = [];
 
 // Mismas claves que SeverityPicker: una severidad de catálogo fuera de
 // estas queda sin preselección y el ciudadano debe elegir una.
@@ -105,6 +109,14 @@ export default function CrearReporteScreen(props: Props) {
   const [descripcion, setDescripcion] = useState(reporteEditar?.descripcion ?? '');
   const [direccion, setDireccion] = useState(reporteEditar?.direccion ?? '');
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(ubicacionOriginal);
+  // Centro con el que arranca el mapa -- se congela en el primer render y
+  // nunca se actualiza. MapaWebView ya no reacciona a cambios en
+  // latitude/longitude después de montarse (para no recargar el mapa en
+  // cada arrastre): `coordenadas` sigue siendo la fuente de verdad para el
+  // payload/validación, pero recentrar el mapa de verdad (tras buscar una
+  // dirección) se pide explícitamente con mapRef.current.panTo(...).
+  const [centroInicial] = useState(() => coordenadas ?? ZIPAQUIRA);
+  const mapRef = useRef<MapaWebViewHandle>(null);
   const [idTipo, setIdTipo] = useState<number | null>(reporteEditar?.id_tipo_incidente ?? null);
   const [severidad, setSeveridad] = useState<SeveridadKey | null>(() => severidadInicial(reporteEditar));
   const [tipos, setTipos] = useState<TipoIncidenteItem[]>([]);
@@ -170,11 +182,12 @@ export default function CrearReporteScreen(props: Props) {
       if (!found) return;
       setDescripcion(found.form.descripcion);
       setDireccion(found.form.direccion);
-      setCoordenadas(
-        found.form.latitud != null && found.form.longitud != null
-          ? { latitude: found.form.latitud, longitude: found.form.longitud }
-          : null,
-      );
+      if (found.form.latitud != null && found.form.longitud != null) {
+        setCoordenadas({ latitude: found.form.latitud, longitude: found.form.longitud });
+        mapRef.current?.panTo(found.form.latitud, found.form.longitud);
+      } else {
+        setCoordenadas(null);
+      }
       setIdTipo(found.form.id_tipo_incidente);
       setSeveridad((found.form.severidad as SeveridadKey) || 'MEDIA');
       setDescTouched(found.form.descTouched);
@@ -212,6 +225,7 @@ export default function CrearReporteScreen(props: Props) {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const punto = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       setCoordenadas(punto);
+      mapRef.current?.panTo(punto.latitude, punto.longitude);
       // Si todavía no escribió dirección, se sugiere la de ese punto (solo
       // móvil: la geocodificación no existe en web). Nunca pisa lo escrito.
       if (!direccion.trim() && Platform.OS !== 'web') {
@@ -254,6 +268,7 @@ export default function CrearReporteScreen(props: Props) {
         return;
       }
       setCoordenadas({ latitude: resultado.latitude, longitude: resultado.longitude });
+      mapRef.current?.panTo(resultado.latitude, resultado.longitude);
     } catch (_) {
       showDialog('No se pudo buscar', 'No pudimos buscar la dirección en este momento. Marca el punto arrastrando el mapa.', { tone: 'warning' });
     } finally {
@@ -575,13 +590,14 @@ export default function CrearReporteScreen(props: Props) {
           <Section styles={styles} n="03" title="Dónde">
             <View style={styles.mapCard}>
               <MapaWebView
+                ref={mapRef}
                 style={styles.map}
-                latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
-                longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
+                latitude={centroInicial.latitude}
+                longitude={centroInicial.longitude}
                 zoom={15}
                 showCenterPin
                 onCenterChange={handleCenterChange}
-                markers={[]}
+                markers={EMPTY_MARKERS}
               />
               <View style={styles.mapFooter}>
                 <View style={{ flex: 1 }}>

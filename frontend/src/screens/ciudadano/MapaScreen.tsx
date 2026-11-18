@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
@@ -6,7 +6,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, siasarAPI, catalogosAPI } from '../../api/services';
 import MapaWebView from '../../components/MapaWebView';
-import type { MapMarker } from '../../components/MapaWebView.types';
+import type { MapaWebViewHandle, MapMarker } from '../../components/MapaWebView.types';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { StatusChip, SeverityChip } from '../../components/ciudadano/Chip';
@@ -92,6 +92,10 @@ export default function MapaScreen({ navigation }: Props) {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [center, setCenter] = useState(ZIPAQUIRA);
+  // El mapa solo lee `center` para su centro INICIAL (ver MapaWebView.tsx) --
+  // moverlo después de montado (GPS listo, "Recentrar") se pide con
+  // mapRef.current.panTo(...), nunca cambiando esta prop.
+  const mapRef = useRef<MapaWebViewHandle>(null);
   const [self, setSelf] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locStatus, setLocStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [selectedPin, setSelectedPin] = useState<MapMarker | null>(null);
@@ -145,6 +149,9 @@ export default function MapaScreen({ navigation }: Props) {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const point = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       setCenter(point);
+      // setCenter alcanza si el mapa todavía no montó (centro inicial);
+      // panTo cubre el caso en que el GPS resuelve después de que ya montó.
+      mapRef.current?.panTo(point.latitude, point.longitude);
       setSelf(point);
     } catch (_) {
       setLocStatus('denied');
@@ -295,7 +302,11 @@ export default function MapaScreen({ navigation }: Props) {
   // Con un rango inválido no se filtra por fecha (solo se muestra el aviso).
   const filtraFecha = !errorRango && (desde !== null || hasta !== null);
 
-  const pinesFiltrados = pines
+  // useMemo: referencia estable mientras pines/filter/query/tipoFiltro/
+  // desde/hasta/filtraFecha no cambien -- si no, un array nuevo en cada
+  // render (p.ej. al escribir en un campo que no toca el mapa) encadenaría
+  // en `markers` de abajo y dispararía un window.setMarkers(...) de más.
+  const pinesFiltrados = useMemo(() => pines
     .filter((p) => !filter || (p.estado || '').toUpperCase() === filter)
     .filter((p) => !query.trim() || `${p.direccion || ''} ${p.tipo_incidente || ''}`.toLowerCase().includes(query.trim().toLowerCase()))
     .filter((p) => !tipoFiltro || p.tipo_incidente === tipoFiltro)
@@ -303,7 +314,7 @@ export default function MapaScreen({ navigation }: Props) {
       if (!filtraFecha) return true;
       const dia = diaDeReporte(p.fecha_reporte);
       return !!dia && (!desde || dia >= desde) && (!hasta || dia <= hasta);
-    });
+    }), [pines, filter, query, tipoFiltro, desde, hasta, filtraFecha]);
 
   const hayFiltrosActivos = !!(filter || query.trim() || tipoFiltro || fechaFiltro);
 
@@ -336,55 +347,76 @@ export default function MapaScreen({ navigation }: Props) {
 
   const etiquetaFecha = FECHA_OPCIONES.find((o) => o.key === fechaFiltro)?.label;
 
-  const reporteMarkers: MapMarker[] = capaReportes
-    ? pinesFiltrados
-        .filter((p) => p.latitud && p.longitud && p.latitud !== 0 && p.longitud !== 0)
-        .map((p) => ({
-          id_reporte: p.id_reporte,
-          lat: parseFloat(String(p.latitud)),
-          lng: parseFloat(String(p.longitud)),
-          severidad: (p.severidad || '').toUpperCase(),
-          estado: (p.estado || '').toUpperCase(),
-          title: p.tipo_incidente,
+  // Cada capa se memoiza por separado con sus dependencias reales --
+  // reporteMarkers además se reusa suelta más abajo (el contador del
+  // encabezado), así que no puede vivir solo dentro del useMemo de
+  // `markers`. Sin esto, un array nuevo en cada render (aunque nada de
+  // esto haya cambiado) encadenaría en `markers` y dispararía un
+  // window.setMarkers(...) de más en MapaWebView por simple cambio de
+  // identidad.
+  const reporteMarkers: MapMarker[] = useMemo(() => (
+    capaReportes
+      ? pinesFiltrados
+          .filter((p) => p.latitud && p.longitud && p.latitud !== 0 && p.longitud !== 0)
+          .map((p) => ({
+            id_reporte: p.id_reporte,
+            lat: parseFloat(String(p.latitud)),
+            lng: parseFloat(String(p.longitud)),
+            severidad: (p.severidad || '').toUpperCase(),
+            estado: (p.estado || '').toUpperCase(),
+            title: p.tipo_incidente,
+          }))
+      : []
+  ), [capaReportes, pinesFiltrados]);
+
+  const comunidadMarkers: MapMarker[] = useMemo(() => (
+    capaComunidades
+      ? comunidadesSiasar.map((c) => ({
+          id: `com-${c.id_siasar}`,
+          lat: c.latitud,
+          lng: c.longitud,
+          titulo: c.nombre,
+          color: calificacionColor(c.calificacion),
+          shape: 'circle' as const,
+          scale: 7,
         }))
-    : [];
+      : []
+  ), [capaComunidades, comunidadesSiasar]);
 
-  const comunidadMarkers: MapMarker[] = capaComunidades
-    ? comunidadesSiasar.map((c) => ({
-        id: `com-${c.id_siasar}`,
-        lat: c.latitud,
-        lng: c.longitud,
-        titulo: c.nombre,
-        color: calificacionColor(c.calificacion),
-        shape: 'circle',
-        scale: 7,
-      }))
-    : [];
+  const sistemaMarkers: MapMarker[] = useMemo(() => (
+    capaSistemas
+      ? sistemasSiasar.map((s) => ({
+          id: `sis-${s.id_siasar}`,
+          lat: s.latitud,
+          lng: s.longitud,
+          titulo: s.nombre,
+          color: PRUEBA_COLOR[s.prueba_coliformes],
+          shape: 'circle' as const,
+          scale: 7,
+        }))
+      : []
+  ), [capaSistemas, sistemasSiasar]);
 
-  const sistemaMarkers: MapMarker[] = capaSistemas
-    ? sistemasSiasar.map((s) => ({
-        id: `sis-${s.id_siasar}`,
-        lat: s.latitud,
-        lng: s.longitud,
-        titulo: s.nombre,
-        color: PRUEBA_COLOR[s.prueba_coliformes],
-        shape: 'circle',
-        scale: 7,
-      }))
-    : [];
+  const selfMarker: MapMarker[] = useMemo(() => (
+    self ? [{ id: 'self', lat: self.latitude, lng: self.longitude, titulo: 'Tú', color: ANDI_COLORS.info, shape: 'circle' as const, scale: 8 }] : []
+  ), [self]);
 
-  const selfMarker: MapMarker[] = self
-    ? [{ id: 'self', lat: self.latitude, lng: self.longitude, titulo: 'Tú', color: '#2563EB', shape: 'circle', scale: 8 }]
-    : [];
-
-  const markers = [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers, ...selfMarker];
+  const markers: MapMarker[] = useMemo(() => (
+    [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers, ...selfMarker]
+  ), [reporteMarkers, comunidadMarkers, sistemaMarkers, selfMarker]);
 
   const hoy = new Date().toDateString();
   const criticosHoy = pines.filter((p) =>
     (p.severidad || '').toUpperCase() === 'ALTA' && !!p.fecha_reporte && new Date(p.fecha_reporte).toDateString() === hoy,
   ).length;
 
-  const recentrar = () => setCenter(self || ZIPAQUIRA);
+  // El mapa ya está montado cada vez que este botón es visible -- mover el
+  // centro con panTo (nunca con setCenter, que ya no tiene efecto después
+  // del montaje y antes recargaba todo el WebView).
+  const recentrar = () => {
+    const destino = self || ZIPAQUIRA;
+    mapRef.current?.panTo(destino.latitude, destino.longitude);
+  };
 
   return (
     <View style={styles.container}>
@@ -558,6 +590,7 @@ export default function MapaScreen({ navigation }: Props) {
           ) : (
             <>
               <MapaWebView
+                ref={mapRef}
                 latitude={center.latitude}
                 longitude={center.longitude}
                 markers={markers}

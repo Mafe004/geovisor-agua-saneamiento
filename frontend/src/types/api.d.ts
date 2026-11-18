@@ -307,6 +307,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reportes/{id_reporte}/admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Eliminar cualquier reporte (solo ADMINISTRADOR)
+         * @description Borrado administrativo: a diferencia de eliminar_reporte() (CIUDADANO
+         *     dueño, solo PENDIENTE y sin entidad), esto borra CUALQUIER reporte en
+         *     cualquier estado -- es una ruta separada en vez de una rama más dentro
+         *     de la misma función para no mezclar dos políticas de permiso muy
+         *     distintas (una por fila vía puede_editar_reporte, esta por rol) en un
+         *     mismo WHERE de la query de borrado.
+         */
+        delete: operations["eliminar_reporte_admin_reportes__id_reporte__admin_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reportes/{id_reporte}/historial": {
         parameters: {
             query?: never;
@@ -3281,6 +3306,44 @@ export interface operations {
             };
         };
     };
+    eliminar_reporte_admin_reportes__id_reporte__admin_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EliminarReporteResponse"];
+                };
+            };
+            /** @description Reporte no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     historial_reporte_reportes__id_reporte__historial_get: {
         parameters: {
             query?: never;
@@ -3427,7 +3490,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["MarcarLeidaRequest"];
             };

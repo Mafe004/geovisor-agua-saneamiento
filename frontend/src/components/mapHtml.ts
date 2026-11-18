@@ -138,7 +138,23 @@ export function buildMapHtml({
         label: isSquare && m.label ? { text: m.label, color: '#fff', fontSize: '11px', fontWeight: '600' } : undefined,
       });
       marker.addListener('click', function () {
-        infoWindow.setContent('<b>' + m.title + '</b><br>' + m.description);
+        // El InfoWindow de Google siempre trae su propio marco blanco (eso
+        // no se puede quitar sin reemplazarlo por un OverlayView) -- lo que
+        // sí se controla es el contenido: antes era texto plano sin estilo
+        // ("<b>título</b><br>descripción"), ahora una mini-tarjeta con el
+        // mismo lenguaje visual que AndiChip (punto de color + chip de
+        // estado/severidad con el mismo color del marcador).
+        infoWindow.setContent(
+          '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;min-width:160px;max-width:230px;padding:2px 0;">' +
+            '<div style="font-size:13.5px;font-weight:700;color:#1A2125;line-height:1.3;margin-bottom:' + (m.description ? '6px' : '0') + ';">' +
+              m.title +
+            '</div>' +
+            (m.description
+              ? '<span style="display:inline-block;background:' + m.color + '1F;color:' + m.color + ';' +
+                'font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;">' + m.description + '</span>'
+              : '') +
+          '</div>'
+        );
         infoWindow.open(map, marker);
         postToHost({ type: 'markerPress', id: m.id });
       });

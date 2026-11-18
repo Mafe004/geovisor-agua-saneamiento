@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, Image,
+  View, Text, TextInput, TouchableOpacity,
   ScrollView, ActivityIndicator, StyleSheet,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
@@ -20,7 +20,7 @@ import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor } from '../../theme/andi';
-import { construirFormFoto, subirFotos } from '../../utils/fotoEvidencia';
+import { subirFotos } from '../../utils/fotoEvidencia';
 import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
 import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
@@ -60,16 +60,11 @@ export default function CrearReporteScreen({ navigation }: Props) {
   const [locLoading, setLocLoading] = useState(false);
   const [proximidadSiasar, setProximidadSiasar] = useState<CercanaResponse | null>(null);
 
-  // Foto del reporte, opcional. fotoSubida = ruta ya devuelta por
-  // /reportes/imagen para esta misma foto: si Enviar falla, un reintento
-  // no la vuelve a subir -- mismo patrón que ciudadano/CrearReporteScreen.tsx.
-  const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [fotoSubida, setFotoSubida] = useState<string | null>(null);
+  // Fotos del reporte (migración 0008), opcionales: la primera que
+  // termine en la lista va a imagen_url (legado), el resto a imagenes[].
+  // Sin caché de subida entre reintentos (son pocas, reintentar es raro).
+  const [fotosNuevas, setFotosNuevas] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
-  // Fotos adicionales del incidente (migración 0008), además de la única
-  // de arriba -- se suben todas al enviar, sin cachear entre reintentos
-  // (son pocas, reintentar es raro).
-  const [fotosExtra, setFotosExtra] = useState<ImagePicker.ImagePickerAsset[]>([]);
 
   useEffect(() => {
     // Inline (no una función nombrada aparte, que no se reusa en ningún
@@ -124,26 +119,6 @@ export default function CrearReporteScreen({ navigation }: Props) {
     }
   };
 
-  const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
-    if (result.canceled) return;
-    setFoto(result.assets[0] ?? null);
-    setFotoSubida(null);
-  };
-
-  const tomarFoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.');
-      return;
-    }
-    elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  const elegirDeGaleria = async () => {
-    elegirFoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  const quitarFoto = () => { setFoto(null); setFotoSubida(null); };
 
   // Callback del pin central de MapaWebView
   const handleCenterChange = ({ latitude, longitude }: MapCenterChange) => {
@@ -156,30 +131,17 @@ export default function CrearReporteScreen({ navigation }: Props) {
     if (!idTipo) { toast.warning('Requerido', 'Selecciona el tipo de incidente.'); return; }
     if (!idSeveridad) { toast.warning('Requerido', 'Selecciona la severidad.'); return; }
 
-    // Si hay foto nueva sin subir todavía, subirla primero -- un fallo acá
-    // no debe perder el resto del formulario ya lleno.
-    let imagenUrl = fotoSubida;
-    if (foto && !imagenUrl) {
-      try {
-        setSubiendoFoto(true);
-        imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
-        setFotoSubida(imagenUrl);
-      } catch (_) {
-        toast.error('No se pudo subir la foto', 'Puedes reintentar o enviar el reporte sin foto.');
-        setSubiendoFoto(false);
-        return;
-      } finally {
-        setSubiendoFoto(false);
-      }
-    }
-
-    // Igual que la foto principal: subir las adicionales antes de crear el
-    // reporte, sin perder el formulario ya lleno si falla.
+    // Fotos: la primera sube a imagen_url (legado), el resto a imagenes[].
+    // Se suben todas antes de crear el reporte, sin perder el formulario
+    // ya lleno si falla.
+    let imagenUrl: string | null = null;
     let imagenesUrls: string[] = [];
-    if (fotosExtra.length > 0) {
+    if (fotosNuevas.length > 0) {
       try {
         setSubiendoFoto(true);
-        imagenesUrls = await subirFotos(fotosExtra, reportesAPI.subirImagen);
+        const urls = await subirFotos(fotosNuevas, reportesAPI.subirImagen);
+        imagenUrl = urls[0] ?? null;
+        imagenesUrls = urls.slice(1);
       } catch (_) {
         toast.error('No se pudieron subir algunas fotos', 'Puedes reintentar o enviar el reporte sin ellas.');
         setSubiendoFoto(false);
@@ -198,7 +160,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
         direccion: direccion.trim() || null,
         id_tipo_incidente: idTipo,
         id_severidad: idSeveridad,
-        imagen_url: imagenUrl || null,
+        imagen_url: imagenUrl,
         imagenes: imagenesUrls.length > 0 ? imagenesUrls : undefined,
         // El backend ignora este campo y deriva la fuente real del rol del
         // token (ver crear_reporte en reportes.py) -- se envía el valor
@@ -215,9 +177,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
       setProximidadSiasar(null);
       setIdTipo(null);
       setIdSeveridad(null);
-      setFoto(null);
-      setFotoSubida(null);
-      setFotosExtra([]);
+      setFotosNuevas([]);
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
       toast.error('Error', msg || 'No se pudo enviar el reporte.');
@@ -354,38 +314,10 @@ export default function CrearReporteScreen({ navigation }: Props) {
             </View>
 
             {/* ── Foto ── */}
-            <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Foto (opcional)</Text>
-            {foto ? (
-              <View style={styles.fotoCard}>
-                <Image source={{ uri: foto.uri }} style={styles.fotoPreview} resizeMode="cover" />
-                <View style={styles.fotoActions}>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={elegirDeGaleria} disabled={loading || subiendoFoto}>
-                    <Text style={styles.fotoBtnText}>Cambiar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={tomarFoto} disabled={loading || subiendoFoto}>
-                    <Text style={styles.fotoBtnText}>Tomar otra</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={quitarFoto} disabled={loading || subiendoFoto}>
-                    <Text style={styles.fotoBtnRemoveText}>Quitar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.chipRow}>
-                <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={tomarFoto}>
-                  <Feather name="camera" size={14} color={andiColors.primary600} />
-                  <Text style={styles.fotoBtnText}>Tomar foto</Text>
-                </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={elegirDeGaleria}>
-                  <Feather name="image" size={14} color={andiColors.primary600} />
-                  <Text style={styles.fotoBtnText}>Galería</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
             <MultiFotoPicker
-              fotos={fotosExtra}
-              onChange={setFotosExtra}
+              label="Fotos (opcional)"
+              nuevas={fotosNuevas}
+              onChangeNuevas={setFotosNuevas}
               disabled={loading || subiendoFoto}
               onPermisoCamaraDenegado={() => toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.')}
             />
@@ -429,17 +361,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2] },
   emptyChip: { color: andiColors.onSurfaceVariant, fontStyle: 'italic' },
-
-  fotoCard: { borderRadius: andiRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: andiColors.outlineVariant, backgroundColor: andiColors.surface },
-  fotoPreview: { width: '100%', height: 180 },
-  fotoActions: { flexDirection: 'row', gap: andiSpace[2], padding: andiSpace[3] },
-  fotoBtn: {
-    flex: 1, minHeight: 44, flexDirection: 'row', gap: 6, paddingHorizontal: andiSpace[3],
-    borderRadius: andiRadius.full, backgroundColor: andiColors.primary50, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: andiColors.primary200,
-  },
-  fotoBtnText: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.primary600 },
-  fotoBtnRemoveText: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.error600 },
 
   mapSection: { marginTop: andiSpace[2] },
   mapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

@@ -2,40 +2,59 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { uriImagenServidor } from '../../utils/fotoEvidencia';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 
 type Props = {
-  /** Fotos ya elegidas, pendientes de subir (no incluye las que el reporte
-   * ya tiene guardadas en el servidor -- esas las pinta FotoGaleria). */
-  fotos: ImagePicker.ImagePickerAsset[];
-  onChange: (fotos: ImagePicker.ImagePickerAsset[]) => void;
-  /** Igual a MAX_IMAGENES_POR_LISTA en el backend (reportes.py). */
+  /** Fotos que el reporte ya tiene guardadas en el servidor (rutas
+   * relativas) -- solo aplica en edición o en evidencia ya subida. Quitar
+   * una de aquí la marca para borrar, pero no la borra del servidor hasta
+   * que se guarde el formulario. */
+  existentes?: string[];
+  onQuitarExistente?: (url: string) => void;
+  /** Fotos nuevas elegidas en este formulario, pendientes de subir. */
+  nuevas: ImagePicker.ImagePickerAsset[];
+  onChangeNuevas: (fotos: ImagePicker.ImagePickerAsset[]) => void;
+  /** Igual a MAX_IMAGENES_POR_LISTA + 1 en el backend (reportes.py): el
+   * tope real es 1 imagen_url + 6 imagenes, pero de cara al usuario es "una
+   * sola lista de fotos" -- no hay dos topes que explicar. */
   max?: number;
+  /** >0 pinta un aviso mientras el total de fotos (existentes + nuevas) no
+   * lo alcance. No bloquea nada por sí mismo -- el caller decide si el
+   * envío se detiene (ver EntidadCierreView: obligatorio solo al resolver). */
+  minimo?: number;
   disabled?: boolean;
   onPermisoCamaraDenegado?: () => void;
   label?: string;
 };
 
 /**
- * Selector de varias fotos adicionales (migración 0008): cámara o galería,
- * con miniaturas removibles y un tope `max`. No sube nada por sí mismo --
- * el caller sube con utils/fotoEvidencia.subirFotos() al enviar el form,
- * igual que ya hacía la foto única (foto/fotoSubida) en CrearReporteScreen.
+ * Selector único de fotos (una o varias, migración 0008): cámara o
+ * galería, miniaturas removibles para lo ya guardado y lo recién elegido
+ * en la misma tira -- un solo lugar para "subir imagen", no dos como
+ * antes (una foto "principal" con sus propios botones y una lista
+ * "adicional" aparte). No sube nada por sí mismo: el caller sube con
+ * utils/fotoEvidencia.subirFotos() al enviar el form.
  */
 export default function MultiFotoPicker({
-  fotos,
-  onChange,
-  max = 6,
+  existentes = [],
+  onQuitarExistente,
+  nuevas,
+  onChangeNuevas,
+  max = 7,
+  minimo = 0,
   disabled,
   onPermisoCamaraDenegado,
-  label = 'Fotos adicionales (opcional)',
+  label = 'Fotos (opcional)',
 }: Props) {
-  const lleno = fotos.length >= max;
+  const total = existentes.length + nuevas.length;
+  const lleno = total >= max;
+  const faltanParaMinimo = Math.max(0, minimo - total);
 
   const agregar = (result: ImagePicker.ImagePickerResult) => {
     if (result.canceled || !result.assets?.length) return;
-    const espacio = max - fotos.length;
-    onChange([...fotos, ...result.assets.slice(0, espacio)]);
+    const espacio = max - total;
+    onChangeNuevas([...nuevas, ...result.assets.slice(0, espacio)]);
   };
 
   const tomarFoto = async () => {
@@ -53,23 +72,46 @@ export default function MultiFotoPicker({
         mediaTypes: ['images'],
         quality: 0.6,
         allowsMultipleSelection: true,
-        selectionLimit: Math.max(1, max - fotos.length),
+        selectionLimit: Math.max(1, max - total),
       })
     );
   };
 
-  const quitar = (index: number) => onChange(fotos.filter((_, i) => i !== index));
+  const quitarNueva = (index: number) => onChangeNuevas(nuevas.filter((_, i) => i !== index));
 
   return (
     <View>
-      <Text style={styles.label}>{label}</Text>
-      {fotos.length > 0 && (
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{label}</Text>
+        {minimo > 0 && (
+          <Text style={[styles.requiredTag, faltanParaMinimo === 0 && styles.requiredTagOk]}>
+            {faltanParaMinimo === 0 ? 'Listo' : `Obligatorio · mínimo ${minimo}`}
+          </Text>
+        )}
+      </View>
+
+      {total > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filaContenido}
         >
-          {fotos.map((foto, i) => (
+          {existentes.map((url) => (
+            <View key={url} style={styles.miniatura}>
+              <Image source={{ uri: uriImagenServidor(url) ?? undefined }} style={styles.miniaturaImg} resizeMode="cover" />
+              {!disabled && !!onQuitarExistente && (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Quitar foto"
+                  style={styles.quitarBtn}
+                  onPress={() => onQuitarExistente(url)}
+                >
+                  <Feather name="x" size={14} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+          {nuevas.map((foto, i) => (
             <View key={foto.assetId ?? `${foto.uri}-${i}`} style={styles.miniatura}>
               <Image source={{ uri: foto.uri }} style={styles.miniaturaImg} resizeMode="cover" />
               {!disabled && (
@@ -77,7 +119,7 @@ export default function MultiFotoPicker({
                   accessibilityRole="button"
                   accessibilityLabel="Quitar foto"
                   style={styles.quitarBtn}
-                  onPress={() => quitar(i)}
+                  onPress={() => quitarNueva(i)}
                 >
                   <Feather name="x" size={14} color="#fff" />
                 </TouchableOpacity>
@@ -86,6 +128,7 @@ export default function MultiFotoPicker({
           ))}
         </ScrollView>
       )}
+
       {!disabled && !lleno && (
         <View style={styles.acciones}>
           <TouchableOpacity accessibilityRole="button" style={styles.accionBtn} onPress={tomarFoto}>
@@ -98,7 +141,7 @@ export default function MultiFotoPicker({
           </TouchableOpacity>
         </View>
       )}
-      <Text style={styles.contador}>{fotos.length}/{max} fotos adicionales</Text>
+      <Text style={styles.contador}>{total}/{max} fotos</Text>
     </View>
   );
 }
@@ -106,7 +149,10 @@ export default function MultiFotoPicker({
 const MINI = 72;
 
 const styles = StyleSheet.create({
-  label: { ...ANDI_TYPE.label, color: ANDI_COLORS.onSurfaceVariant, marginBottom: ANDI_SPACING.s2 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: ANDI_SPACING.s2 },
+  label: { ...ANDI_TYPE.label, color: ANDI_COLORS.onSurfaceVariant },
+  requiredTag: { ...ANDI_TYPE.caption, color: ANDI_COLORS.error, fontWeight: '700' },
+  requiredTagOk: { color: ANDI_COLORS.success },
   filaContenido: { gap: ANDI_SPACING.s2, paddingBottom: ANDI_SPACING.s2 },
   miniatura: {
     width: MINI, height: MINI, borderRadius: ANDI_RADIUS.lg, overflow: 'hidden',

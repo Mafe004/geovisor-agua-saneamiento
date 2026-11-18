@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Image, Platform,
+  ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -18,9 +18,8 @@ import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
-import { construirFormFoto, subirFotos, uriImagenServidor } from '../../utils/fotoEvidencia';
+import { subirFotos } from '../../utils/fotoEvidencia';
 import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
-import { Feather } from '@expo/vector-icons';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -122,28 +121,22 @@ export default function CrearReporteScreen(props: Props) {
   const [successSummary, setSuccessSummary] = useState('');
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId);
   const [proximidadSiasar, setProximidadSiasar] = useState<CercanaResponse | null>(null);
-  // Evidencia opcional. fotoSubida = ruta ya devuelta por /reportes/imagen
-  // para esta misma foto: si luego falla la creación del reporte, el
-  // reintento la reutiliza en vez de subirla otra vez.
-  const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [fotoSubida, setFotoSubida] = useState<string | null>(null);
-  // Solo edición: foto que el reporte ya tiene en el servidor. Si sigue
-  // igual y no hay foto nueva, se conserva (imagen_url no se envía); si se
-  // quita, se envía null; una foto nueva (foto) la reemplaza.
-  const imagenOriginal = reporteEditar?.imagen_url?.trim() || null;
-  const [imagenActual, setImagenActual] = useState<string | null>(imagenOriginal);
-  const imagenActualUri = uriImagenServidor(imagenActual);
-  // Fotos adicionales (migración 0008), además de la única de arriba.
-  // fotosExtra = nuevas, elegidas en este formulario, pendientes de subir.
-  // imagenesConservadas = solo edición: las que el reporte ya tenía en el
-  // servidor y el ciudadano no quitó -- a diferencia de fotoSubida, acá no
-  // se cachea la subida entre reintentos (son pocas, reintentar es raro).
-  const imagenesOriginal = useMemo(
-    () => reporteEditar?.imagenes?.map((i) => i.imagen_url) ?? [],
-    [reporteEditar]
-  );
-  const [fotosExtra, setFotosExtra] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [imagenesConservadas, setImagenesConservadas] = useState<string[]>(imagenesOriginal);
+  // Evidencia opcional, una sola tira de fotos (migración 0008): la
+  // primera que termine en la lista va a imagen_url (legado), el resto a
+  // imagenes[]. fotosExistentes = solo edición, las que el reporte ya
+  // tiene en el servidor (quitar una las saca de esta lista, no las borra
+  // hasta guardar); fotosNuevas = elegidas en este formulario. A
+  // diferencia del fotoSubida de antes, acá no se cachea la subida entre
+  // reintentos: son pocas, reintentar es raro.
+  const fotosOriginal = useMemo(() => {
+    const url = reporteEditar?.imagen_url?.trim();
+    return [
+      ...(url ? [url] : []),
+      ...(reporteEditar?.imagenes?.map((i) => i.imagen_url) ?? []),
+    ];
+  }, [reporteEditar]);
+  const [fotosExistentes, setFotosExistentes] = useState<string[]>(fotosOriginal);
+  const [fotosNuevas, setFotosNuevas] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const { showDialog, dialog } = useAndiDialog();
 
   useEffect(() => {
@@ -281,34 +274,11 @@ export default function CrearReporteScreen(props: Props) {
     setCoordenadas({ latitude, longitude });
   };
 
-  const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
-    if (result.canceled || !result.assets?.length) return;
-    setFoto(result.assets[0] ?? null);
-    setFotoSubida(null);
-  };
-
-  const tomarFoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      showDialog('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.', { tone: 'warning' });
-      return;
-    }
-    elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  const elegirDeGaleria = async () => {
-    elegirFoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  // imagenActual siempre es null al crear, así que en creación esto sigue
-  // siendo lo mismo de antes.
-  const quitarFoto = () => { setFoto(null); setFotoSubida(null); setImagenActual(null); };
-
   const resetForm = () => {
     setDescripcion(''); setDireccion(''); setCoordenadas(null);
     setIdTipo(null); setSeveridad('MEDIA'); setDescTouched(false);
     setCurrentDraftId(null); setProximidadSiasar(null);
-    setFoto(null); setFotoSubida(null); setFotosExtra([]);
+    setFotosNuevas([]);
   };
 
   const tipoLabel = () => tipos.find((t) => t.id_tipo_incidente === idTipo)?.nombre;
@@ -357,39 +327,20 @@ export default function CrearReporteScreen(props: Props) {
       fuente_reporte: 'CIUDADANO',
     };
 
-    // Foto principal: igual que antes (fotoSubida cachea la subida entre
-    // reintentos). Sin foto, el payload queda idéntico al de siempre (sin
-    // la clave imagen_url).
-    if (foto) {
-      let imagenUrl = fotoSubida;
-      if (!imagenUrl) {
-        try {
-          setLoading(true);
-          imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
-          setFotoSubida(imagenUrl);
-        } catch (_) {
-          setLoading(false);
-          showDialog('No se pudo subir la foto.', '¿Quieres reintentar o enviar el reporte sin foto?', { tone: 'error', buttons: [
-            { text: 'Reintentar', onPress: () => { handleSubmit(); } },
-            { text: 'Enviar sin foto', onPress: () => { crearReporte(payload); } },
-          ] });
-          return;
-        }
-      }
-      payload.imagen_url = imagenUrl;
-    }
-
-    // Fotos adicionales (migración 0008): se suben todas antes de crear el
-    // reporte, igual que la principal.
-    if (fotosExtra.length > 0) {
+    // Fotos (migración 0008): se suben todas antes de crear el reporte. La
+    // primera va a imagen_url (legado), el resto a imagenes[] -- sin foto,
+    // el payload queda idéntico al de siempre (sin ninguna de las dos claves).
+    if (fotosNuevas.length > 0) {
       try {
         setLoading(true);
-        payload.imagenes = await subirFotos(fotosExtra, reportesAPI.subirImagen);
+        const urls = await subirFotos(fotosNuevas, reportesAPI.subirImagen);
+        payload.imagen_url = urls[0];
+        if (urls.length > 1) payload.imagenes = urls.slice(1);
       } catch (_) {
         setLoading(false);
-        showDialog('No se pudieron subir algunas fotos adicionales.', '¿Quieres reintentar o enviar el reporte sin ellas?', { tone: 'error', buttons: [
+        showDialog('No se pudieron subir algunas fotos.', '¿Quieres reintentar o enviar el reporte sin ellas?', { tone: 'error', buttons: [
           { text: 'Reintentar', onPress: () => { handleSubmit(); } },
-          { text: 'Enviar sin esas fotos', onPress: () => { crearReporte(payload); } },
+          { text: 'Enviar sin fotos', onPress: () => { crearReporte(payload); } },
         ] });
         return;
       }
@@ -447,53 +398,32 @@ export default function CrearReporteScreen(props: Props) {
       longitud: ubicacion.longitude,
     };
 
-    if (foto) {
-      // Reemplazar: sube la foto nueva (o reutiliza la ya subida en un
-      // intento anterior) y envía su ruta.
-      let imagenUrl = fotoSubida;
-      if (!imagenUrl) {
-        try {
-          setLoading(true);
-          imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
-          setFotoSubida(imagenUrl);
-        } catch (_) {
-          setLoading(false);
-          showDialog('No se pudo subir la foto.', 'Tus cambios todavía no se guardaron. ¿Quieres reintentar?', { tone: 'error', buttons: [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Reintentar', onPress: () => { handleSubmit(); } },
-          ] });
-          return;
-        }
-      }
-      payload.imagen_url = imagenUrl;
-    } else if (imagenOriginal && !imagenActual) {
-      // Quitar: la foto que tenía el reporte se eliminó del formulario.
-      payload.imagen_url = null;
-    }
-    // Conservar: sin la clave imagen_url, el backend deja la foto actual.
-
-    // Fotos adicionales: mismo criterio que imagen_url (ausente = conserva).
-    // Solo se manda la clave si algo realmente cambió -- agregar, quitar o
-    // ambas -- para no pisar con [] las que el ciudadano no tocó.
-    const imagenesCambiaron = fotosExtra.length > 0
-      || imagenesConservadas.length !== imagenesOriginal.length
-      || imagenesConservadas.some((u, i) => u !== imagenesOriginal[i]);
-    if (imagenesCambiaron) {
+    // Fotos: mismo criterio que antes tenía solo imagen_url (ausente =
+    // conserva). Solo se manda la clave si algo realmente cambió --
+    // agregar, quitar o ambas -- para no pisar con [] lo que el ciudadano
+    // no tocó. La primera de la lista final va a imagen_url, el resto a
+    // imagenes[].
+    const fotosCambiaron = fotosNuevas.length > 0
+      || fotosExistentes.length !== fotosOriginal.length
+      || fotosExistentes.some((u, i) => u !== fotosOriginal[i]);
+    if (fotosCambiaron) {
       let nuevasUrls: string[] = [];
-      if (fotosExtra.length > 0) {
+      if (fotosNuevas.length > 0) {
         try {
           setLoading(true);
-          nuevasUrls = await subirFotos(fotosExtra, reportesAPI.subirImagen);
+          nuevasUrls = await subirFotos(fotosNuevas, reportesAPI.subirImagen);
         } catch (_) {
           setLoading(false);
-          showDialog('No se pudieron subir algunas fotos adicionales.', 'Tus cambios todavía no se guardaron. ¿Quieres reintentar?', { tone: 'error', buttons: [
+          showDialog('No se pudieron subir algunas fotos.', 'Tus cambios todavía no se guardaron. ¿Quieres reintentar?', { tone: 'error', buttons: [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Reintentar', onPress: () => { handleSubmit(); } },
           ] });
           return;
         }
       }
-      payload.imagenes = [...imagenesConservadas, ...nuevasUrls];
+      const todas = [...fotosExistentes, ...nuevasUrls];
+      payload.imagen_url = todas[0] ?? null;
+      payload.imagenes = todas.slice(1);
     }
 
     try {
@@ -704,77 +634,13 @@ export default function CrearReporteScreen(props: Props) {
             />
           </Section>
 
-          <Section styles={styles} n="05" title="Foto (opcional)">
-            {foto ? (
-              <View style={styles.fotoCard}>
-                <Image source={{ uri: foto.uri }} style={styles.fotoPreview} resizeMode="cover" />
-                <View style={[styles.fotoActions, styles.fotoActionsCard]}>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={elegirDeGaleria} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Cambiar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={tomarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Tomar otra</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={quitarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnRemoveText}>Quitar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : imagenActualUri ? (
-              // Solo edición: la foto que el reporte ya tiene en el servidor.
-              <View style={styles.fotoCard}>
-                <Image
-                  source={{ uri: imagenActualUri }}
-                  style={styles.fotoPreview}
-                  resizeMode="cover"
-                  accessibilityLabel="Fotografía actual del reporte"
-                />
-                <View style={[styles.fotoActions, styles.fotoActionsCard]}>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={elegirDeGaleria} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Cambiar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={tomarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Tomar otra</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={quitarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnRemoveText}>Quitar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.fotoActions}>
-                <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={tomarFoto}>
-                  <Text style={styles.fotoBtnText}>Tomar foto</Text>
-                </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" style={styles.fotoBtn} onPress={elegirDeGaleria}>
-                  <Text style={styles.fotoBtnText}>Galería</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {imagenesConservadas.length > 0 && (
-              <View style={styles.extraFotosRow}>
-                {imagenesConservadas.map((url, i) => (
-                  <View key={url} style={styles.extraMiniatura}>
-                    <Image source={{ uri: uriImagenServidor(url) ?? undefined }} style={styles.extraMiniaturaImg} resizeMode="cover" />
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      accessibilityLabel="Quitar foto"
-                      style={styles.extraQuitarBtn}
-                      disabled={loading}
-                      onPress={() => setImagenesConservadas((prev) => prev.filter((_, idx) => idx !== i))}
-                    >
-                      <Feather name="x" size={14} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
+          <Section styles={styles} n="05" title="Fotos">
             <MultiFotoPicker
-              fotos={fotosExtra}
-              onChange={setFotosExtra}
+              existentes={fotosExistentes}
+              onQuitarExistente={(url) => setFotosExistentes((prev) => prev.filter((u) => u !== url))}
+              nuevas={fotosNuevas}
+              onChangeNuevas={setFotosNuevas}
               disabled={loading}
-              max={6 - imagenesConservadas.length}
               onPermisoCamaraDenegado={() => showDialog('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.', { tone: 'warning' })}
             />
           </Section>
@@ -852,27 +718,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   siasarHint: { fontSize: 11, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
 
   textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: 16, color: ANDI_COLORS.onSurface, minHeight: 90 },
-
-  fotoCard: { borderRadius: ANDI_RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, backgroundColor: ANDI_COLORS.surface },
-  fotoPreview: { width: '100%', height: 180 },
-  fotoActions: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
-  fotoActionsCard: { padding: ANDI_SPACING.s3 },
-  fotoBtn: { flex: 1, minHeight: 44, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  fotoBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
-  fotoBtnRemoveText: { color: ANDI_COLORS.error, fontWeight: '600', fontSize: 12 },
-  // Miniaturas de las fotos adicionales que el reporte ya tenía en el
-  // servidor (solo edición) -- MultiFotoPicker pinta las nuevas, estas se
-  // quitan sin pasar por el picker porque ya están subidas.
-  extraFotosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, marginBottom: ANDI_SPACING.s2 },
-  extraMiniatura: {
-    width: 72, height: 72, borderRadius: ANDI_RADIUS.lg, overflow: 'hidden',
-    borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, backgroundColor: ANDI_COLORS.surface,
-  },
-  extraMiniaturaImg: { width: '100%', height: '100%' },
-  extraQuitarBtn: {
-    position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10,
-    backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
-  },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
   draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },

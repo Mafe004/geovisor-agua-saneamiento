@@ -11,7 +11,7 @@ import { reportesAPI, catalogosAPI, siasarAPI, historialAPI, entidadesAPI } from
 import { AuthContext } from '../../context/AuthContext';
 import MapaWebView from '../../components/MapaWebView';
 import { useToast } from '../../components/andi/Toast';
-import { construirFormFoto, subirFotos, uriImagenServidor } from '../../utils/fotoEvidencia';
+import { subirFotos, uriImagenServidor } from '../../utils/fotoEvidencia';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
@@ -521,19 +521,17 @@ function EntidadCierreView({
   const siasarDetalle = useSiasarDiagnostico(reporte.vereda_siasar?.id_siasar);
   const { historial, cargando: cargandoHistorial } = useHistorialReporte(reporte.id_reporte);
 
-  // Foto del arreglo, opcional. fotoSubida = ruta ya devuelta por
-  // /reportes/imagen para esta misma foto: si Guardar falla después de
-  // subir la imagen, un reintento no la vuelve a subir -- mismo patrón que
-  // ciudadano/CrearReporteScreen.tsx.
-  const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [fotoSubida, setFotoSubida] = useState<string | null>(null);
+  // Evidencia de esta atención (migración 0008): la primera sube a
+  // imagen_url (legado), el resto a imagenes[]. Obligatoria (al menos una)
+  // para marcar RESUELTO -- el backend también lo exige, esto es solo
+  // para no hacer ida y vuelta al servidor por algo que se puede avisar
+  // antes. Sin caché de subida entre reintentos (son pocas, reintentar es
+  // raro).
+  const [fotosNuevas, setFotosNuevas] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
-  // Evidencia adicional de esta atención (migración 0008), además de la
-  // única de arriba -- se suben todas al guardar, sin cachear entre
-  // reintentos (son pocas, reintentar es raro).
-  const [fotosExtra, setFotosExtra] = useState<ImagePicker.ImagePickerAsset[]>([]);
 
   const { user } = useContext(AuthContext);
+  const esTitular = !!user?.es_titular_entidad;
   const [asignarVisible, setAsignarVisible] = useState(false);
   const [asignando, setAsignando] = useState(false);
 
@@ -551,27 +549,6 @@ function EntidadCierreView({
       setAsignando(false);
     }
   };
-
-  const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
-    if (result.canceled) return;
-    setFoto(result.assets[0] ?? null);
-    setFotoSubida(null);
-  };
-
-  const tomarFoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.');
-      return;
-    }
-    elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  const elegirDeGaleria = async () => {
-    elegirFoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  const quitarFoto = () => { setFoto(null); setFotoSubida(null); };
 
   const hasCoords =
     reporte.latitud != null && reporte.longitud != null &&
@@ -592,43 +569,34 @@ function EntidadCierreView({
       toast.warning('Comentario requerido', 'Describe qué se hizo antes de marcar como resuelto.');
       return;
     }
+    // El backend también lo exige (ver cambiar_estado en reportes.py) --
+    // esto solo evita el viaje de ida y vuelta.
+    if (fotosNuevas.length === 0) {
+      toast.warning('Foto requerida', 'Adjunta al menos una foto de evidencia para marcar el reporte como resuelto.');
+      return;
+    }
     const resuelto = estadosDisponibles.find(e => e.nombre === 'RESUELTO');
     if (!resuelto) return;
 
     setErrorMsg(null);
 
-    // Si hay foto nueva sin subir todavía, subirla primero -- un fallo acá
-    // no debe perder el comentario ya escrito (mismo motivo que el catch
-    // de abajo no lo limpia), así que se separa del try de cambiarEstado.
-    let imagenUrl = fotoSubida;
-    if (foto && !imagenUrl) {
-      try {
-        setSubiendoFoto(true);
-        imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
-        setFotoSubida(imagenUrl);
-      } catch (_) {
-        toast.error('No se pudo subir la foto', 'Puedes reintentar o guardar el cambio sin foto.');
-        setSubiendoFoto(false);
-        return;
-      } finally {
-        setSubiendoFoto(false);
-      }
-    }
-
-    // Igual que la foto principal: subir las adicionales antes de cambiar
-    // el estado, sin perder el comentario ya escrito si falla.
+    // Fotos: la primera sube a imagen_url (legado), el resto a imagenes[].
+    // Un fallo acá no debe perder el comentario ya escrito (mismo motivo
+    // que el catch de abajo no lo limpia), así que se separa del try de
+    // cambiarEstado.
+    let imagenUrl: string | undefined;
     let imagenesUrls: string[] = [];
-    if (fotosExtra.length > 0) {
-      try {
-        setSubiendoFoto(true);
-        imagenesUrls = await subirFotos(fotosExtra, reportesAPI.subirImagen);
-      } catch (_) {
-        toast.error('No se pudieron subir algunas fotos', 'Puedes reintentar o guardar el cambio sin ellas.');
-        setSubiendoFoto(false);
-        return;
-      } finally {
-        setSubiendoFoto(false);
-      }
+    try {
+      setSubiendoFoto(true);
+      const urls = await subirFotos(fotosNuevas, reportesAPI.subirImagen);
+      imagenUrl = urls[0];
+      imagenesUrls = urls.slice(1);
+    } catch (_) {
+      toast.error('No se pudieron subir las fotos', 'Tu comentario sigue aquí. Puedes reintentar.');
+      setSubiendoFoto(false);
+      return;
+    } finally {
+      setSubiendoFoto(false);
     }
 
     try {
@@ -636,7 +604,7 @@ function EntidadCierreView({
       const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
         id_estado_nuevo: resuelto.id_estado,
         comentario: comentario.trim(),
-        imagen_url: imagenUrl || undefined,
+        imagen_url: imagenUrl,
         imagenes: imagenesUrls.length > 0 ? imagenesUrls : undefined,
       });
       onUpdated(res.data.reporte);
@@ -783,106 +751,97 @@ function EntidadCierreView({
           )}
         </View>
 
-        <View style={andiStyles.titleBlock}>
-          <Text style={andiType.section}>Cerrar el reporte</Text>
-          <Text style={[andiType.caption, andiStyles.caption]}>
-            {reporte.usuario ?? 'El ciudadano'} recibe un aviso con lo que escribas.
-          </Text>
-        </View>
-
-        <View style={andiStyles.section}>
-          <Text style={[andiType.overline, andiStyles.sectionLabel]}>Estado</Text>
-          <View style={andiStyles.estadoRow}>
-            <TouchableOpacity accessibilityRole="button"
-              style={[andiStyles.estadoPill, { backgroundColor: andiColors.stProBg, borderColor: andiColors.stProBd, borderWidth: !resolviendo ? 2 : 1 }]}
-              onPress={() => setResolviendo(false)}
-            >
-              <Feather name="refresh-cw" size={13} color={andiColors.stProFg} />
-              <Text style={[andiStyles.estadoPillText, { color: andiColors.stProFg }]}>Sigue en proceso</Text>
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button"
-              style={[andiStyles.estadoPill, { backgroundColor: andiColors.stResBg, borderColor: andiColors.stResBd, borderWidth: resolviendo ? 2 : 1 }]}
-              onPress={() => setResolviendo(true)}
-            >
-              <Feather name="check" size={13} color={andiColors.stResFg} />
-              <Text style={[andiStyles.estadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
-            </TouchableOpacity>
+        {esTitular ? (
+          // El titular reparte el trabajo, no lo resuelve él mismo (ver
+          // migración 0007 y puede_cambiar_estado en policies.py) -- el
+          // backend ya lo rechaza con 403, así que acá ni se le ofrece el
+          // formulario. Puede reasignar desde "Asignado a" arriba.
+          <View style={andiStyles.section}>
+            <View style={andiStyles.titularInfoCard}>
+              <Feather name="info" size={16} color={andiColors.primary600} />
+              <Text style={[andiType.body, andiStyles.titularInfoText]}>
+                Como titular puedes asignar este reporte a un trabajador de tu equipo; quien lo resuelve es el trabajador asignado.
+              </Text>
+            </View>
           </View>
-        </View>
+        ) : (
+          <>
+            <View style={andiStyles.titleBlock}>
+              <Text style={andiType.section}>Cerrar el reporte</Text>
+              <Text style={[andiType.caption, andiStyles.caption]}>
+                {reporte.usuario ?? 'El ciudadano'} recibe un aviso con lo que escribas.
+              </Text>
+            </View>
 
-        <View style={andiStyles.section}>
-          <View style={andiStyles.sectionLabelRow}>
-            <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
-            {resolviendo && <Text style={[andiType.caption, andiStyles.requiredTag]}>Obligatorio al resolver</Text>}
-          </View>
-          <TextInput
-            style={andiStyles.textarea}
-            placeholder="Ej: Se tomó muestra y se purgó la red del sector…"
-            placeholderTextColor={andiColors.onSurfaceVariant}
-            multiline
-            numberOfLines={4}
-            value={comentario}
-            onChangeText={setComentario}
-            textAlignVertical="top"
-          />
-          <Text style={[andiType.caption, andiStyles.helperText]}>
-            Sin esta frase el ciudadano solo ve la palabra &quot;Resuelto&quot;, que es exactamente lo que hace que deje de reportar.
-          </Text>
-        </View>
-
-        <View style={andiStyles.section}>
-          <Text style={[andiType.overline, andiStyles.sectionLabel]}>Foto del arreglo · opcional</Text>
-          {foto ? (
-            <View style={andiStyles.fotoCard}>
-              <Image source={{ uri: foto.uri }} style={andiStyles.fotoPreview} resizeMode="cover" />
-              <View style={andiStyles.fotoActions}>
-                <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={elegirDeGaleria} disabled={saving || subiendoFoto}>
-                  <Text style={andiStyles.fotoBtnText}>Cambiar</Text>
+            <View style={andiStyles.section}>
+              <Text style={[andiType.overline, andiStyles.sectionLabel]}>Estado</Text>
+              <View style={andiStyles.estadoRow}>
+                <TouchableOpacity accessibilityRole="button"
+                  style={[andiStyles.estadoPill, { backgroundColor: andiColors.stProBg, borderColor: andiColors.stProBd, borderWidth: !resolviendo ? 2 : 1 }]}
+                  onPress={() => setResolviendo(false)}
+                >
+                  <Feather name="refresh-cw" size={13} color={andiColors.stProFg} />
+                  <Text style={[andiStyles.estadoPillText, { color: andiColors.stProFg }]}>Sigue en proceso</Text>
                 </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={tomarFoto} disabled={saving || subiendoFoto}>
-                  <Text style={andiStyles.fotoBtnText}>Tomar otra</Text>
-                </TouchableOpacity>
-                <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={quitarFoto} disabled={saving || subiendoFoto}>
-                  <Text style={andiStyles.fotoBtnRemoveText}>Quitar</Text>
+                <TouchableOpacity accessibilityRole="button"
+                  style={[andiStyles.estadoPill, { backgroundColor: andiColors.stResBg, borderColor: andiColors.stResBd, borderWidth: resolviendo ? 2 : 1 }]}
+                  onPress={() => setResolviendo(true)}
+                >
+                  <Feather name="check" size={13} color={andiColors.stResFg} />
+                  <Text style={[andiStyles.estadoPillText, { color: andiColors.stResFg }]}>Resuelto</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          ) : (
-            <View style={andiStyles.photoRow}>
-              <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={tomarFoto}>
-                <Feather name="camera" size={14} color={andiColors.primary600} />
-                <Text style={andiStyles.fotoBtnText}>Tomar foto</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="button" style={andiStyles.fotoBtn} onPress={elegirDeGaleria}>
-                <Feather name="image" size={14} color={andiColors.primary600} />
-                <Text style={andiStyles.fotoBtnText}>Galería</Text>
-              </TouchableOpacity>
+
+            <View style={andiStyles.section}>
+              <View style={andiStyles.sectionLabelRow}>
+                <Text style={[andiType.overline, andiStyles.sectionLabel]}>Qué se hizo</Text>
+                {resolviendo && <Text style={[andiType.caption, andiStyles.requiredTag]}>Obligatorio al resolver</Text>}
+              </View>
+              <TextInput
+                style={andiStyles.textarea}
+                placeholder="Ej: Se tomó muestra y se purgó la red del sector…"
+                placeholderTextColor={andiColors.onSurfaceVariant}
+                multiline
+                numberOfLines={4}
+                value={comentario}
+                onChangeText={setComentario}
+                textAlignVertical="top"
+              />
+              <Text style={[andiType.caption, andiStyles.helperText]}>
+                Sin esta frase el ciudadano solo ve la palabra &quot;Resuelto&quot;, que es exactamente lo que hace que deje de reportar.
+              </Text>
             </View>
-          )}
-          <MultiFotoPicker
-            fotos={fotosExtra}
-            onChange={setFotosExtra}
-            disabled={saving || subiendoFoto}
-            onPermisoCamaraDenegado={() => toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.')}
-          />
-        </View>
 
-        {errorMsg && (
-          <View style={andiStyles.errorBanner}>
-            <Feather name="alert-circle" size={16} color={andiColors.onErrorContainer} />
-            <Text style={[andiType.caption, andiStyles.errorBannerText]}>{errorMsg}</Text>
-          </View>
+            <View style={andiStyles.section}>
+              <MultiFotoPicker
+                label="Foto del arreglo"
+                nuevas={fotosNuevas}
+                onChangeNuevas={setFotosNuevas}
+                minimo={resolviendo ? 1 : 0}
+                disabled={saving || subiendoFoto}
+                onPermisoCamaraDenegado={() => toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.')}
+              />
+            </View>
+
+            {errorMsg && (
+              <View style={andiStyles.errorBanner}>
+                <Feather name="alert-circle" size={16} color={andiColors.onErrorContainer} />
+                <Text style={[andiType.caption, andiStyles.errorBannerText]}>{errorMsg}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity accessibilityRole="button"
+              style={[andiStyles.saveBtn, andiElevation[2], (saving || subiendoFoto) && andiStyles.saveBtnDisabled]}
+              onPress={handleGuardar}
+              disabled={saving || subiendoFoto}
+            >
+              {saving || subiendoFoto
+                ? <ActivityIndicator color={andiColors.n0} />
+                : <Text style={andiStyles.saveBtnText}>{errorMsg ? 'Reintentar' : (resolviendo ? 'Marcar como resuelto' : 'Guardar cambio')}</Text>}
+            </TouchableOpacity>
+          </>
         )}
-
-        <TouchableOpacity accessibilityRole="button"
-          style={[andiStyles.saveBtn, andiElevation[2], (saving || subiendoFoto) && andiStyles.saveBtnDisabled]}
-          onPress={handleGuardar}
-          disabled={saving || subiendoFoto}
-        >
-          {saving || subiendoFoto
-            ? <ActivityIndicator color={andiColors.n0} />
-            : <Text style={andiStyles.saveBtnText}>{errorMsg ? 'Reintentar' : (resolviendo ? 'Marcar como resuelto' : 'Guardar cambio')}</Text>}
-        </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -995,16 +954,11 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   },
   helperText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2] },
 
-  photoRow: { flexDirection: 'row', gap: andiSpace[2] },
-  fotoCard: { borderRadius: andiRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: andiColors.outlineVariant, backgroundColor: andiColors.surface },
-  fotoPreview: { width: '100%', height: 180 },
-  fotoActions: { flexDirection: 'row', gap: andiSpace[2], padding: andiSpace[3] },
-  fotoBtn: {
-    flex: 1, minHeight: 44, flexDirection: 'row', gap: 6, paddingHorizontal: andiSpace[3],
-    borderRadius: andiRadius.full, backgroundColor: andiColors.primary50, alignItems: 'center', justifyContent: 'center',
+  titularInfoCard: {
+    flexDirection: 'row', gap: andiSpace[2], alignItems: 'flex-start',
+    backgroundColor: andiColors.primary50, borderRadius: andiRadius.lg, padding: andiSpace[3],
   },
-  fotoBtnText: { color: andiColors.primary700, fontWeight: '600', fontSize: 12 },
-  fotoBtnRemoveText: { color: andiColors.error600, fontWeight: '600', fontSize: 12 },
+  titularInfoText: { flex: 1, color: andiColors.onSurface },
 
   saveBtn: { minHeight: 56, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.6 },

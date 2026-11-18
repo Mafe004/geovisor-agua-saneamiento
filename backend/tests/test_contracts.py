@@ -213,6 +213,9 @@ EXPECTED_REPORTE_DETALLE_FIELDS = {
     "latitud",
     "longitud",
     "imagen_url",
+    # MultiFotoPicker (evidencia múltiple, ver MultiFotoPicker.tsx) -- lista
+    # de imágenes adicionales a imagen_url, separada del campo original.
+    "imagenes",
     "fuente_reporte",
     "created_at",
     "id_usuario",
@@ -227,6 +230,11 @@ EXPECTED_REPORTE_DETALLE_FIELDS = {
     "id_entidad_sugerida",
     "entidad_sugerida",
     "vereda_siasar",
+    # Reparto por trabajador (migración 0007, ver policies.py) -- el SELECT
+    # de listar/detalle ahora siempre trae a quién quedó asignado el
+    # reporte dentro de su entidad.
+    "id_usuario_asignado",
+    "usuario_asignado",
 }
 
 

@@ -66,6 +66,7 @@
   "private": true,
   "jest": {
     "preset": "jest-expo",
+    "maxWorkers": 2,
     "transformIgnorePatterns": [
       "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|react-native-webview|react-native-svg))",
       "/node_modules/react-native-reanimated/plugin/",

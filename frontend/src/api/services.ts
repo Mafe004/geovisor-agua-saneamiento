@@ -138,6 +138,10 @@ export const reportesAPI = {
   actualizar: (id: number, data: ReporteUpdateRequest) =>
     client.put<EditarReporteResponse>(`/reportes/${id}`, data),
   eliminar: (id: number) => client.delete<EliminarReporteResponse>(`/reportes/${id}`),
+  // Ruta separada de eliminar(): esa es solo para el ciudadano dueño de un
+  // reporte PENDIENTE sin entidad; esta es ADMIN borrando cualquier
+  // reporte en cualquier estado (ver eliminar_reporte_admin en el backend).
+  eliminarAdmin: (id: number) => client.delete<EliminarReporteResponse>(`/reportes/${id}/admin`),
   // Evidencia fotográfica opcional: devuelve la ruta relativa
   // (/uploads/reportes/<uuid>.jpg) que luego va como imagen_url en crear().
   // Content-Type y timeout solo para esta request -- el default JSON/12s
@@ -184,7 +188,13 @@ export const notificacionesAPI = {
     client.get<NotificacionItem[]>('/notificaciones/', {
       params: { solo_no_leidas: soloNoLeidas },
     }),
-  marcarLeida: (id: number) => client.put<MarcarLeidaResponse>(`/notificaciones/${id}/leer`),
+  // El endpoint exige un body (MarcarLeidaRequest) aunque su único campo
+  // tenga default en el modelo -- sin body, FastAPI rechaza la request con
+  // 422 antes de llegar al handler. Antes esto fallaba en silencio: el
+  // catch de markRead() en NotificacionesScreen ignora el error a
+  // propósito, así que el punto de "no leída" simplemente nunca cambiaba.
+  marcarLeida: (id: number, leida: boolean = true) =>
+    client.put<MarcarLeidaResponse>(`/notificaciones/${id}/leer`, { leida }),
   marcarTodasLeidas: () =>
     client.put<MarcarTodasLeidasResponse>('/notificaciones/marcar-todas-leidas'),
 };

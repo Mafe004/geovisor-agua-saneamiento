@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { usuariosAPI } from '../../api/services';
+import { usuariosAPI, solicitudesAccesoAPI } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
@@ -65,6 +65,13 @@ export default function UsuariosScreen({ route, navigation }: Props) {
   const [pendingActionUser, setPendingActionUser] = useState<UsuarioListItem | null>(null);
   const [activatingPendiente, setActivatingPendiente] = useState(false);
 
+  // Solicitudes de acceso como ADMINISTRADOR (sin invitación, sin cuenta
+  // todavía -- tabla solicitudes_acceso, no usuarios) son un concepto
+  // distinto de "cuenta PENDIENTE" pero igual de pendientes de revisar;
+  // antes solo se podían ver desde el menú de perfil, nada las enlazaba
+  // desde aquí, que es donde alguien buscaría "lo pendiente".
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState(0);
+
   const [undoVisible, setUndoVisible] = useState(false);
   const undoData = useRef<{ prev: { id: number; estado: number }[]; label: string } | null>(null);
   const undoShowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -89,6 +96,15 @@ export default function UsuariosScreen({ route, navigation }: Props) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+    // Aparte del try/catch de arriba a propósito: si esto falla (p.ej. no
+    // hay nada pendiente o un problema puntual de red), no debe tumbar ni
+    // bloquear la carga de usuarios, que es lo principal de esta pantalla.
+    try {
+      const sol = await solicitudesAccesoAPI.listar();
+      setSolicitudesPendientes((sol.data || []).filter(s => s.estado === 'PENDIENTE').length);
+    } catch (_) {
+      setSolicitudesPendientes(0);
     }
   };
 
@@ -212,6 +228,21 @@ export default function UsuariosScreen({ route, navigation }: Props) {
         })}
       </View>
 
+      {filter === 'PENDIENTE' && solicitudesPendientes > 0 && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.solicitudesBanner}
+          activeOpacity={0.85}
+          onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('SolicitudesAcceso')}
+        >
+          <Feather name="inbox" size={18} color={andiColors.warning700} />
+          <Text style={styles.solicitudesBannerText}>
+            {solicitudesPendientes} {solicitudesPendientes === 1 ? 'solicitud' : 'solicitudes'} de acceso como Administrador sin revisar
+          </Text>
+          <Feather name="chevron-right" size={18} color={andiColors.warning700} />
+        </TouchableOpacity>
+      )}
+
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={andiColors.primary600} />
@@ -243,7 +274,7 @@ export default function UsuariosScreen({ route, navigation }: Props) {
                 onLongPress={() => toggleSelect(item.id_usuario)}
                 onPress={() => {
                   if (selectionMode) { toggleSelect(item.id_usuario); return; }
-                  if (item.estado_cuenta === 'PENDIENTE') setPendingActionUser(item);
+                  setPendingActionUser(item);
                 }}
               >
                 {selectionMode && (
@@ -347,15 +378,32 @@ export default function UsuariosScreen({ route, navigation }: Props) {
                   </View>
                 </View>
                 <Text style={styles.sheetMessage}>
-                  Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.
+                  {pendingActionUser.estado_cuenta === 'PENDIENTE'
+                    ? 'Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.'
+                    : pendingActionUser.estado_cuenta === 'SUSPENDIDO'
+                    ? 'Esta cuenta está suspendida. Actívala para que pueda volver a iniciar sesión.'
+                    : 'Esta cuenta está activa.'}
                 </Text>
-                <TouchableOpacity accessibilityRole="button"
-                  style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
-                  onPress={handleActivarPendiente}
-                  disabled={activatingPendiente}
-                >
-                  <Text style={styles.batchBtnPrimaryText}>{activatingPendiente ? 'Activando…' : 'Activar'}</Text>
-                </TouchableOpacity>
+                {pendingActionUser.estado_cuenta === 'ACTIVO' ? (
+                  <TouchableOpacity accessibilityRole="button"
+                    style={[styles.batchBtnDestructive, styles.sheetActivarBtn]}
+                    onPress={() => {
+                      setSelected(new Set([pendingActionUser.id_usuario]));
+                      setPendingActionUser(null);
+                      setConfirmVisible(true);
+                    }}
+                  >
+                    <Text style={styles.batchBtnDestructiveText}>Suspender</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity accessibilityRole="button"
+                    style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
+                    onPress={handleActivarPendiente}
+                    disabled={activatingPendiente}
+                  >
+                    <Text style={styles.batchBtnPrimaryText}>{activatingPendiente ? 'Activando…' : 'Activar'}</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </TouchableOpacity>
@@ -387,6 +435,13 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   chipActive: { backgroundColor: andiColors.primary600, borderColor: andiColors.primary600 },
   chipText: { ...andiType.labelSm, color: andiColors.onSurface },
   chipTextActive: { color: andiColors.surface },
+
+  solicitudesBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[2],
+    backgroundColor: andiColors.warning100, marginHorizontal: andiSpace[4], marginTop: andiSpace[3],
+    borderRadius: andiRadius.md, padding: andiSpace[3],
+  },
+  solicitudesBannerText: { ...andiType.bodySm, color: andiColors.warning700, flex: 1 },
 
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: andiSpace[4], paddingBottom: andiSpace[10] * 2 },

@@ -1246,3 +1246,51 @@ def eliminar_reporte(
         raise
     except Exception as e:
         handle_db_error(e)
+
+
+@router.delete(
+    "/{id_reporte}/admin",
+    summary="Eliminar cualquier reporte (solo ADMINISTRADOR)",
+    response_model=EliminarReporteResponse,
+    responses={404: {"description": "Reporte no encontrado"}},
+)
+def eliminar_reporte_admin(
+    id_reporte: int,
+    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    ip: str | None = Depends(get_client_ip),
+) -> dict[str, Any]:
+    """
+    Borrado administrativo: a diferencia de eliminar_reporte() (CIUDADANO
+    dueño, solo PENDIENTE y sin entidad), esto borra CUALQUIER reporte en
+    cualquier estado -- es una ruta separada en vez de una rama más dentro
+    de la misma función para no mezclar dos políticas de permiso muy
+    distintas (una por fila vía puede_editar_reporte, esta por rol) en un
+    mismo WHERE de la query de borrado.
+    """
+    try:
+        with transaccion() as cursor:
+            cursor.execute(
+                "SELECT id_reporte FROM reportes WHERE id_reporte = %s FOR UPDATE;",
+                (id_reporte,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+            cursor.execute("DELETE FROM notificaciones WHERE id_reporte = %s;", (id_reporte,))
+            cursor.execute("DELETE FROM historial_reportes WHERE id_reporte = %s;", (id_reporte,))
+            cursor.execute("DELETE FROM reportes WHERE id_reporte = %s;", (id_reporte,))
+
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ELIMINAR_REPORTE,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
+        return {"message": "deleted", "id_reporte": id_reporte}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)

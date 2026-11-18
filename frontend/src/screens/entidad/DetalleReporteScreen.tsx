@@ -1,13 +1,13 @@
 import React, { useState, useContext, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Image,
-  TouchableOpacity, ActivityIndicator, TextInput,
+  TouchableOpacity, ActivityIndicator, TextInput, Modal, FlatList,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { reportesAPI, catalogosAPI, siasarAPI, historialAPI } from '../../api/services';
+import { reportesAPI, catalogosAPI, siasarAPI, historialAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import MapaWebView from '../../components/MapaWebView';
 import { useToast } from '../../components/andi/Toast';
@@ -20,7 +20,7 @@ import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation, andiStatusPill, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { MapMarker } from '../../components/MapaWebView.types';
-import type { Reporte, EstadoReporteItem, ComunidadDetalle, HistorialEntry } from '../../types/domain';
+import type { Reporte, EstadoReporteItem, ComunidadDetalle, HistorialEntry, EntidadDetalle } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DetalleReporte'>;
@@ -146,6 +146,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
       reporte={reporte}
       estadosDisponibles={estadosDisponibles}
       canChangeStatus={isModerador || isAdmin}
+      isAdmin={isAdmin}
       onBack={() => navigation.goBack()}
       onUpdated={setReporte}
     />
@@ -159,11 +160,12 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
  * hace rato, así que esta pantalla era la única pieza suelta. */
 
 function EstandarDetalleView({
-  reporte, estadosDisponibles, canChangeStatus, onBack, onUpdated,
+  reporte, estadosDisponibles, canChangeStatus, isAdmin, onBack, onUpdated,
 }: {
   reporte: Reporte;
   estadosDisponibles: EstadoReporteItem[];
   canChangeStatus: boolean;
+  isAdmin: boolean;
   onBack: () => void;
   onUpdated: (r: Reporte) => void;
 }) {
@@ -176,6 +178,52 @@ function EstandarDetalleView({
   const [updating, setUpdating] = useState(false);
   const [asignarVisible, setAsignarVisible] = useState(false);
   const [asignando, setAsignando] = useState(false);
+
+  // ── Acciones de ADMIN: asignar a otra entidad, eliminar el reporte ──
+  const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
+  const [asignarEntidadVisible, setAsignarEntidadVisible] = useState(false);
+  const [asignandoEntidad, setAsignandoEntidad] = useState(false);
+  const [confirmEliminarVisible, setConfirmEliminarVisible] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+
+  const abrirAsignarEntidad = async () => {
+    setAsignarEntidadVisible(true);
+    try {
+      const res = await entidadesAPI.listar();
+      setEntidades(res.data || []);
+    } catch (_) {
+      setEntidades([]);
+    }
+  };
+
+  const handleAsignarEntidad = async (idEntidad: number) => {
+    try {
+      setAsignandoEntidad(true);
+      const res = await reportesAPI.asignarEntidad(reporte.id_reporte, { id_entidad: idEntidad });
+      onUpdated(res.data.reporte);
+      toast.success('Entidad asignada', 'El reporte quedó asignado a la nueva entidad.');
+      setAsignarEntidadVisible(false);
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      toast.error('Error', msg || 'No se pudo asignar la entidad.');
+    } finally {
+      setAsignandoEntidad(false);
+    }
+  };
+
+  const handleEliminar = async () => {
+    try {
+      setEliminando(true);
+      await reportesAPI.eliminarAdmin(reporte.id_reporte);
+      toast.success('Reporte eliminado', 'El reporte fue eliminado definitivamente.');
+      setConfirmEliminarVisible(false);
+      onBack();
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      toast.error('Error', msg || 'No se pudo eliminar el reporte.');
+      setEliminando(false);
+    }
+  };
   // "Entity/moderator report detail screen" (canChangeStatus ya excluye a
   // Ciudadano en esta vista compartida) -- Ciudadano nunca ve el
   // diagnóstico oficial de su propia zona en su propia pantalla.
@@ -369,8 +417,73 @@ function EstandarDetalleView({
               </TouchableOpacity>
             </View>
           )}
+
+          {isAdmin && (
+            <View style={andiStyles.section}>
+              <Text style={[andiType.overline, andiStyles.sectionLabel, andiStyles.sectionLabelSpaced]}>Administración</Text>
+              <TouchableOpacity accessibilityRole="button" style={andiStyles.adminActionBtn} onPress={abrirAsignarEntidad}>
+                <Feather name="repeat" size={16} color={andiColors.onSurface} />
+                <Text style={andiStyles.adminActionBtnText}>Asignar a otra entidad</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" style={[andiStyles.adminActionBtn, andiStyles.adminActionBtnDanger]} onPress={() => setConfirmEliminarVisible(true)}>
+                <Feather name="trash-2" size={16} color={andiColors.error600} />
+                <Text style={[andiStyles.adminActionBtnText, andiStyles.adminActionBtnDangerText]}>Eliminar reporte</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
+
+      <Modal visible={asignarEntidadVisible} transparent animationType="slide" onRequestClose={() => setAsignarEntidadVisible(false)}>
+        <View style={andiStyles.modalOverlay}>
+          <View style={andiStyles.modalCard}>
+            <View style={andiStyles.modalHeader}>
+              <Text style={andiStyles.modalTitle}>Asignar a otra entidad</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => setAsignarEntidadVisible(false)}>
+                <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={entidades}
+              keyExtractor={e => String(e.id_entidad)}
+              style={{ maxHeight: 360 }}
+              ListEmptyComponent={<Text style={andiStyles.modalEmptyText}>No hay entidades registradas.</Text>}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={andiStyles.modalRow}
+                  onPress={() => handleAsignarEntidad(item.id_entidad)}
+                  disabled={asignandoEntidad}
+                >
+                  <Text style={andiStyles.modalRowText}>
+                    {item.nombre_entidad}{item.id_entidad === reporte.id_entidad ? ' · actual' : ''}
+                  </Text>
+                  {asignandoEntidad && <ActivityIndicator size="small" color={andiColors.primary} />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={confirmEliminarVisible} transparent animationType="fade" onRequestClose={() => setConfirmEliminarVisible(false)}>
+        <View style={andiStyles.modalOverlay}>
+          <View style={andiStyles.modalCard}>
+            <Text style={andiStyles.modalTitle}>¿Eliminar este reporte?</Text>
+            <Text style={andiStyles.modalEmptyText}>Esta acción no se puede deshacer. El reporte #{reporte.id_reporte} y su historial se borrarán definitivamente.</Text>
+            <View style={andiStyles.modalBtnRow}>
+              <TouchableOpacity accessibilityRole="button" style={andiStyles.modalCancelBtn} onPress={() => setConfirmEliminarVisible(false)} disabled={eliminando}>
+                <Text style={andiStyles.modalCancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" style={andiStyles.modalDeleteBtn} onPress={handleEliminar} disabled={eliminando}>
+                {eliminando
+                  ? <ActivityIndicator size="small" color={andiColors.surface} />
+                  : <Text style={andiStyles.modalDeleteBtnText}>Eliminar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -860,4 +973,26 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
   saveBtn: { minHeight: 56, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { fontSize: r.scaleFont(16), lineHeight: r.scaleFont(22), fontWeight: '600', color: andiColors.n0 },
+
+  adminActionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[2], minHeight: 48,
+    borderRadius: andiRadius.md, borderWidth: 1, borderColor: andiColors.outline,
+    paddingHorizontal: andiSpace[3], marginBottom: andiSpace[2],
+  },
+  adminActionBtnText: { fontSize: r.scaleFont(14), fontWeight: '600', color: andiColors.onSurface },
+  adminActionBtnDanger: { borderColor: andiColors.error200 },
+  adminActionBtnDangerText: { color: andiColors.error600 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'center', padding: andiSpace[6] },
+  modalCard: { backgroundColor: andiColors.surface, borderRadius: andiRadius.lg, padding: andiSpace[5], maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: andiSpace[3] },
+  modalTitle: { fontSize: r.scaleFont(16), fontWeight: '700', color: andiColors.onSurface, flex: 1 },
+  modalEmptyText: { fontSize: r.scaleFont(13), color: andiColors.onSurfaceVariant, marginTop: andiSpace[2], marginBottom: andiSpace[2] },
+  modalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: andiSpace[3], borderBottomWidth: 1, borderBottomColor: andiColors.outlineVariant },
+  modalRowText: { fontSize: r.scaleFont(14), color: andiColors.onSurface, flex: 1 },
+  modalBtnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[5] },
+  modalCancelBtn: { flex: 1, height: 44, borderRadius: andiRadius.full, borderWidth: 1.5, borderColor: andiColors.outline, alignItems: 'center', justifyContent: 'center' },
+  modalCancelBtnText: { fontSize: r.scaleFont(14), fontWeight: '600', color: andiColors.onSurface },
+  modalDeleteBtn: { flex: 1, height: 44, borderRadius: andiRadius.full, backgroundColor: andiColors.error600, alignItems: 'center', justifyContent: 'center' },
+  modalDeleteBtnText: { fontSize: r.scaleFont(14), fontWeight: '600', color: andiColors.surface },
 });

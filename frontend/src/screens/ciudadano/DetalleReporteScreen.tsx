@@ -11,6 +11,7 @@ import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { SeverityChip, CategoryChip } from '../../components/ciudadano/Chip';
 import Timeline from '../../components/ciudadano/Timeline';
 import Skeleton from '../../components/ciudadano/Skeleton';
+import FotoGaleria from '../../components/andi/FotoGaleria';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO, statusMeta } from '../../theme/andi';
@@ -242,6 +243,10 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
                 />
               )}
             </View>
+          )}
+
+          {!!reporte.imagenes?.length && (
+            <FotoGaleria titulo="Más fotos del incidente" urls={reporte.imagenes.map((i) => i.imagen_url)} />
           )}
 
           {reporteEditable && (

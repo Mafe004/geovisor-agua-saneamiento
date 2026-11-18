@@ -20,7 +20,8 @@ import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor } from '../../theme/andi';
-import { construirFormFoto } from '../../utils/fotoEvidencia';
+import { construirFormFoto, subirFotos } from '../../utils/fotoEvidencia';
+import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
 import type { TipoIncidenteItem, SeveridadItem, ReporteCreateRequest, CercanaResponse } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
@@ -65,6 +66,10 @@ export default function CrearReporteScreen({ navigation }: Props) {
   const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [fotoSubida, setFotoSubida] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  // Fotos adicionales del incidente (migración 0008), además de la única
+  // de arriba -- se suben todas al enviar, sin cachear entre reintentos
+  // (son pocas, reintentar es raro).
+  const [fotosExtra, setFotosExtra] = useState<ImagePicker.ImagePickerAsset[]>([]);
 
   useEffect(() => {
     // Inline (no una función nombrada aparte, que no se reusa en ningún
@@ -168,6 +173,22 @@ export default function CrearReporteScreen({ navigation }: Props) {
       }
     }
 
+    // Igual que la foto principal: subir las adicionales antes de crear el
+    // reporte, sin perder el formulario ya lleno si falla.
+    let imagenesUrls: string[] = [];
+    if (fotosExtra.length > 0) {
+      try {
+        setSubiendoFoto(true);
+        imagenesUrls = await subirFotos(fotosExtra, reportesAPI.subirImagen);
+      } catch (_) {
+        toast.error('No se pudieron subir algunas fotos', 'Puedes reintentar o enviar el reporte sin ellas.');
+        setSubiendoFoto(false);
+        return;
+      } finally {
+        setSubiendoFoto(false);
+      }
+    }
+
     try {
       setLoading(true);
       const payload: ReporteCreateRequest = {
@@ -178,6 +199,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
         id_tipo_incidente: idTipo,
         id_severidad: idSeveridad,
         imagen_url: imagenUrl || null,
+        imagenes: imagenesUrls.length > 0 ? imagenesUrls : undefined,
         // El backend ignora este campo y deriva la fuente real del rol del
         // token (ver crear_reporte en reportes.py) -- se envía el valor
         // honesto de todos modos, por documentación, sin cambiar el
@@ -195,6 +217,7 @@ export default function CrearReporteScreen({ navigation }: Props) {
       setIdSeveridad(null);
       setFoto(null);
       setFotoSubida(null);
+      setFotosExtra([]);
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
       toast.error('Error', msg || 'No se pudo enviar el reporte.');
@@ -359,6 +382,13 @@ export default function CrearReporteScreen({ navigation }: Props) {
                 </TouchableOpacity>
               </View>
             )}
+
+            <MultiFotoPicker
+              fotos={fotosExtra}
+              onChange={setFotosExtra}
+              disabled={loading || subiendoFoto}
+              onPermisoCamaraDenegado={() => toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.')}
+            />
 
             {/* ── Botón enviar ── */}
             <TouchableOpacity

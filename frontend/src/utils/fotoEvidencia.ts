@@ -34,3 +34,24 @@ export async function construirFormFoto(foto: ImagePicker.ImagePickerAsset): Pro
   }
   return form;
 }
+
+/**
+ * Sube varias fotos una por una (no en paralelo, para no saturar la
+ * conexión del celular con varias requests multipart a la vez) y devuelve
+ * las rutas relativas en el mismo orden -- listas para el campo `imagenes`
+ * de ReporteCreateRequest/CambiarEstadoRequest. Si una falla, propaga esa
+ * excepción tal cual: el caller decide (igual que ya hace con la foto
+ * única) si reintenta todo o sigue sin las fotos adicionales.
+ */
+export async function subirFotos(
+  fotos: ImagePicker.ImagePickerAsset[],
+  subirImagen: (form: FormData) => Promise<{ data: { imagen_url: string } }>
+): Promise<string[]> {
+  const urls: string[] = [];
+  for (const foto of fotos) {
+    const form = await construirFormFoto(foto);
+    const { data } = await subirImagen(form);
+    urls.push(data.imagen_url);
+  }
+  return urls;
+}

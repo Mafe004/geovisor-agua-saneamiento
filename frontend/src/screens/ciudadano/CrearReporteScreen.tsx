@@ -18,7 +18,9 @@ import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
-import { construirFormFoto, uriImagenServidor } from '../../utils/fotoEvidencia';
+import { construirFormFoto, subirFotos, uriImagenServidor } from '../../utils/fotoEvidencia';
+import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
+import { Feather } from '@expo/vector-icons';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -131,6 +133,17 @@ export default function CrearReporteScreen(props: Props) {
   const imagenOriginal = reporteEditar?.imagen_url?.trim() || null;
   const [imagenActual, setImagenActual] = useState<string | null>(imagenOriginal);
   const imagenActualUri = uriImagenServidor(imagenActual);
+  // Fotos adicionales (migración 0008), además de la única de arriba.
+  // fotosExtra = nuevas, elegidas en este formulario, pendientes de subir.
+  // imagenesConservadas = solo edición: las que el reporte ya tenía en el
+  // servidor y el ciudadano no quitó -- a diferencia de fotoSubida, acá no
+  // se cachea la subida entre reintentos (son pocas, reintentar es raro).
+  const imagenesOriginal = useMemo(
+    () => reporteEditar?.imagenes?.map((i) => i.imagen_url) ?? [],
+    [reporteEditar]
+  );
+  const [fotosExtra, setFotosExtra] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [imagenesConservadas, setImagenesConservadas] = useState<string[]>(imagenesOriginal);
   const { showDialog, dialog } = useAndiDialog();
 
   useEffect(() => {
@@ -295,7 +308,7 @@ export default function CrearReporteScreen(props: Props) {
     setDescripcion(''); setDireccion(''); setCoordenadas(null);
     setIdTipo(null); setSeveridad('MEDIA'); setDescTouched(false);
     setCurrentDraftId(null); setProximidadSiasar(null);
-    setFoto(null); setFotoSubida(null);
+    setFoto(null); setFotoSubida(null); setFotosExtra([]);
   };
 
   const tipoLabel = () => tipos.find((t) => t.id_tipo_incidente === idTipo)?.nombre;
@@ -344,25 +357,45 @@ export default function CrearReporteScreen(props: Props) {
       fuente_reporte: 'CIUDADANO',
     };
 
-    // Sin foto: payload idéntico al de siempre (sin la clave imagen_url).
-    if (!foto) { await crearReporte(payload); return; }
-
-    if (fotoSubida) { await crearReporte({ ...payload, imagen_url: fotoSubida }); return; }
-
-    let imagenUrl: string;
-    try {
-      setLoading(true);
-      imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
-      setFotoSubida(imagenUrl);
-    } catch (_) {
-      setLoading(false);
-      showDialog('No se pudo subir la foto.', '¿Quieres reintentar o enviar el reporte sin foto?', { tone: 'error', buttons: [
-        { text: 'Reintentar', onPress: () => { handleSubmit(); } },
-        { text: 'Enviar sin foto', onPress: () => { crearReporte(payload); } },
-      ] });
-      return;
+    // Foto principal: igual que antes (fotoSubida cachea la subida entre
+    // reintentos). Sin foto, el payload queda idéntico al de siempre (sin
+    // la clave imagen_url).
+    if (foto) {
+      let imagenUrl = fotoSubida;
+      if (!imagenUrl) {
+        try {
+          setLoading(true);
+          imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
+          setFotoSubida(imagenUrl);
+        } catch (_) {
+          setLoading(false);
+          showDialog('No se pudo subir la foto.', '¿Quieres reintentar o enviar el reporte sin foto?', { tone: 'error', buttons: [
+            { text: 'Reintentar', onPress: () => { handleSubmit(); } },
+            { text: 'Enviar sin foto', onPress: () => { crearReporte(payload); } },
+          ] });
+          return;
+        }
+      }
+      payload.imagen_url = imagenUrl;
     }
-    await crearReporte({ ...payload, imagen_url: imagenUrl });
+
+    // Fotos adicionales (migración 0008): se suben todas antes de crear el
+    // reporte, igual que la principal.
+    if (fotosExtra.length > 0) {
+      try {
+        setLoading(true);
+        payload.imagenes = await subirFotos(fotosExtra, reportesAPI.subirImagen);
+      } catch (_) {
+        setLoading(false);
+        showDialog('No se pudieron subir algunas fotos adicionales.', '¿Quieres reintentar o enviar el reporte sin ellas?', { tone: 'error', buttons: [
+          { text: 'Reintentar', onPress: () => { handleSubmit(); } },
+          { text: 'Enviar sin esas fotos', onPress: () => { crearReporte(payload); } },
+        ] });
+        return;
+      }
+    }
+
+    await crearReporte(payload);
   };
 
   const crearReporte = async (payload: ReporteCreateRequest) => {
@@ -438,6 +471,30 @@ export default function CrearReporteScreen(props: Props) {
       payload.imagen_url = null;
     }
     // Conservar: sin la clave imagen_url, el backend deja la foto actual.
+
+    // Fotos adicionales: mismo criterio que imagen_url (ausente = conserva).
+    // Solo se manda la clave si algo realmente cambió -- agregar, quitar o
+    // ambas -- para no pisar con [] las que el ciudadano no tocó.
+    const imagenesCambiaron = fotosExtra.length > 0
+      || imagenesConservadas.length !== imagenesOriginal.length
+      || imagenesConservadas.some((u, i) => u !== imagenesOriginal[i]);
+    if (imagenesCambiaron) {
+      let nuevasUrls: string[] = [];
+      if (fotosExtra.length > 0) {
+        try {
+          setLoading(true);
+          nuevasUrls = await subirFotos(fotosExtra, reportesAPI.subirImagen);
+        } catch (_) {
+          setLoading(false);
+          showDialog('No se pudieron subir algunas fotos adicionales.', 'Tus cambios todavía no se guardaron. ¿Quieres reintentar?', { tone: 'error', buttons: [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Reintentar', onPress: () => { handleSubmit(); } },
+          ] });
+          return;
+        }
+      }
+      payload.imagenes = [...imagenesConservadas, ...nuevasUrls];
+    }
 
     try {
       setLoading(true);
@@ -694,6 +751,32 @@ export default function CrearReporteScreen(props: Props) {
                 </TouchableOpacity>
               </View>
             )}
+
+            {imagenesConservadas.length > 0 && (
+              <View style={styles.extraFotosRow}>
+                {imagenesConservadas.map((url, i) => (
+                  <View key={url} style={styles.extraMiniatura}>
+                    <Image source={{ uri: uriImagenServidor(url) ?? undefined }} style={styles.extraMiniaturaImg} resizeMode="cover" />
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Quitar foto"
+                      style={styles.extraQuitarBtn}
+                      disabled={loading}
+                      onPress={() => setImagenesConservadas((prev) => prev.filter((_, idx) => idx !== i))}
+                    >
+                      <Feather name="x" size={14} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+            <MultiFotoPicker
+              fotos={fotosExtra}
+              onChange={setFotosExtra}
+              disabled={loading}
+              max={6 - imagenesConservadas.length}
+              onPermisoCamaraDenegado={() => showDialog('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.', { tone: 'warning' })}
+            />
           </Section>
 
           {/* Los borradores locales son solo para reportes nuevos. */}
@@ -777,6 +860,19 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   fotoBtn: { flex: 1, minHeight: 44, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
   fotoBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
   fotoBtnRemoveText: { color: ANDI_COLORS.error, fontWeight: '600', fontSize: 12 },
+  // Miniaturas de las fotos adicionales que el reporte ya tenía en el
+  // servidor (solo edición) -- MultiFotoPicker pinta las nuevas, estas se
+  // quitan sin pasar por el picker porque ya están subidas.
+  extraFotosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, marginBottom: ANDI_SPACING.s2 },
+  extraMiniatura: {
+    width: 72, height: 72, borderRadius: ANDI_RADIUS.lg, overflow: 'hidden',
+    borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, backgroundColor: ANDI_COLORS.surface,
+  },
+  extraMiniaturaImg: { width: '100%', height: '100%' },
+  extraQuitarBtn: {
+    position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
+  },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
   draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },

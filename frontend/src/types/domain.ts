@@ -29,6 +29,7 @@ export type HistorialEntry = components['schemas']['HistorialEntry'];
 // Vista comunitaria de GET /reportes/{id}/historial -- sin id_usuario_accion
 // ni usuario_accion, mismo criterio que ReporteComunidad arriba.
 export type HistorialEntryComunidad = components['schemas']['HistorialEntryComunidad'];
+export type ImagenReporte = components['schemas']['ImagenReporte'];
 export type EstadisticasResponse = components['schemas']['EstadisticasResponse'];
 export type EstadisticaEstadoItem = components['schemas']['EstadisticaEstadoItem'];
 export type EstadisticaTipoItem = components['schemas']['EstadisticaTipoItem'];

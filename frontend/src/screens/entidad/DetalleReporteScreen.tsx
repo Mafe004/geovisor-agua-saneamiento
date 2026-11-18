@@ -11,11 +11,13 @@ import { reportesAPI, catalogosAPI, siasarAPI, historialAPI, entidadesAPI } from
 import { AuthContext } from '../../context/AuthContext';
 import MapaWebView from '../../components/MapaWebView';
 import { useToast } from '../../components/andi/Toast';
-import { construirFormFoto, uriImagenServidor } from '../../utils/fotoEvidencia';
+import { construirFormFoto, subirFotos, uriImagenServidor } from '../../utils/fotoEvidencia';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
 import AsignarTrabajadorModal from '../../components/andi/AsignarTrabajadorModal';
+import FotoGaleria from '../../components/andi/FotoGaleria';
+import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation, andiStatusPill, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
@@ -318,6 +320,12 @@ function EstandarDetalleView({
             </View>
           )}
 
+          {!!reporte.imagenes?.length && (
+            <View style={andiStyles.section}>
+              <FotoGaleria titulo="Más fotos del incidente" urls={reporte.imagenes.map((i) => i.imagen_url)} />
+            </View>
+          )}
+
           <View style={andiStyles.section}>
             <Text style={[andiType.overline, andiStyles.sectionLabel, andiStyles.sectionLabelSpaced]}>Detalles</Text>
             <AndiDetailRow andiType={andiType} styles={andiStyles} label="Tipo de incidente" value={reporte.tipo_incidente || '—'} />
@@ -520,6 +528,10 @@ function EntidadCierreView({
   const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [fotoSubida, setFotoSubida] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
+  // Evidencia adicional de esta atención (migración 0008), además de la
+  // única de arriba -- se suben todas al guardar, sin cachear entre
+  // reintentos (son pocas, reintentar es raro).
+  const [fotosExtra, setFotosExtra] = useState<ImagePicker.ImagePickerAsset[]>([]);
 
   const { user } = useContext(AuthContext);
   const [asignarVisible, setAsignarVisible] = useState(false);
@@ -603,12 +615,29 @@ function EntidadCierreView({
       }
     }
 
+    // Igual que la foto principal: subir las adicionales antes de cambiar
+    // el estado, sin perder el comentario ya escrito si falla.
+    let imagenesUrls: string[] = [];
+    if (fotosExtra.length > 0) {
+      try {
+        setSubiendoFoto(true);
+        imagenesUrls = await subirFotos(fotosExtra, reportesAPI.subirImagen);
+      } catch (_) {
+        toast.error('No se pudieron subir algunas fotos', 'Puedes reintentar o guardar el cambio sin ellas.');
+        setSubiendoFoto(false);
+        return;
+      } finally {
+        setSubiendoFoto(false);
+      }
+    }
+
     try {
       setSaving(true);
       const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
         id_estado_nuevo: resuelto.id_estado,
         comentario: comentario.trim(),
         imagen_url: imagenUrl || undefined,
+        imagenes: imagenesUrls.length > 0 ? imagenesUrls : undefined,
       });
       onUpdated(res.data.reporte);
       // Tiempo de atención: se calcula en el cliente desde el último
@@ -696,6 +725,9 @@ function EntidadCierreView({
         {!!uriImagenServidor(reporte.imagen_url) && (
           <Image source={{ uri: uriImagenServidor(reporte.imagen_url) as string }} style={andiStyles.reporteFoto} resizeMode="cover" />
         )}
+        {!!reporte.imagenes?.length && (
+          <FotoGaleria titulo="Más fotos del incidente" urls={reporte.imagenes.map((i) => i.imagen_url)} />
+        )}
 
         {siasarDetalle && (
           <View style={andiStyles.siasarCard}>
@@ -745,9 +777,7 @@ function EntidadCierreView({
                   {'  ·  '}{h.usuario_accion} · {formatDate(h.fecha_cambio)}
                 </Text>
                 {h.comentario && <Text style={[andiType.caption, andiStyles.historialComment]}>&quot;{h.comentario}&quot;</Text>}
-                {!!uriImagenServidor(h.imagen_url) && (
-                  <Image source={{ uri: uriImagenServidor(h.imagen_url) as string }} style={andiStyles.historialFoto} resizeMode="cover" />
-                )}
+                <FotoGaleria titulo="Evidencia" urls={[h.imagen_url, ...(h.imagenes?.map((i) => i.imagen_url) ?? [])]} />
               </View>
             ))
           )}
@@ -829,6 +859,12 @@ function EntidadCierreView({
               </TouchableOpacity>
             </View>
           )}
+          <MultiFotoPicker
+            fotos={fotosExtra}
+            onChange={setFotosExtra}
+            disabled={saving || subiendoFoto}
+            onPermisoCamaraDenegado={() => toast.warning('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.')}
+          />
         </View>
 
         {errorMsg && (

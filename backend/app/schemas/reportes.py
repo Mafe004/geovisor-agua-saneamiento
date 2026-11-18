@@ -1,8 +1,21 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.siasar import VeredaSiasarResumen
+
+
+class ImagenReporte(BaseModel):
+    """Una fila de reporte_imagenes (migración 0008). `tipo` no viaja aquí
+    -- cada lista (ReporteDetalle.imagenes vs HistorialEntry.imagenes) ya
+    es de un solo tipo por construcción (el SELECT que la llena filtra por
+    tipo), así que repetirlo en cada fila no agrega información."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id_imagen: int
+    imagen_url: str
+    creado_en: datetime
 
 
 class ReporteDetalle(BaseModel):
@@ -45,6 +58,12 @@ class ReporteDetalle(BaseModel):
     # TRABAJADOR dentro de esa entidad.
     id_usuario_asignado: int | None
     usuario_asignado: str | None
+    # Migración 0008: fotos adicionales del INCIDENTE (además de
+    # imagen_url, que se conserva por compatibilidad con reportes viejos
+    # de una sola foto). Vacía salvo que el endpoint la llene explícitamente
+    # (obtener_reporte/crear_reporte/cambiar_estado/asignar_* sí;
+    # listar_reportes no, para no pagar una consulta extra por fila).
+    imagenes: list[ImagenReporte] = Field(default_factory=list)
 
 
 class ReporteComunidadDetalle(BaseModel):
@@ -78,6 +97,7 @@ class ReporteComunidadDetalle(BaseModel):
     id_entidad_sugerida: int | None
     entidad_sugerida: str | None
     vereda_siasar: VeredaSiasarResumen | None = None
+    imagenes: list[ImagenReporte] = Field(default_factory=list)
 
 
 class ReporteMapaPunto(BaseModel):

@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.reportes import ImagenReporte
 
 
 class HistorialEntry(BaseModel):
@@ -18,6 +20,12 @@ class HistorialEntry(BaseModel):
     usuario_accion: str
     rol_usuario_accion: str
     fecha_cambio: datetime
+    # Migración 0008: evidencia adicional de esta transición (además de
+    # imagen_url, que se conserva por compatibilidad). Vacía salvo que el
+    # endpoint la llene explícitamente -- ver historial_reporte() en
+    # historial.py, que sí lo hace; listar_historial_global() no, para no
+    # pagar una consulta extra por fila en un feed que puede traer hasta 500.
+    imagenes: list[ImagenReporte] = Field(default_factory=list)
 
 
 class HistorialEntryComunidad(BaseModel):
@@ -41,3 +49,4 @@ class HistorialEntryComunidad(BaseModel):
     imagen_url: str | None
     rol_usuario_accion: str
     fecha_cambio: datetime
+    imagenes: list[ImagenReporte] = Field(default_factory=list)

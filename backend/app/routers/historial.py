@@ -43,6 +43,28 @@ def _historial_a_comunidad(row: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in row.items() if k not in ("id_usuario_accion", "usuario_accion")}
 
 
+def _cargar_evidencias_por_historial(cursor, id_reporte: int) -> dict[int, list[dict[str, Any]]]:
+    """
+    Trae en una sola consulta todas las fotos EVIDENCIA (migración 0008) de
+    un reporte y las agrupa por id_historial, para no pagar una query por
+    fila al pintar el historial completo de un reporte (que ya puede traer
+    varias decenas de entradas).
+    """
+    cursor.execute(
+        """
+        SELECT id_historial, id_imagen, imagen_url, creado_en
+        FROM reporte_imagenes
+        WHERE id_reporte = %s AND tipo = 'EVIDENCIA'
+        ORDER BY id_imagen;
+        """,
+        (id_reporte,),
+    )
+    agrupadas: dict[int, list[dict[str, Any]]] = {}
+    for fila in cursor.fetchall():
+        agrupadas.setdefault(fila["id_historial"], []).append(fila)
+    return agrupadas
+
+
 @router.get(
     "/reportes/{id_reporte}/historial",
     summary="Ver historial de cambios de estado de un reporte",
@@ -78,6 +100,10 @@ def historial_reporte(
                 (id_reporte,),
             )
             filas = cursor.fetchall()
+
+            evidencias = _cargar_evidencias_por_historial(cursor, id_reporte)
+            for fila in filas:
+                fila["imagenes"] = evidencias.get(fila["id_historial"], [])
 
             if puede_ver_reporte(user, reporte):
                 return filas

@@ -327,6 +327,28 @@ INSERT INTO `historial_reportes` VALUES
 
 -- ------------------------------------------------------------
 
+-- Varias fotos por reporte (migración 0008) -- ver esa migración para el
+-- porqué de `tipo` y de las dos FK. Sin filas semilla: ningún reporte de
+-- este dump nació con más de una foto.
+DROP TABLE IF EXISTS `reporte_imagenes`;
+CREATE TABLE `reporte_imagenes` (
+  `id_imagen`    int                            NOT NULL AUTO_INCREMENT,
+  `id_reporte`   int                            NOT NULL,
+  `id_historial` int                            DEFAULT NULL,
+  `tipo`         enum('INCIDENTE','EVIDENCIA')  NOT NULL,
+  `imagen_url`   varchar(300)                   NOT NULL,
+  `creado_en`    datetime                       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_imagen`),
+  KEY `idx_reporte_imagenes_reporte` (`id_reporte`),
+  KEY `idx_reporte_imagenes_historial` (`id_historial`),
+  CONSTRAINT `fk_reporte_imagenes_reporte`
+    FOREIGN KEY (`id_reporte`) REFERENCES `reportes` (`id_reporte`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reporte_imagenes_historial`
+    FOREIGN KEY (`id_historial`) REFERENCES `historial_reportes` (`id_historial`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ------------------------------------------------------------
+
 DROP TABLE IF EXISTS `notificaciones`;
 CREATE TABLE `notificaciones` (
   `id_notificacion`   int          NOT NULL AUTO_INCREMENT,

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -43,11 +44,29 @@ UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
 IMAGENES_REPORTES_DIR = UPLOADS_DIR / "reportes"
 MAX_IMAGEN_BYTES = 5 * 1024 * 1024
 IMAGEN_URL_PATTERN = r"^/uploads/reportes/[0-9a-f]{32}\.(jpg|png|webp)$"
+# Migración 0008: varias fotos por reporte (además de la columna legada
+# imagen_url, que sigue aceptando como máximo una). 6 es suficiente para
+# documentar un incidente o una atención sin que alguien suba un álbum
+# completo -- cada una ya pesó hasta 5MB al subirla con POST /reportes/imagen.
+MAX_IMAGENES_POR_LISTA = 6
 
 
 # =========================
 # MODELOS
 # =========================
+
+
+def _validar_lista_imagenes(v: list[str] | None) -> list[str] | None:
+    """Cada ruta de la lista debe ser una ya devuelta por POST
+    /reportes/imagen -- mismo contrato que el imagen_url legado, aplicado
+    a cada elemento (Field(pattern=...) no valida item por item en una
+    lista). Compartido por los tres modelos que aceptan `imagenes`."""
+    if v is None:
+        return v
+    for url in v:
+        if not re.match(IMAGEN_URL_PATTERN, url):
+            raise ValueError(f"Ruta de imagen inválida: {url!r}")
+    return v
 
 
 class ReporteCreateRequest(BaseModel):
@@ -66,7 +85,16 @@ class ReporteCreateRequest(BaseModel):
     # /reportes/imagen -- nunca un file:// local del teléfono ni una URL
     # externa.
     imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+    # Fotos adicionales del incidente, además de imagen_url (migración
+    # 0008) -- ambas pueden venir juntas; el frontend manda la primera
+    # como imagen_url (compatibilidad) y todas en esta lista.
+    imagenes: list[str] | None = Field(None, max_length=MAX_IMAGENES_POR_LISTA)
     fuente_reporte: str = Field("CIUDADANO", max_length=50)
+
+    @field_validator("imagenes")
+    @classmethod
+    def _imagenes_validas(cls, v: list[str] | None) -> list[str] | None:
+        return _validar_lista_imagenes(v)
 
 
 class ReporteUpdateRequest(BaseModel):
@@ -101,6 +129,10 @@ class ReporteUpdateRequest(BaseModel):
     latitud: float = Field(..., ge=-90, le=90, allow_inf_nan=False)
     longitud: float = Field(..., ge=-180, le=180, allow_inf_nan=False)
     imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+    # Igual que en ReporteCreateRequest -- None (clave ausente) conserva
+    # las fotos adicionales actuales, [] las quita todas, una lista nueva
+    # las reemplaza por completo.
+    imagenes: list[str] | None = Field(None, max_length=MAX_IMAGENES_POR_LISTA)
 
     @field_validator("descripcion")
     @classmethod
@@ -108,6 +140,11 @@ class ReporteUpdateRequest(BaseModel):
         if not v.strip():
             raise ValueError("La descripción no puede estar vacía")
         return v
+
+    @field_validator("imagenes")
+    @classmethod
+    def _imagenes_validas(cls, v: list[str] | None) -> list[str] | None:
+        return _validar_lista_imagenes(v)
 
 
 class CambiarEstadoRequest(BaseModel):
@@ -119,11 +156,21 @@ class CambiarEstadoRequest(BaseModel):
     # distinta (historial_reportes.imagen_url, migración 0005): esta es la
     # foto de CÓMO quedó, no la foto original del reporte.
     imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+    # Varias fotos de evidencia para esta transición (migración 0008) --
+    # conviven con imagen_url (legado, una sola). Siempre se agregan a las
+    # que ya tenga ESTE cambio de estado, nunca reemplazan ni tocan las de
+    # otras transiciones anteriores del mismo reporte.
+    imagenes: list[str] | None = Field(None, max_length=MAX_IMAGENES_POR_LISTA)
     # Opcional: permite que "Tomar" sea una sola llamada (cambia estado Y
     # asigna a quien lo tomó) en vez de dos requests separadas. None =
     # no toca el reparto actual; ver AsignarUsuarioReporteRequest para
     # asignar/reasignar sin cambiar el estado.
     id_usuario_asignado: int | None = Field(None, ge=1)
+
+    @field_validator("imagenes")
+    @classmethod
+    def _imagenes_validas(cls, v: list[str] | None) -> list[str] | None:
+        return _validar_lista_imagenes(v)
 
 
 class AsignarEntidadRequest(BaseModel):
@@ -290,13 +337,16 @@ def _insertar_historial(
     id_usuario_accion: int,
     comentario: str | None = None,
     imagen_url: str | None = None,
-):
+) -> int:
     """
     Inserta un registro en historial_reportes.
     Se llama tanto al CREAR un reporte como al CAMBIAR su estado.
     `imagen_url` es la evidencia de la atención (p.ej. foto del arreglo),
     distinta de reportes.imagen_url (la foto del reporte original) -- ver
     migrations/0005_historial_evidencia.sql.
+
+    Devuelve el id_historial insertado -- lo usa cambiar_estado() para
+    colgar de ahí las fotos EVIDENCIA adicionales (migración 0008).
     """
     cursor.execute(
         """
@@ -306,6 +356,75 @@ def _insertar_historial(
     """,
         (id_reporte, estado_anterior, estado_nuevo, comentario, imagen_url, id_usuario_accion),
     )
+    return cursor.lastrowid
+
+
+def _cargar_imagenes(
+    cursor, id_reporte: int, tipo: str, id_historial: int | None = None
+) -> list[dict[str, Any]]:
+    """
+    Trae las filas de reporte_imagenes (migración 0008) para un reporte.
+    tipo='INCIDENTE' siempre cuelga de id_reporte solo; tipo='EVIDENCIA'
+    además filtra por id_historial (sin eso, mezclaría evidencia de todos
+    los cambios de estado del reporte en una sola lista).
+    """
+    if tipo == "EVIDENCIA":
+        cursor.execute(
+            """
+            SELECT id_imagen, imagen_url, creado_en FROM reporte_imagenes
+            WHERE id_reporte = %s AND tipo = %s AND id_historial = %s
+            ORDER BY id_imagen;
+            """,
+            (id_reporte, tipo, id_historial),
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT id_imagen, imagen_url, creado_en FROM reporte_imagenes
+            WHERE id_reporte = %s AND tipo = %s
+            ORDER BY id_imagen;
+            """,
+            (id_reporte, tipo),
+        )
+    return cursor.fetchall()
+
+
+def _insertar_imagenes(
+    cursor,
+    id_reporte: int,
+    tipo: str,
+    urls: list[str] | None,
+    id_historial: int | None = None,
+) -> None:
+    """
+    Agrega a reporte_imagenes una fila por cada URL en `urls` (ya validadas
+    por _validar_lista_imagenes en el esquema del request). No-op si `urls`
+    es None o vacío -- nunca borra nada, solo suma.
+    """
+    if not urls:
+        return
+    cursor.executemany(
+        """
+        INSERT INTO reporte_imagenes (id_reporte, id_historial, tipo, imagen_url)
+        VALUES (%s, %s, %s, %s);
+        """,
+        [(id_reporte, id_historial, tipo, url) for url in urls],
+    )
+
+
+def _reemplazar_imagenes(cursor, id_reporte: int, tipo: str, urls: list[str] | None) -> None:
+    """
+    Reemplaza por completo las imágenes tipo='INCIDENTE' de un reporte (sin
+    id_historial, que para ese tipo siempre es NULL) -- usado por
+    editar_reporte, donde `imagenes` en el body ya significa "la lista
+    completa nueva", igual que `imagen_url`. `urls=None` es manejado por el
+    caller (clave ausente del body = no tocar nada, no llamar a esto).
+    """
+    cursor.execute(
+        "DELETE FROM reporte_imagenes WHERE id_reporte = %s AND tipo = %s AND id_historial IS NULL;",
+        (id_reporte, tipo),
+    )
+    _insertar_imagenes(cursor, id_reporte, tipo, urls)
 
 
 def _insertar_notificacion(cursor, id_usuario: int, id_reporte: int, tipo: str, mensaje: str):
@@ -570,6 +689,8 @@ def obtener_reporte(
         with conn.cursor() as cursor:
             cursor.execute(sql, (id_reporte,))
             row = cursor.fetchone()
+            if row:
+                row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
 
         if not row:
             raise HTTPException(status_code=404, detail="Reporte no encontrado")
@@ -646,6 +767,12 @@ def crear_reporte(
         raise HTTPException(status_code=403, detail="Tu cuenta no está ACTIVA")
     if user.get("id_rol") not in (Rol.CIUDADANO, Rol.ENTIDAD):
         raise HTTPException(status_code=403, detail="No tienes permisos para crear reportes")
+    # El titular reparte trabajo entre su equipo, no reporta él mismo (ver
+    # migración 0007) -- crear un reporte es para un trabajador normal.
+    if user.get("id_rol") == Rol.ENTIDAD and user.get("es_titular_entidad"):
+        raise HTTPException(
+            status_code=403, detail="El titular de la entidad no crea reportes, solo los reparte"
+        )
 
     id_usuario_token = user["id_usuario"]
 
@@ -695,6 +822,10 @@ def crear_reporte(
             )
             new_id = cursor.lastrowid
 
+            # Fotos adicionales del incidente (migración 0008), además de
+            # la que ya quedó en reportes.imagen_url.
+            _insertar_imagenes(cursor, new_id, "INCIDENTE", payload.imagenes)
+
             # Vínculo SIASAR: el cliente nunca envía id_siasar_comunidad/
             # distancia_siasar_m (ReporteCreateRequest no declara esos
             # campos, así que si los manda se ignoran) -- se calculan acá,
@@ -742,7 +873,9 @@ def crear_reporte(
             # Retornar el reporte recién creado con todos los datos
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (new_id,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, new_id, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "created", "reporte": row}
 
@@ -832,7 +965,7 @@ def cambiar_estado(
                 )
 
             # ✅ REGISTRAR EN HISTORIAL: cambio de estado
-            _insertar_historial(
+            id_historial = _insertar_historial(
                 cursor,
                 id_reporte=id_reporte,
                 estado_anterior=rep["estado_actual"],
@@ -840,6 +973,12 @@ def cambiar_estado(
                 id_usuario_accion=user["id_usuario"],
                 comentario=payload.comentario,
                 imagen_url=payload.imagen_url,
+            )
+
+            # Evidencia adicional de ESTA transición (migración 0008),
+            # además de la que ya quedó en historial_reportes.imagen_url.
+            _insertar_imagenes(
+                cursor, id_reporte, "EVIDENCIA", payload.imagenes, id_historial=id_historial
             )
 
             # ✅ NOTIFICACIÓN: avisar al dueño del reporte
@@ -862,7 +1001,9 @@ def cambiar_estado(
             # Retornar reporte actualizado
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "updated", "reporte": row}
 
@@ -925,7 +1066,9 @@ def asignar_entidad(
 
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "updated", "reporte": row}
 
@@ -1002,7 +1145,9 @@ def asignar_usuario_reporte(
 
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "updated", "reporte": row}
 
@@ -1165,6 +1310,11 @@ def editar_reporte(
                 ),
             )
 
+            # Mismo criterio que imagen_url: clave ausente del body = no
+            # tocar las fotos adicionales actuales.
+            if "imagenes" in payload.model_fields_set:
+                _reemplazar_imagenes(cursor, id_reporte, "INCIDENTE", payload.imagenes)
+
             registrar_auditoria(
                 cursor,
                 id_usuario=user["id_usuario"],
@@ -1175,7 +1325,9 @@ def editar_reporte(
 
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "updated", "reporte": row}
 

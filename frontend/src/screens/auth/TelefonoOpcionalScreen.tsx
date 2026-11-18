@@ -80,10 +80,10 @@ export default function TelefonoOpcionalScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.btnRow}>
-        <TouchableOpacity style={styles.outlineBtn} onPress={handleAhoraNo} disabled={loading} activeOpacity={0.85}>
+        <TouchableOpacity accessibilityRole="button" style={styles.outlineBtn} onPress={handleAhoraNo} disabled={loading} activeOpacity={0.85}>
           <Text style={styles.outlineBtnText}>Ahora no</Text>
         </TouchableOpacity>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.primaryBtn, (!telefono.trim() || loading) && styles.btnDisabled]}
           onPress={handleGuardar}
           disabled={!telefono.trim() || loading}
@@ -122,7 +122,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   },
   prefix: { ...r.scaleType(andiType.bodyLg), color: andiColors.onSurface },
   prefixDivider: { width: 1, height: 20, backgroundColor: andiColors.outlineVariant, marginHorizontal: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(16), color: andiColors.onSurface },
 
   btnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[8] },
   outlineBtn: {

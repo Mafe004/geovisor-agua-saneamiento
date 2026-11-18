@@ -24,7 +24,7 @@ export function AnchorReportCard({ reporte, onPress }: { reporte: Reporte; onPre
   const styles = useMemo(() => makeStyles(r), [r]);
   const meta = statusMeta(reporte.estado);
   return (
-    <TouchableOpacity style={styles.anchor} onPress={() => onPress?.(reporte)} activeOpacity={0.85}>
+    <TouchableOpacity accessibilityRole="button" style={styles.anchor} onPress={() => onPress?.(reporte)} activeOpacity={0.85}>
       <View style={styles.anchorTop}>
         <Text style={styles.anchorId}>#{reporte.id_reporte}</Text>
         <View style={[styles.anchorChip, { backgroundColor: ANDI_COLORS.primary700, borderColor: ANDI_COLORS.primary600 }]}>
@@ -52,7 +52,7 @@ export function DraftReportCard({ item, onResume }: { item: DraftSummary; onResu
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
   return (
-    <TouchableOpacity style={styles.draft} onPress={() => onResume?.(item)} activeOpacity={0.85}>
+    <TouchableOpacity accessibilityRole="button" style={styles.draft} onPress={() => onResume?.(item)} activeOpacity={0.85}>
       <View style={styles.draftContent}>
         <SyncChip state="draft" />
         <Text style={styles.draftTitle}>{item.tipoLabel || 'Sin tipo'}</Text>
@@ -68,7 +68,7 @@ export default function ReportCard({ reporte, onPress }: { reporte: Reporte; onP
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
   return (
-    <TouchableOpacity style={styles.neutral} onPress={() => onPress?.(reporte)} activeOpacity={0.85}>
+    <TouchableOpacity accessibilityRole="button" style={styles.neutral} onPress={() => onPress?.(reporte)} activeOpacity={0.85}>
       <View style={styles.neutralTop}>
         <Text style={styles.neutralId}>#{reporte.id_reporte}</Text>
         <StatusChip estado={reporte.estado} />

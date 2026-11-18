@@ -1,7 +1,8 @@
 """
 Códigos de invitación para altas de ENTIDAD/MODERADOR/ADMINISTRADOR.
 
-Un ADMIN genera un token de 6 caracteres (POST /) que le comparte
+Un ADMIN (cualquier rol/entidad) o una ENTIDAD (solo rol ENTIDAD, solo su
+propia entidad) genera un token de 6 caracteres (POST /) que comparte
 manualmente a la persona invitada; esa persona lo valida (GET /{token},
 público) y lo consume en POST /usuarios/registro-invitacion
 (app/routers/usuarios.py) para crear su cuenta ya ACTIVA, sin pasar por el
@@ -17,7 +18,7 @@ from typing import Any
 import pymysql
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.core.deps import require_roles
+from app.core.deps import require_active_user
 from app.core.errors import handle_db_error
 from app.core.roles import Rol
 from app.db.database import get_connection
@@ -49,7 +50,7 @@ def _generar_token() -> str:
 
 
 def crear_token_invitacion(
-    cursor, *, id_rol: int, id_entidad: int | None, creado_por: int
+    cursor, *, id_rol: int, id_entidad: int | None, creado_por: int, es_titular: bool = False
 ) -> tuple[str, datetime]:
     """
     INSERT en `invitaciones` con reintento ante colisión de token, usando un
@@ -59,6 +60,8 @@ def crear_token_invitacion(
     Compartido entre crear_invitacion (acá abajo) y aprobar_solicitud
     (app/routers/solicitudes_acceso.py) para no duplicar la lógica de
     reintento -- ver su comentario original para el porqué del retry.
+    `es_titular` solo es relevante cuando id_rol=ENTIDAD (migración 0007);
+    aprobar_solicitud invita siempre a ADMIN, así que lo deja en su default.
     """
     expira_en = datetime.now() + timedelta(days=INVITACION_VIGENCIA_DIAS)
 
@@ -68,10 +71,10 @@ def crear_token_invitacion(
             cursor.execute(
                 """
                 INSERT INTO invitaciones
-                    (token, id_rol, id_entidad, creado_por, expira_en, usado)
-                VALUES (%s, %s, %s, %s, %s, 0);
+                    (token, id_rol, id_entidad, creado_por, expira_en, usado, es_titular)
+                VALUES (%s, %s, %s, %s, %s, 0, %s);
                 """,
-                (candidato, id_rol, id_entidad, creado_por, expira_en),
+                (candidato, id_rol, id_entidad, creado_por, expira_en, es_titular),
             )
             return candidato, expira_en
         except pymysql.err.IntegrityError as e:
@@ -88,16 +91,44 @@ def crear_token_invitacion(
 @router.post(
     "/",
     status_code=201,
-    summary="Generar un código de invitación (solo ADMINISTRADOR)",
+    summary="Generar un código de invitación (ADMINISTRADOR, o ENTIDAD invitando a su propia entidad)",
     response_model=CrearInvitacionResponse,
     responses={
-        400: {"description": "id_rol inválido, o id_entidad faltante/no permitido para ese rol"}
+        400: {"description": "id_rol inválido, o id_entidad faltante/no permitido para ese rol"},
+        403: {"description": "Sin permiso"},
     },
 )
 def crear_invitacion(
     data: CrearInvitacionRequest,
-    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    user: dict[str, Any] = Depends(require_active_user),
 ) -> dict[str, Any]:
+    """
+    ADMIN puede invitar a cualquier rol invitable, para cualquier entidad, y
+    decide libremente es_titular (p.ej. al dar de alta el primer contacto de
+    una entidad nueva). ENTIDAD solo puede invitar (id_rol=ENTIDAD) a un
+    trabajador de SU PROPIA entidad, y solo si ella misma es titular -- un
+    trabajador normal no da de alta a nadie, y nadie que no sea ADMIN puede
+    crear OTRO titular (si el titular se va, es ADMIN quien designa uno
+    nuevo, vía PUT /entidades/{id}/asignar-usuario). Ningún otro rol genera
+    invitaciones.
+    """
+    if user["id_rol"] == Rol.ENTIDAD:
+        if not user.get("es_titular_entidad"):
+            raise HTTPException(
+                status_code=403,
+                detail="Solo el titular de tu entidad puede agregar trabajadores",
+            )
+        if data.id_rol != Rol.ENTIDAD or data.id_entidad != user.get("id_entidad"):
+            raise HTTPException(
+                status_code=403,
+                detail="Solo puedes invitar a un nuevo trabajador de tu propia entidad",
+            )
+        # Un titular agrega trabajadores, nunca otro titular -- se fuerza
+        # sin importar qué mande el cliente.
+        data.es_titular = False
+    elif user["id_rol"] != Rol.ADMIN:
+        raise HTTPException(status_code=403, detail="No tienes permisos para generar invitaciones")
+
     if data.id_rol not in ROLES_INVITABLES:
         raise HTTPException(
             status_code=400,
@@ -112,6 +143,11 @@ def crear_invitacion(
         raise HTTPException(
             status_code=400,
             detail="id_entidad solo aplica a invitaciones de rol ENTIDAD",
+        )
+    if data.id_rol != Rol.ENTIDAD and data.es_titular:
+        raise HTTPException(
+            status_code=400,
+            detail="es_titular solo aplica a invitaciones de rol ENTIDAD",
         )
 
     conn = get_connection()
@@ -130,12 +166,14 @@ def crear_invitacion(
                 id_rol=data.id_rol,
                 id_entidad=data.id_entidad,
                 creado_por=user["id_usuario"],
+                es_titular=data.es_titular,
             )
 
         return {
             "token": token,
             "id_rol": data.id_rol,
             "id_entidad": data.id_entidad,
+            "es_titular": data.es_titular,
             "expira_en": expira_en,
         }
     except HTTPException:

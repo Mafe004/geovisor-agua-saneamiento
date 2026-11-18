@@ -24,7 +24,7 @@ export default function AndiChip({ label, variant = 'outline', onPress }: AndiCh
     styles.outlineText;
 
   return (
-    <TouchableOpacity style={[styles.chip, style]} onPress={onPress}>
+    <TouchableOpacity accessibilityRole="button" style={[styles.chip, style]} onPress={onPress}>
       <Text style={[styles.label, textStyle]}>{label}</Text>
     </TouchableOpacity>
   );

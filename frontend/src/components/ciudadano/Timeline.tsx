@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_SPACING, statusMeta } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { HistorialEntry, HistorialEntryComunidad } from '../../types/domain';
+import FotoGaleria from '../andi/FotoGaleria';
 
 function formatDateTime(d?: string | null) {
   if (!d) return '';
@@ -32,6 +33,13 @@ export default function Timeline({ items }: TimelineProps) {
         // HistorialEntryComunidad (vista comunitaria) no trae usuario_accion
         // -- 'Sistema' cubre tanto ese caso como el dato vacío de siempre.
         const actor = 'usuario_accion' in item ? item.usuario_accion : undefined;
+        // Migración 0008: imagen_url (legada, una sola) + imagenes[] (varias)
+        // son evidencia de ESTA transición -- se muestran juntas, en el
+        // mismo orden en que las devuelve el backend.
+        const fotosEvidencia = [
+          item.imagen_url,
+          ...(item.imagenes?.map((i) => i.imagen_url) ?? []),
+        ];
         return (
           <View key={item.id_historial ?? index} style={styles.row}>
             <View style={styles.rail}>
@@ -44,6 +52,7 @@ export default function Timeline({ items }: TimelineProps) {
                 {actor || 'Sistema'} · {formatDateTime(item.fecha_cambio)}
               </Text>
               {!!item.comentario && <Text style={styles.comment}>{item.comentario}</Text>}
+              <FotoGaleria titulo="Evidencia" urls={fotosEvidencia} />
             </View>
           </View>
         );

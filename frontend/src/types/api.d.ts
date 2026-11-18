@@ -185,8 +185,55 @@ export interface paths {
         };
         /** Obtener Reporte */
         get: operations["obtener_reporte_reportes__id_reporte__get"];
-        put?: never;
+        /**
+         * Editar reporte propio (CIUDADANO, solo PENDIENTE y sin entidad)
+         * @description Reemplaza los campos editables del reporte (ver ReporteUpdateRequest,
+         *     incluido el contrato de imagen_url). Nunca cambia id_usuario,
+         *     id_entidad, id_estado ni fuente_reporte.
+         *
+         *     Independiente de SIASAR: no consulta comunidades cercanas ni modifica
+         *     id_siasar_comunidad / distancia_siasar_m, aunque cambie la ubicación --
+         *     el vínculo calculado al crear el reporte se conserva tal cual. (La
+         *     respuesta solo LEE ese vínculo, con el mismo LEFT JOIN que cualquier
+         *     detalle de reporte.)
+         *
+         *     Sin fila en historial_reportes: esa tabla registra transiciones de
+         *     estado y una edición no cambia el estado (mismo criterio que
+         *     asignar_entidad) -- el rastro queda en auditoría (EDITAR_REPORTE).
+         */
+        put: operations["editar_reporte_reportes__id_reporte__put"];
         post?: never;
+        /**
+         * Eliminar reporte propio (CIUDADANO, solo PENDIENTE y sin entidad)
+         * @description Borrado definitivo, todo en una transacción: primero las filas hijas
+         *     de ESTE reporte (notificaciones, historial_reportes -- sus FK hacia
+         *     reportes no tienen ON DELETE CASCADE), luego el reporte. La fila de
+         *     auditoría (ELIMINAR_REPORTE) no referencia al reporte, así que
+         *     sobrevive al borrado. La foto en disco no se borra.
+         */
+        delete: operations["eliminar_reporte_reportes__id_reporte__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reportes/imagen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subir evidencia fotográfica (CIUDADANO / ENTIDAD)
+         * @description Paso previo (opcional) a POST /reportes/: guarda la foto y devuelve la
+         *     ruta relativa que el cliente envía como imagen_url. Mismos roles que
+         *     pueden crear reportes. El nombre en disco es siempre un UUID generado
+         *     acá -- el filename del cliente nunca se usa, así no hay path traversal.
+         */
+        post: operations["subir_imagen_reportes_imagen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -230,6 +277,56 @@ export interface paths {
         put: operations["asignar_entidad_reportes__id_reporte__entidad_put"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reportes/{id_reporte}/asignar-usuario": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Asignar/reasignar un reporte a un trabajador de la entidad (ENTIDAD propia / MODERADOR / ADMIN)
+         * @description Reparto interno dentro de una misma entidad -- distinto de asignar_entidad
+         *     (que decide A QUÉ ENTIDAD pertenece el reporte, siempre MODERADOR/ADMIN).
+         *     Repartir trabajo es decisión del TITULAR de la entidad (o de MODERADOR/
+         *     ADMIN, p.ej. para intervenir si una entidad no se está organizando) --
+         *     un trabajador normal nunca reparte, ni siquiera su propio reporte
+         *     asignado (eso sería re-asignárselo a otro sin que el titular lo decida).
+         */
+        put: operations["asignar_usuario_reporte_reportes__id_reporte__asignar_usuario_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reportes/{id_reporte}/admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Eliminar cualquier reporte (solo ADMINISTRADOR)
+         * @description Borrado administrativo: a diferencia de eliminar_reporte() (CIUDADANO
+         *     dueño, solo PENDIENTE y sin entidad), esto borra CUALQUIER reporte en
+         *     cualquier estado -- es una ruta separada en vez de una rama más dentro
+         *     de la misma función para no mezclar dos políticas de permiso muy
+         *     distintas (una por fila vía puede_editar_reporte, esta por rol) en un
+         *     mismo WHERE de la query de borrado.
+         */
+        delete: operations["eliminar_reporte_admin_reportes__id_reporte__admin_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -722,8 +819,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Listar usuarios de una entidad (solo ADMIN)
+         * Listar usuarios de una entidad (ADMIN, o ENTIDAD viendo su propia entidad)
          * @description Lista todos los usuarios asignados a una entidad específica.
+         *
+         *     ADMIN: cualquier entidad (lo usa para vincular/desvincular cuentas).
+         *     ENTIDAD: solo el TITULAR de SU PROPIA entidad -- la necesita para elegir
+         *     a qué trabajador asignarle un reporte (ver reportesAPI.asignarUsuario).
+         *     Un trabajador normal no reparte trabajo entre otros, así que no
+         *     necesita ver esta lista (ver migración 0007).
          */
         get: operations["usuarios_de_entidad_entidades__id_entidad__usuarios_get"];
         put?: never;
@@ -743,7 +846,17 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Generar un código de invitación (solo ADMINISTRADOR) */
+        /**
+         * Generar un código de invitación (ADMINISTRADOR, o ENTIDAD invitando a su propia entidad)
+         * @description ADMIN puede invitar a cualquier rol invitable, para cualquier entidad, y
+         *     decide libremente es_titular (p.ej. al dar de alta el primer contacto de
+         *     una entidad nueva). ENTIDAD solo puede invitar (id_rol=ENTIDAD) a un
+         *     trabajador de SU PROPIA entidad, y solo si ella misma es titular -- un
+         *     trabajador normal no da de alta a nadie, y nadie que no sea ADMIN puede
+         *     crear OTRO titular (si el titular se va, es ADMIN quien designa uno
+         *     nuevo, vía PUT /entidades/{id}/asignar-usuario). Ningún otro rol genera
+         *     invitaciones.
+         */
         post: operations["crear_invitacion_invitaciones__post"];
         delete?: never;
         options?: never;
@@ -1078,6 +1191,24 @@ export interface components {
             /** Id Entidad */
             id_entidad: number;
         };
+        /**
+         * AsignarUsuarioReporteRequest
+         * @description Body de PUT /reportes/{id_reporte}/asignar-usuario. None desasigna
+         *     (vuelve al pool compartido de la entidad).
+         */
+        AsignarUsuarioReporteRequest: {
+            /** Id Usuario Asignado */
+            id_usuario_asignado: number | null;
+        };
+        /**
+         * AsignarUsuarioReporteResponse
+         * @description Respuesta de PUT /reportes/{id_reporte}/asignar-usuario.
+         */
+        AsignarUsuarioReporteResponse: {
+            /** Message */
+            message: string;
+            reporte: components["schemas"]["ReporteDetalle"];
+        };
         /** AsignarUsuarioResponse */
         AsignarUsuarioResponse: {
             /** Message */
@@ -1086,6 +1217,14 @@ export interface components {
             usuario: string;
             /** Entidad */
             entidad: string;
+        };
+        /** Body_subir_imagen_reportes_imagen_post */
+        Body_subir_imagen_reportes_imagen_post: {
+            /**
+             * Archivo
+             * Format: binary
+             */
+            archivo: string;
         };
         /**
          * Calificacion
@@ -1123,6 +1262,12 @@ export interface components {
             id_estado_nuevo: number;
             /** Comentario */
             comentario?: string | null;
+            /** Imagen Url */
+            imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
+            /** Id Usuario Asignado */
+            id_usuario_asignado?: number | null;
         };
         /** CambiarEstadoResponse */
         CambiarEstadoResponse: {
@@ -1272,11 +1417,17 @@ export interface components {
              * @description Obligatorio (y solo válido) cuando id_rol=2 (ENTIDAD)
              */
             id_entidad?: number | null;
+            /**
+             * Es Titular
+             * @description Si la nueva cuenta ENTIDAD es la titular de la entidad (ve todo el pool) o un trabajador normal
+             * @default false
+             */
+            es_titular: boolean;
         };
         /**
          * CrearInvitacionResponse
          * @description Único lugar donde el token de 6 caracteres viaja en una respuesta
-         *     HTTP -- lo genera crear_invitacion() y lo entrega solo al ADMIN que lo
+         *     HTTP -- lo genera crear_invitacion() y lo entrega solo a quien lo
          *     solicitó, para que se lo comparta manualmente con la persona invitada.
          */
         CrearInvitacionResponse: {
@@ -1286,6 +1437,8 @@ export interface components {
             id_rol: number;
             /** Id Entidad */
             id_entidad: number | null;
+            /** Es Titular */
+            es_titular: boolean;
             /**
              * Expira En
              * Format: date-time
@@ -1511,6 +1664,8 @@ export interface components {
             estado_nuevo: string;
             /** Comentario */
             comentario: string | null;
+            /** Imagen Url */
+            imagen_url: string | null;
             /** Id Usuario Accion */
             id_usuario_accion: number;
             /** Usuario Accion */
@@ -1522,6 +1677,8 @@ export interface components {
              * Format: date-time
              */
             fecha_cambio: string;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
         };
         /**
          * HistorialEntryComunidad
@@ -1546,6 +1703,8 @@ export interface components {
             estado_nuevo: string;
             /** Comentario */
             comentario: string | null;
+            /** Imagen Url */
+            imagen_url: string | null;
             /** Rol Usuario Accion */
             rol_usuario_accion: string;
             /**
@@ -1553,6 +1712,26 @@ export interface components {
              * Format: date-time
              */
             fecha_cambio: string;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
+        };
+        /**
+         * ImagenReporte
+         * @description Una fila de reporte_imagenes (migración 0008). `tipo` no viaja aquí
+         *     -- cada lista (ReporteDetalle.imagenes vs HistorialEntry.imagenes) ya
+         *     es de un solo tipo por construcción (el SELECT que la llena filtra por
+         *     tipo), así que repetirlo en cada fila no agrega información.
+         */
+        ImagenReporte: {
+            /** Id Imagen */
+            id_imagen: number;
+            /** Imagen Url */
+            imagen_url: string;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
         };
         /** InfraestructuraCreate */
         InfraestructuraCreate: {
@@ -1949,6 +2128,8 @@ export interface components {
             /** Entidad Sugerida */
             entidad_sugerida: string | null;
             vereda_siasar?: components["schemas"]["VeredaSiasarResumen"] | null;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
         };
         /** ReporteCreateRequest */
         ReporteCreateRequest: {
@@ -1971,6 +2152,8 @@ export interface components {
             longitud?: number | null;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
             /**
              * Fuente Reporte
              * @default CIUDADANO
@@ -2029,6 +2212,12 @@ export interface components {
             /** Entidad Sugerida */
             entidad_sugerida: string | null;
             vereda_siasar?: components["schemas"]["VeredaSiasarResumen"] | null;
+            /** Id Usuario Asignado */
+            id_usuario_asignado: number | null;
+            /** Usuario Asignado */
+            usuario_asignado: string | null;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
         };
         /**
          * ReporteMapaPunto
@@ -2057,10 +2246,20 @@ export interface components {
         };
         /**
          * ReporteUpdateRequest
-         * @description Body de PUT /reportes/{id_reporte} (ciudadano dueño). Reemplazo
-         *     completo de los campos editables: todos obligatorios salvo imagen_url.
-         *     Campos extra se rechazan con 422 (extra="forbid").
-         *     imagen_url: clave ausente -> se conserva; null -> se quita; ruta -> se reemplaza.
+         * @description Body de PUT /reportes/{id_reporte} (ciudadano dueño, ver
+         *     puede_editar_reporte). Reemplazo completo de los campos editables:
+         *     todos son obligatorios salvo imagen_url.
+         *
+         *     extra="forbid": cualquier campo protegido o desconocido (id_usuario,
+         *     id_entidad, id_estado, fuente_reporte, id_siasar_comunidad, ...) se
+         *     rechaza con 422 en vez de ignorarse en silencio.
+         *
+         *     imagen_url tiene tres casos, distinguidos con model_fields_set:
+         *       - clave ausente              -> se conserva la imagen actual
+         *       - "imagen_url": null         -> se quita la imagen
+         *       - "imagen_url": "/uploads/…" -> se reemplaza (ruta devuelta por
+         *                                       POST /reportes/imagen, mismo patrón
+         *                                       que al crear)
          */
         ReporteUpdateRequest: {
             /** Id Tipo Incidente */
@@ -2077,6 +2276,8 @@ export interface components {
             longitud: number;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
         };
         /** RestablecerContrasena */
         RestablecerContrasena: {
@@ -2263,6 +2464,17 @@ export interface components {
             /** Revisado Por Nombre */
             revisado_por_nombre: string | null;
         };
+        /**
+         * SubirImagenResponse
+         * @description Respuesta de POST /reportes/imagen: ruta relativa (sin host) que el
+         *     cliente manda luego como imagen_url al crear el reporte -- el host lo
+         *     pone el frontend al mostrarla (API_URL), así una IP LAN que cambie no
+         *     deja URLs rotas guardadas en la base.
+         */
+        SubirImagenResponse: {
+            /** Imagen Url */
+            imagen_url: string;
+        };
         /** TipoIncidenteItem */
         TipoIncidenteItem: {
             /** Id Tipo Incidente */
@@ -2290,6 +2502,8 @@ export interface components {
             nombre_completo: string;
             /** Correo */
             correo: string;
+            /** Es Titular Entidad */
+            es_titular_entidad: boolean;
         };
         /** UsuarioDeEntidadItem */
         UsuarioDeEntidadItem: {
@@ -2301,6 +2515,8 @@ export interface components {
             correo: string;
             /** Telefono */
             telefono: string | null;
+            /** Es Titular Entidad */
+            es_titular_entidad: boolean;
             /** Rol */
             rol: string;
             /** Estado Cuenta */
@@ -2799,6 +3015,168 @@ export interface operations {
             };
         };
     };
+    editar_reporte_reportes__id_reporte__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReporteUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditarReporteResponse"];
+                };
+            };
+            /** @description Tipo de incidente o severidad no existe */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No es el dueño o sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reporte no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ya asignado a una entidad o ya no está PENDIENTE */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eliminar_reporte_reportes__id_reporte__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EliminarReporteResponse"];
+                };
+            };
+            /** @description No es el dueño o sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reporte no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Ya asignado a una entidad o ya no está PENDIENTE */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subir_imagen_reportes_imagen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_imagen_reportes_imagen_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubirImagenResponse"];
+                };
+            };
+            /** @description La imagen supera 5 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Formato no permitido */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cambiar_estado_reportes__id_reporte__estado_put: {
         parameters: {
             query?: never;
@@ -2887,6 +3265,100 @@ export interface operations {
                 content?: never;
             };
             /** @description Reporte o entidad no encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    asignar_usuario_reporte_reportes__id_reporte__asignar_usuario_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AsignarUsuarioReporteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AsignarUsuarioReporteResponse"];
+                };
+            };
+            /** @description El usuario a asignar no es ENTIDAD de la misma entidad del reporte */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reporte o usuario a asignar no encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eliminar_reporte_admin_reportes__id_reporte__admin_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id_reporte: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EliminarReporteResponse"];
+                };
+            };
+            /** @description Reporte no encontrado */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -3050,7 +3522,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["MarcarLeidaRequest"];
             };
@@ -3918,6 +4390,13 @@ export interface operations {
                     "application/json": components["schemas"]["UsuariosDeEntidadResponse"];
                 };
             };
+            /** @description Sin permiso */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Entidad no encontrada */
             404: {
                 headers: {
@@ -3960,6 +4439,13 @@ export interface operations {
             };
             /** @description id_rol inválido, o id_entidad faltante/no permitido para ese rol */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Sin permiso */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

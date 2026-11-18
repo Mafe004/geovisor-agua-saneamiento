@@ -1,15 +1,20 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity,
-  Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import { infraestructuraAPI } from '../../api/services';
+import { useSwipeDismiss } from '../../utils/useSwipeDismiss';
 import AndiHeader, { AndiHeaderIconButton } from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
+import AndiErrorState from '../../components/andi/AndiErrorState';
+import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
+import { useToast } from '../../components/andi/Toast';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker, MapCenterChange } from '../../components/MapaWebView.types';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiElevation } from '../../theme/andi';
@@ -38,6 +43,7 @@ export default function InfraestructuraScreen() {
   const styles = useMemo(() => makeStyles(r), [r]);
   const [items, setItems] = useState<InfraestructuraItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<string | null>(null);
@@ -47,8 +53,9 @@ export default function InfraestructuraScreen() {
     try {
       const res = await infraestructuraAPI.listar();
       setItems(res.data || []);
+      setError(false);
     } catch (_) {
-      setItems([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -76,7 +83,7 @@ export default function InfraestructuraScreen() {
       <AndiHeader
         title="Infraestructura"
         subtitle={`${items.length} puntos${fuentes.length ? ` · fuentes ${fuentes.join(', ')}` : ''}`}
-        rightElement={<AndiHeaderIconButton icon="plus" background={andiColors.accent500} onPress={() => setFormVisible(true)} />}
+        rightElement={<AndiHeaderIconButton icon="plus" background={andiColors.accent500} onPress={() => setFormVisible(true)} accessibilityLabel="Nueva infraestructura" />}
       />
 
       <AndiBody>
@@ -87,7 +94,6 @@ export default function InfraestructuraScreen() {
             longitude={items[0].longitud}
             zoom={13}
             markers={markers}
-            interactive={false}
             showCenterPin={false}
           />
         )}
@@ -99,7 +105,18 @@ export default function InfraestructuraScreen() {
           ))}
         </View>
 
-        {!loading && itemsFiltrados.length === 0 ? (
+        {loading ? (
+          <View style={styles.list}><AndiSkeletonList count={4} /></View>
+        ) : error ? (
+          <AndiErrorState
+            icon="wifi-off"
+            title="No se pudo cargar"
+            body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+            code="Error de red"
+            ctaLabel="Reintentar"
+            onPressCta={() => load()}
+          />
+        ) : itemsFiltrados.length === 0 ? (
           <AndiEmptyState
             icon="map-pin"
             title="Sin infraestructura registrada"
@@ -163,21 +180,23 @@ function InfraestructuraForm({
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const [nombre, setNombre] = useState('');
   const [tipo, setTipo] = useState<string | null>(null);
   const [fuente, setFuente] = useState('');
   const [estado, setEstado] = useState<string>('ACTIVA');
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
   const [saving, setSaving] = useState(false);
+  const { translateY, handlePanHandlers } = useSwipeDismiss(onClose, visible);
 
   const reset = () => {
     setNombre(''); setTipo(null); setFuente(''); setEstado('ACTIVA'); setCoordenadas(null);
   };
 
   const handleGuardar = async () => {
-    if (!nombre.trim()) { Alert.alert('Requerido', 'Ingresa un nombre.'); return; }
-    if (!tipo) { Alert.alert('Requerido', 'Selecciona un tipo.'); return; }
-    if (!coordenadas) { Alert.alert('Requerido', 'Marca la ubicación en el mapa.'); return; }
+    if (!nombre.trim()) { toast.warning('Requerido', 'Ingresa un nombre.'); return; }
+    if (!tipo) { toast.warning('Requerido', 'Selecciona un tipo.'); return; }
+    if (!coordenadas) { toast.warning('Requerido', 'Marca la ubicación en el mapa.'); return; }
 
     try {
       setSaving(true);
@@ -193,7 +212,7 @@ function InfraestructuraForm({
       onCreated();
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo crear la infraestructura.');
+      toast.error('Error', msg || 'No se pudo crear la infraestructura.');
     } finally {
       setSaving(false);
     }
@@ -203,12 +222,19 @@ function InfraestructuraForm({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
-          <View style={[styles.formCard, andiElevation[4]]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+          <Animated.View style={[styles.formCard, andiElevation[4], { transform: [{ translateY }] }]}>
+            {/* Toda esta zona (no solo la barrita) responde al arrastre --
+                4px es casi imposible de agarrar a propósito. */}
+            <View {...handlePanHandlers} style={styles.handleArea}>
               <View style={styles.handle} />
-              <View style={styles.formHeader}>
+              <View style={[styles.formHeader, styles.formHeaderRow]}>
                 <Text style={andiType.section}>Nueva infraestructura</Text>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => { reset(); onClose(); }} style={styles.closeBtn}>
+                  <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
 
               <Text style={styles.formLabel}>Nombre *</Text>
               <TextInput
@@ -260,10 +286,10 @@ function InfraestructuraForm({
               )}
 
               <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => { reset(); onClose(); }}>
+                <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={() => { reset(); onClose(); }}>
                   <Text style={styles.cancelBtnText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.saveBtn, andiElevation[2], saving && styles.saveBtnDisabled]}
                   onPress={handleGuardar}
                   disabled={saving}
@@ -272,7 +298,7 @@ function InfraestructuraForm({
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -305,12 +331,15 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     backgroundColor: andiColors.surface, borderTopLeftRadius: andiRadius['2xl'], borderTopRightRadius: andiRadius['2xl'],
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[3], paddingBottom: andiSpace[6], width: '100%', maxHeight: '90%',
   },
-  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center', marginBottom: andiSpace[4] },
+  handleArea: { paddingTop: andiSpace[2], paddingBottom: andiSpace[4] },
+  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center' },
   formHeader: { marginBottom: andiSpace[2] },
+  formHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  closeBtn: { padding: andiSpace[1] },
   formLabel: { fontSize: r.scaleFont(13), fontWeight: '600', color: andiColors.onSurface, marginBottom: andiSpace[2], marginTop: andiSpace[3] },
   input: {
     borderWidth: 1, borderColor: andiColors.outlineVariant, borderRadius: andiRadius.full,
-    backgroundColor: andiColors.surfaceMid, paddingHorizontal: andiSpace[4], height: 44, fontSize: r.scaleFont(14), color: andiColors.onSurface,
+    backgroundColor: andiColors.surfaceMid, paddingHorizontal: andiSpace[4], height: 44, fontSize: r.scaleFont(16), color: andiColors.onSurface,
   },
   mapHint: { color: andiColors.onSurfaceVariant, marginBottom: andiSpace[2] },
   formMap: { height: 180, borderRadius: andiRadius.lg, overflow: 'hidden' },

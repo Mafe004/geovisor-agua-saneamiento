@@ -7,6 +7,8 @@ import type {
   ActualizarPerfil,
   ActualizarPerfilResponse,
   AsignarEntidadRequest,
+  AsignarUsuarioReporteRequest,
+  AsignarUsuarioReporteResponse,
   AsignarUsuarioResponse,
   CambiarEstadoCuenta,
   CambiarEstadoEntidad,
@@ -136,6 +138,10 @@ export const reportesAPI = {
   actualizar: (id: number, data: ReporteUpdateRequest) =>
     client.put<EditarReporteResponse>(`/reportes/${id}`, data),
   eliminar: (id: number) => client.delete<EliminarReporteResponse>(`/reportes/${id}`),
+  // Ruta separada de eliminar(): esa es solo para el ciudadano dueño de un
+  // reporte PENDIENTE sin entidad; esta es ADMIN borrando cualquier
+  // reporte en cualquier estado (ver eliminar_reporte_admin en el backend).
+  eliminarAdmin: (id: number) => client.delete<EliminarReporteResponse>(`/reportes/${id}/admin`),
   // Evidencia fotográfica opcional: devuelve la ruta relativa
   // (/uploads/reportes/<uuid>.jpg) que luego va como imagen_url en crear().
   // Content-Type y timeout solo para esta request -- el default JSON/12s
@@ -149,6 +155,11 @@ export const reportesAPI = {
     client.put<CambiarEstadoResponse>(`/reportes/${id}/estado`, data),
   asignarEntidad: (id: number, data: AsignarEntidadRequest) =>
     client.put<CambiarEstadoResponse>(`/reportes/${id}/entidad`, data),
+  // Reparto interno: a qué TRABAJADOR de la entidad (no a qué entidad, eso
+  // es asignarEntidad) se asigna un reporte. id_usuario_asignado: null
+  // desasigna, vuelve al pool compartido de la entidad.
+  asignarUsuario: (id: number, data: AsignarUsuarioReporteRequest) =>
+    client.put<AsignarUsuarioReporteResponse>(`/reportes/${id}/asignar-usuario`, data),
   mapa: () => client.get<ReporteMapaPunto[]>('/reportes/mapa'),
   estadisticas: () => client.get<EstadisticasResponse>('/reportes/estadisticas'),
   // Mismo criterio que obtener(): reducido para un CIUDADANO viendo el
@@ -177,7 +188,13 @@ export const notificacionesAPI = {
     client.get<NotificacionItem[]>('/notificaciones/', {
       params: { solo_no_leidas: soloNoLeidas },
     }),
-  marcarLeida: (id: number) => client.put<MarcarLeidaResponse>(`/notificaciones/${id}/leer`),
+  // El endpoint exige un body (MarcarLeidaRequest) aunque su único campo
+  // tenga default en el modelo -- sin body, FastAPI rechaza la request con
+  // 422 antes de llegar al handler. Antes esto fallaba en silencio: el
+  // catch de markRead() en NotificacionesScreen ignora el error a
+  // propósito, así que el punto de "no leída" simplemente nunca cambiaba.
+  marcarLeida: (id: number, leida: boolean = true) =>
+    client.put<MarcarLeidaResponse>(`/notificaciones/${id}/leer`, { leida }),
   marcarTodasLeidas: () =>
     client.put<MarcarTodasLeidasResponse>('/notificaciones/marcar-todas-leidas'),
 };
@@ -211,7 +228,8 @@ export const entidadesAPI = {
 // INVITACIONES
 // ========================
 export const invitacionesAPI = {
-  // Solo ADMIN (require_roles(Rol.ADMIN) en el backend).
+  // ADMIN (cualquier rol/entidad) o ENTIDAD (solo id_rol=ENTIDAD, solo su
+  // propia id_entidad) -- ver crear_invitacion() en el backend.
   crear: (data: CrearInvitacionRequest) =>
     client.post<CrearInvitacionResponse>('/invitaciones/', data),
   // Público, sin JWT -- validación del código antes de mostrar el

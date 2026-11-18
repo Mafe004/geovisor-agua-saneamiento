@@ -6,9 +6,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { usuariosAPI } from '../../api/services';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { usuariosAPI, solicitudesAccesoAPI } from '../../api/services';
+import { useAuth } from '../../context/AuthContext';
+import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { UsuarioListItem } from '../../types/domain';
-import type { AdminTabParamList } from '../../navigation/types';
+import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
@@ -43,12 +47,14 @@ function initials(nombre: string) {
   return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase();
 }
 
-export default function UsuariosScreen({ route }: Props) {
+export default function UsuariosScreen({ route, navigation }: Props) {
+  const { user } = useAuth();
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const [usuarios, setUsuarios] = useState<UsuarioListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('TODOS');
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -58,6 +64,13 @@ export default function UsuariosScreen({ route }: Props) {
 
   const [pendingActionUser, setPendingActionUser] = useState<UsuarioListItem | null>(null);
   const [activatingPendiente, setActivatingPendiente] = useState(false);
+
+  // Solicitudes de acceso como ADMINISTRADOR (sin invitación, sin cuenta
+  // todavía -- tabla solicitudes_acceso, no usuarios) son un concepto
+  // distinto de "cuenta PENDIENTE" pero igual de pendientes de revisar;
+  // antes solo se podían ver desde el menú de perfil, nada las enlazaba
+  // desde aquí, que es donde alguien buscaría "lo pendiente".
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState(0);
 
   const [undoVisible, setUndoVisible] = useState(false);
   const undoData = useRef<{ prev: { id: number; estado: number }[]; label: string } | null>(null);
@@ -73,24 +86,37 @@ export default function UsuariosScreen({ route }: Props) {
     setFilter(route.params.filter as FilterKey);
   }
 
+  const loadUsuarios = async () => {
+    try {
+      const res = await usuariosAPI.listar();
+      setUsuarios(res.data || []);
+      setError(false);
+    } catch (_) {
+      setError(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+    // Aparte del try/catch de arriba a propósito: si esto falla (p.ej. no
+    // hay nada pendiente o un problema puntual de red), no debe tumbar ni
+    // bloquear la carga de usuarios, que es lo principal de esta pantalla.
+    try {
+      const sol = await solicitudesAccesoAPI.listar();
+      setSolicitudesPendientes((sol.data || []).filter(s => s.estado === 'PENDIENTE').length);
+    } catch (_) {
+      setSolicitudesPendientes(0);
+    }
+  };
+
+  // loadUsuarios también es el handler del RefreshControl y se reusa tras
+  // activar/suspender/deshacer -- no se puede inlinear como IIFE en este
+  // efecto sin duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadUsuarios(); }, []);
   useEffect(() => () => {
     if (undoShowTimer.current) clearTimeout(undoShowTimer.current);
     if (undoHideTimer.current) clearTimeout(undoHideTimer.current);
   }, []);
-
-  const loadUsuarios = async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const res = await usuariosAPI.listar();
-      setUsuarios(res.data || []);
-    } catch (_) {
-      setUsuarios([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
 
   const usuariosFiltrados = filter === 'TODOS' ? usuarios : usuarios.filter(u => u.estado_cuenta === filter);
   const selectionMode = selected.size > 0;
@@ -126,7 +152,7 @@ export default function UsuariosScreen({ route }: Props) {
     await Promise.allSettled(
       ids.map(id => usuariosAPI.cambiarEstado(id, { id_estado_cuenta: nuevoEstado }))
     );
-    await loadUsuarios(true);
+    await loadUsuarios();
     setApplying(false);
     setSelected(new Set());
     scheduleUndo(prev, label);
@@ -162,7 +188,7 @@ export default function UsuariosScreen({ route }: Props) {
       data.prev.map(p => usuariosAPI.cambiarEstado(p.id, { id_estado_cuenta: p.estado }))
     );
     undoData.current = null;
-    loadUsuarios(true);
+    loadUsuarios();
   };
 
   const selectedNames = usuarios.filter(u => selected.has(u.id_usuario)).map(u => u.nombre_completo);
@@ -178,6 +204,11 @@ export default function UsuariosScreen({ route }: Props) {
           <View style={styles.headerBadge}>
             <Text style={styles.headerBadgeText}>{usuarios.length}</Text>
           </View>
+          <View style={{ flex: 1 }} />
+          <ProfileAvatarButton
+            name={user?.nombre_completo ?? '?'}
+            onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
+          />
         </View>
       </LinearGradient>
 
@@ -185,7 +216,7 @@ export default function UsuariosScreen({ route }: Props) {
         {FILTERS.map(f => {
           const active = filter === f.key;
           return (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={f.key}
               style={[styles.chip, active && styles.chipActive]}
               onPress={() => setFilter(f.key)}
@@ -197,29 +228,53 @@ export default function UsuariosScreen({ route }: Props) {
         })}
       </View>
 
+      {filter === 'PENDIENTE' && solicitudesPendientes > 0 && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={styles.solicitudesBanner}
+          activeOpacity={0.85}
+          onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('SolicitudesAcceso')}
+        >
+          <Feather name="inbox" size={18} color={andiColors.warning700} />
+          <Text style={styles.solicitudesBannerText}>
+            {solicitudesPendientes} {solicitudesPendientes === 1 ? 'solicitud' : 'solicitudes'} de acceso como Administrador sin revisar
+          </Text>
+          <Feather name="chevron-right" size={18} color={andiColors.warning700} />
+        </TouchableOpacity>
+      )}
+
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={andiColors.primary600} />
         </View>
+      ) : error ? (
+        <AndiErrorState
+          icon="wifi-off"
+          title="No se pudo cargar"
+          body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+          code="Error de red"
+          ctaLabel="Reintentar"
+          onPressCta={() => loadUsuarios()}
+        />
       ) : (
         <FlatList
           data={usuariosFiltrados}
           keyExtractor={u => String(u.id_usuario)}
           contentContainerStyle={[styles.listContent, { width: '100%', maxWidth: r.maxContentWidth(700), alignSelf: 'center' }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadUsuarios(true); }} colors={[andiColors.primary600]} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadUsuarios(); }} colors={[andiColors.primary600]} />
           }
           renderItem={({ item }) => {
             const chip = ESTADO_CHIP[item.estado_cuenta] ?? ESTADO_CHIP_DEFAULT;
             const isSelected = selected.has(item.id_usuario);
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.row}
                 activeOpacity={0.7}
                 onLongPress={() => toggleSelect(item.id_usuario)}
                 onPress={() => {
                   if (selectionMode) { toggleSelect(item.id_usuario); return; }
-                  if (item.estado_cuenta === 'PENDIENTE') setPendingActionUser(item);
+                  setPendingActionUser(item);
                 }}
               >
                 {selectionMode && (
@@ -256,10 +311,10 @@ export default function UsuariosScreen({ route }: Props) {
         <View style={styles.batchBar}>
           <Text style={styles.batchBarText}>{selected.size} seleccionados</Text>
           <View style={styles.batchBarBtns}>
-            <TouchableOpacity style={styles.batchBtnPrimary} onPress={handleActivar} disabled={applying}>
+            <TouchableOpacity accessibilityRole="button" style={styles.batchBtnPrimary} onPress={handleActivar} disabled={applying}>
               <Text style={styles.batchBtnPrimaryText}>Activar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.batchBtnDestructive} onPress={() => setConfirmVisible(true)} disabled={applying}>
+            <TouchableOpacity accessibilityRole="button" style={styles.batchBtnDestructive} onPress={() => setConfirmVisible(true)} disabled={applying}>
               <Text style={styles.batchBtnDestructiveText}>Suspender</Text>
             </TouchableOpacity>
           </View>
@@ -280,13 +335,13 @@ export default function UsuariosScreen({ route }: Props) {
               multiline
             />
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.modalCancelBtn}
                 onPress={() => { setConfirmVisible(false); setMotivo(''); }}
               >
                 <Text style={styles.modalCancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.modalSuspendBtn, !motivo.trim() && styles.btnDisabled]}
                 onPress={handleSuspenderConfirmado}
                 disabled={!motivo.trim()}
@@ -304,12 +359,12 @@ export default function UsuariosScreen({ route }: Props) {
         animationType="slide"
         onRequestClose={() => setPendingActionUser(null)}
       >
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.sheetBackdrop}
           activeOpacity={1}
           onPress={() => setPendingActionUser(null)}
         >
-          <TouchableOpacity style={[styles.sheetCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]} activeOpacity={1} onPress={() => {}}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.sheetCard, { width: '100%', maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]} activeOpacity={1} onPress={() => {}}>
             <View style={styles.sheetHandle} />
             {pendingActionUser && (
               <>
@@ -323,15 +378,32 @@ export default function UsuariosScreen({ route }: Props) {
                   </View>
                 </View>
                 <Text style={styles.sheetMessage}>
-                  Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.
+                  {pendingActionUser.estado_cuenta === 'PENDIENTE'
+                    ? 'Esta cuenta está pendiente de activación. Actívala para que pueda iniciar sesión.'
+                    : pendingActionUser.estado_cuenta === 'SUSPENDIDO'
+                    ? 'Esta cuenta está suspendida. Actívala para que pueda volver a iniciar sesión.'
+                    : 'Esta cuenta está activa.'}
                 </Text>
-                <TouchableOpacity
-                  style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
-                  onPress={handleActivarPendiente}
-                  disabled={activatingPendiente}
-                >
-                  <Text style={styles.batchBtnPrimaryText}>{activatingPendiente ? 'Activando…' : 'Activar'}</Text>
-                </TouchableOpacity>
+                {pendingActionUser.estado_cuenta === 'ACTIVO' ? (
+                  <TouchableOpacity accessibilityRole="button"
+                    style={[styles.batchBtnDestructive, styles.sheetActivarBtn]}
+                    onPress={() => {
+                      setSelected(new Set([pendingActionUser.id_usuario]));
+                      setPendingActionUser(null);
+                      setConfirmVisible(true);
+                    }}
+                  >
+                    <Text style={styles.batchBtnDestructiveText}>Suspender</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity accessibilityRole="button"
+                    style={[styles.batchBtnPrimary, styles.sheetActivarBtn, activatingPendiente && styles.btnDisabled]}
+                    onPress={handleActivarPendiente}
+                    disabled={activatingPendiente}
+                  >
+                    <Text style={styles.batchBtnPrimaryText}>{activatingPendiente ? 'Activando…' : 'Activar'}</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </TouchableOpacity>
@@ -339,7 +411,7 @@ export default function UsuariosScreen({ route }: Props) {
       </Modal>
 
       {undoVisible && (
-        <TouchableOpacity style={styles.undoToast} onPress={handleDeshacer} activeOpacity={0.85}>
+        <TouchableOpacity accessibilityRole="button" style={styles.undoToast} onPress={handleDeshacer} activeOpacity={0.85}>
           <Text style={styles.undoText}>Acción aplicada · Deshacer</Text>
         </TouchableOpacity>
       )}
@@ -363,6 +435,13 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   chipActive: { backgroundColor: andiColors.primary600, borderColor: andiColors.primary600 },
   chipText: { ...andiType.labelSm, color: andiColors.onSurface },
   chipTextActive: { color: andiColors.surface },
+
+  solicitudesBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[2],
+    backgroundColor: andiColors.warning100, marginHorizontal: andiSpace[4], marginTop: andiSpace[3],
+    borderRadius: andiRadius.md, padding: andiSpace[3],
+  },
+  solicitudesBannerText: { ...andiType.bodySm, color: andiColors.warning700, flex: 1 },
 
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: andiSpace[4], paddingBottom: andiSpace[10] * 2 },
@@ -405,7 +484,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   modalInput: {
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
     backgroundColor: andiColors.surfaceDim, padding: andiSpace[3], marginTop: andiSpace[4],
-    minHeight: 60, textAlignVertical: 'top', color: andiColors.onSurface,
+    minHeight: 60, textAlignVertical: 'top', color: andiColors.onSurface, fontSize: 16,
   },
   modalBtnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[5] },
   modalCancelBtn: {

@@ -246,7 +246,7 @@ def registro_con_invitacion(
         with transaccion() as cursor:
             cursor.execute(
                 """
-                SELECT id, id_rol, id_entidad, expira_en, usado
+                SELECT id, id_rol, id_entidad, expira_en, usado, es_titular
                 FROM invitaciones
                 WHERE token = %s
                 FOR UPDATE;
@@ -283,8 +283,8 @@ def registro_con_invitacion(
                 INSERT INTO usuarios
                     (id_rol, id_estado_cuenta, id_entidad, nombre_completo, cargo, correo,
                      password_hash, tipo_documento, numero_documento, telefono, pais, ciudad,
-                     direccion)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                     direccion, es_titular_entidad)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """,
                 (
                     inv["id_rol"],
@@ -300,6 +300,7 @@ def registro_con_invitacion(
                     data.pais,
                     data.ciudad,
                     data.direccion,
+                    inv["es_titular"],
                 ),
             )
             nuevo_id = cursor.lastrowid

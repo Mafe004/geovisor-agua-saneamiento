@@ -191,6 +191,7 @@ CREATE TABLE `usuarios` (
   `direccion`        varchar(150) DEFAULT NULL,
   `created_at`       datetime     DEFAULT CURRENT_TIMESTAMP,
   `updated_at`       datetime     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `es_titular_entidad` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id_usuario`),
   UNIQUE KEY `correo`           (`correo`),
   UNIQUE KEY `numero_documento` (`numero_documento`),
@@ -205,27 +206,29 @@ CREATE TABLE `usuarios` (
 -- Contraseña de todos los usuarios de prueba: demo2025
 -- OJO: VALUES posicional, sin lista de columnas -- el orden acá tiene que
 -- calzar exacto con el de la CREATE TABLE de arriba (cargo va justo
--- después de nombre_completo).
+-- después de nombre_completo). es_titular_entidad=1 solo en la fila 2
+-- (único ENTIDAD con id_entidad ya asignado en este seed) -- mismo
+-- criterio que el backfill de la migración 0007.
 INSERT INTO `usuarios` VALUES
   (1,1,1,NULL,'Juan Pérez',              NULL,'juan@test.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','123456789',NULL,NULL,NULL,NULL,NOW(),NOW()),
+   NULL,'CC','123456789',NULL,NULL,NULL,NULL,NOW(),NOW(),0),
 
   (2,2,1,1,'Operador Entidad - Acueducto',NULL,'operador.acueducto@demo.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','900000001','3001112233','Colombia','Zipaquirá','Oficina principal',NOW(),NOW()),
+   NULL,'CC','900000001','3001112233','Colombia','Zipaquirá','Oficina principal',NOW(),NOW(),1),
 
   (3,3,1,NULL,'Moderador Prueba',         NULL,'moderador@demo.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','900000002','3001112244','Colombia','Zipaquirá','Oficina moderación',NOW(),NOW()),
+   NULL,'CC','900000002','3001112244','Colombia','Zipaquirá','Oficina moderación',NOW(),NOW(),0),
 
   (4,1,1,NULL,'Maria Test',              NULL,'maria.test@correo.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','987654321','3009876543','Colombia','Zipaquirá',NULL,NOW(),NOW()),
+   NULL,'CC','987654321','3009876543','Colombia','Zipaquirá',NULL,NOW(),NOW(),0),
 
   (5,4,1,NULL,'Admin Geovisor',           NULL,'admin@geovisor.com',
    '$pbkdf2-sha256$29000$d86Zsxai9P5fC0FIqRXinA$mLnXFpdQE9XAgB3i1EJsaOEZNDAk/fYyGvKzV4iX/m4',
-   NULL,'CC','111111111',NULL,NULL,NULL,NULL,NOW(),NOW());
+   NULL,'CC','111111111',NULL,NULL,NULL,NULL,NOW(),NOW(),0);
 
 -- ============================================================
 -- OPERACIÓN CENTRAL
@@ -248,6 +251,7 @@ CREATE TABLE `reportes` (
   `fecha_reporte`     datetime     DEFAULT CURRENT_TIMESTAMP,
   `created_at`        datetime     DEFAULT CURRENT_TIMESTAMP,
   `updated_at`        datetime     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `id_usuario_asignado` int DEFAULT NULL,
   PRIMARY KEY (`id_reporte`),
   KEY `fk_reportes_entidad`   (`id_entidad`),
   KEY `fk_reportes_tipo`      (`id_tipo_incidente`),
@@ -258,7 +262,8 @@ CREATE TABLE `reportes` (
   CONSTRAINT `fk_reportes_entidad`   FOREIGN KEY (`id_entidad`)        REFERENCES `entidades`     (`id_entidad`),
   CONSTRAINT `fk_reportes_tipo`      FOREIGN KEY (`id_tipo_incidente`) REFERENCES `tipo_incidente`(`id_tipo_incidente`),
   CONSTRAINT `fk_reportes_severidad` FOREIGN KEY (`id_severidad`)      REFERENCES `severidad`     (`id_severidad`),
-  CONSTRAINT `fk_reportes_estado`    FOREIGN KEY (`id_estado`)         REFERENCES `estado_reporte`(`id_estado`)
+  CONSTRAINT `fk_reportes_estado`    FOREIGN KEY (`id_estado`)         REFERENCES `estado_reporte`(`id_estado`),
+  CONSTRAINT `fk_reportes_usuario_asignado` FOREIGN KEY (`id_usuario_asignado`) REFERENCES `usuarios` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Solo reportes válidos con coordenadas reales (Zipaquirá, Cundinamarca)
@@ -266,27 +271,27 @@ INSERT INTO `reportes` VALUES
   (1,1,1,1,1,1,
    'Fuga de agua constante en la vía principal',
    'Calle 10 # 5-20, Zipaquirá',
-   5.0222000,-74.0048000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0222000,-74.0048000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (2,1,1,1,3,4,
    'Fuga de agua en la vía principal (reporte resuelto)',
    'Calle 10 # 5-20, Zipaquirá',
-   5.0220000,-74.0040000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0220000,-74.0040000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (3,4,NULL,3,2,1,
    'Taponamiento del alcantarillado frente al parque central',
    'Carrera 7 # 3-15, Zipaquirá',
-   5.0231000,-74.0062000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0231000,-74.0062000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (4,4,NULL,5,3,2,
    'El agua que sale del grifo tiene color amarillento y mal olor',
    'Barrio Centro, Zipaquirá',
-   5.0215000,-74.0055000,NULL,'CIUDADANO',NOW(),NOW(),NOW()),
+   5.0215000,-74.0055000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL),
 
   (5,1,NULL,2,1,1,
    'La presión del agua ha bajado mucho en los últimos días',
    'Calle 5 # 8-30, Zipaquirá',
-   5.0240000,-74.0030000,NULL,'CIUDADANO',NOW(),NOW(),NOW());
+   5.0240000,-74.0030000,NULL,'CIUDADANO',NOW(),NOW(),NOW(),NULL);
 
 -- ============================================================
 -- SOPORTE / TRAZABILIDAD
@@ -301,6 +306,7 @@ CREATE TABLE `historial_reportes` (
   `comentario`        varchar(255) DEFAULT NULL,
   `id_usuario_accion` int          NOT NULL,
   `fecha_cambio`      datetime     DEFAULT CURRENT_TIMESTAMP,
+  `imagen_url`        varchar(500) DEFAULT NULL,
   PRIMARY KEY (`id_historial`),
   KEY `fk_historial_usuario`   (`id_usuario_accion`),
   KEY `idx_historial_reporte`  (`id_reporte`),
@@ -309,15 +315,37 @@ CREATE TABLE `historial_reportes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 INSERT INTO `historial_reportes` VALUES
-  (1,1,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW()),
-  (2,2,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW()),
-  (3,2,'PENDIENTE',   'EN_REVISION', 'Reporte validado por moderador',                    3,NOW()),
-  (4,2,'EN_REVISION', 'EN_PROCESO',  'Iniciamos atención del reporte',                    2,NOW()),
-  (5,2,'EN_PROCESO',  'RESUELTO',    'Reporte solucionado: se reparó la fuga',            2,NOW()),
-  (6,3,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW()),
-  (7,4,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW()),
-  (8,4,'PENDIENTE',   'EN_REVISION', 'Clasificación y asignación a Acueducto Municipal',  3,NOW()),
-  (9,5,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW());
+  (1,1,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW(),NULL),
+  (2,2,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW(),NULL),
+  (3,2,'PENDIENTE',   'EN_REVISION', 'Reporte validado por moderador',                    3,NOW(),NULL),
+  (4,2,'EN_REVISION', 'EN_PROCESO',  'Iniciamos atención del reporte',                    2,NOW(),NULL),
+  (5,2,'EN_PROCESO',  'RESUELTO',    'Reporte solucionado: se reparó la fuga',            2,NOW(),NULL),
+  (6,3,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW(),NULL),
+  (7,4,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     4,NOW(),NULL),
+  (8,4,'PENDIENTE',   'EN_REVISION', 'Clasificación y asignación a Acueducto Municipal',  3,NOW(),NULL),
+  (9,5,'NINGUNO',     'PENDIENTE',   'Reporte creado por el usuario',                     1,NOW(),NULL);
+
+-- ------------------------------------------------------------
+
+-- Varias fotos por reporte (migración 0008) -- ver esa migración para el
+-- porqué de `tipo` y de las dos FK. Sin filas semilla: ningún reporte de
+-- este dump nació con más de una foto.
+DROP TABLE IF EXISTS `reporte_imagenes`;
+CREATE TABLE `reporte_imagenes` (
+  `id_imagen`    int                            NOT NULL AUTO_INCREMENT,
+  `id_reporte`   int                            NOT NULL,
+  `id_historial` int                            DEFAULT NULL,
+  `tipo`         enum('INCIDENTE','EVIDENCIA')  NOT NULL,
+  `imagen_url`   varchar(300)                   NOT NULL,
+  `creado_en`    datetime                       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_imagen`),
+  KEY `idx_reporte_imagenes_reporte` (`id_reporte`),
+  KEY `idx_reporte_imagenes_historial` (`id_historial`),
+  CONSTRAINT `fk_reporte_imagenes_reporte`
+    FOREIGN KEY (`id_reporte`) REFERENCES `reportes` (`id_reporte`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reporte_imagenes_historial`
+    FOREIGN KEY (`id_historial`) REFERENCES `historial_reportes` (`id_historial`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ------------------------------------------------------------
 
@@ -401,6 +429,7 @@ CREATE TABLE `invitaciones` (
   `expira_en`  datetime     NOT NULL,
   `usado`      tinyint(1)   NOT NULL DEFAULT 0,
   `creado_en`  datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `es_titular` tinyint(1)   NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `token` (`token`),
   KEY `fk_invitaciones_rol` (`id_rol`),

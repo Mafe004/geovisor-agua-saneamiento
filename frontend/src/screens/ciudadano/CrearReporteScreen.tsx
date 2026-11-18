@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Image, Platform,
+  ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -11,7 +11,6 @@ import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-n
 import axios from 'axios';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapCenterChange } from '../../components/MapaWebView.types';
-import { API_URL } from '../../api/client';
 import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SeverityPicker, { type SeveridadKey } from '../../components/ciudadano/SeverityPicker';
@@ -19,6 +18,8 @@ import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
+import { subirFotos } from '../../utils/fotoEvidencia';
+import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -51,13 +52,6 @@ function severidadInicial(reporte: Reporte | null): SeveridadKey | null {
   return SEVERIDADES_PICKER.includes(s) ? (s as SeveridadKey) : null;
 }
 
-// Misma regla que DetalleReporteScreen: imagen_url llega relativa al mount
-// /uploads del backend; una URL absoluta (filas antiguas) se usa tal cual.
-function uriImagenServidor(path: string | null): string | null {
-  if (!path) return null;
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-}
 
 // Edición: el mapa informa su centro al cargar y cada vez que queda quieto.
 // Dentro de esta tolerancia (~0,1 m) se considera el mismo punto guardado y
@@ -86,22 +80,6 @@ const PRELLENADO: Record<string, string> = {
 };
 
 type Mode = 'form' | 'draft-saved' | 'success';
-
-// En móvil el FormData de React Native acepta {uri, name, type} y lee el
-// archivo él mismo; en web ese objeto no sirve y hay que adjuntar el Blob.
-async function construirFormFoto(foto: ImagePicker.ImagePickerAsset): Promise<FormData> {
-  const form = new FormData();
-  const name = foto.fileName || 'foto.jpg';
-  const type = foto.mimeType || 'image/jpeg';
-  if (Platform.OS === 'web') {
-    const blob = await (await fetch(foto.uri)).blob();
-    form.append('archivo', blob, name);
-  } else {
-    // El tipo TS de FormData es el del DOM y no conoce la forma {uri,name,type}.
-    form.append('archivo', { uri: foto.uri, name, type } as unknown as Blob);
-  }
-  return form;
-}
 
 export default function CrearReporteScreen(props: Props) {
   const r = useResponsive();
@@ -143,17 +121,22 @@ export default function CrearReporteScreen(props: Props) {
   const [successSummary, setSuccessSummary] = useState('');
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId);
   const [proximidadSiasar, setProximidadSiasar] = useState<CercanaResponse | null>(null);
-  // Evidencia opcional. fotoSubida = ruta ya devuelta por /reportes/imagen
-  // para esta misma foto: si luego falla la creación del reporte, el
-  // reintento la reutiliza en vez de subirla otra vez.
-  const [foto, setFoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [fotoSubida, setFotoSubida] = useState<string | null>(null);
-  // Solo edición: foto que el reporte ya tiene en el servidor. Si sigue
-  // igual y no hay foto nueva, se conserva (imagen_url no se envía); si se
-  // quita, se envía null; una foto nueva (foto) la reemplaza.
-  const imagenOriginal = reporteEditar?.imagen_url?.trim() || null;
-  const [imagenActual, setImagenActual] = useState<string | null>(imagenOriginal);
-  const imagenActualUri = uriImagenServidor(imagenActual);
+  // Evidencia opcional, una sola tira de fotos (migración 0008): la
+  // primera que termine en la lista va a imagen_url (legado), el resto a
+  // imagenes[]. fotosExistentes = solo edición, las que el reporte ya
+  // tiene en el servidor (quitar una las saca de esta lista, no las borra
+  // hasta guardar); fotosNuevas = elegidas en este formulario. A
+  // diferencia del fotoSubida de antes, acá no se cachea la subida entre
+  // reintentos: son pocas, reintentar es raro.
+  const fotosOriginal = useMemo(() => {
+    const url = reporteEditar?.imagen_url?.trim();
+    return [
+      ...(url ? [url] : []),
+      ...(reporteEditar?.imagenes?.map((i) => i.imagen_url) ?? []),
+    ];
+  }, [reporteEditar]);
+  const [fotosExistentes, setFotosExistentes] = useState<string[]>(fotosOriginal);
+  const [fotosNuevas, setFotosNuevas] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const { showDialog, dialog } = useAndiDialog();
 
   useEffect(() => {
@@ -168,6 +151,9 @@ export default function CrearReporteScreen(props: Props) {
   // En modo edición no se consulta SIASAR (la edición es independiente de
   // SIASAR) y la pista no se muestra; en creación todo sigue igual.
   useEffect(() => {
+    // Reset síncrono a propósito: sin ubicación (o en edición) no hay nada
+    // que mostrar, no tiene sentido esperar un debounce para vaciarlo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!coordenadas || esEdicion) { setProximidadSiasar(null); return; }
     const id = setTimeout(() => {
       siasarAPI.cercana(coordenadas.latitude, coordenadas.longitude, 2000)
@@ -288,34 +274,11 @@ export default function CrearReporteScreen(props: Props) {
     setCoordenadas({ latitude, longitude });
   };
 
-  const elegirFoto = (result: ImagePicker.ImagePickerResult) => {
-    if (result.canceled || !result.assets?.length) return;
-    setFoto(result.assets[0] ?? null);
-    setFotoSubida(null);
-  };
-
-  const tomarFoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      showDialog('Permiso denegado', 'Activa el permiso de cámara o elige una foto de la galería.', { tone: 'warning' });
-      return;
-    }
-    elegirFoto(await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  const elegirDeGaleria = async () => {
-    elegirFoto(await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 }));
-  };
-
-  // imagenActual siempre es null al crear, así que en creación esto sigue
-  // siendo lo mismo de antes.
-  const quitarFoto = () => { setFoto(null); setFotoSubida(null); setImagenActual(null); };
-
   const resetForm = () => {
     setDescripcion(''); setDireccion(''); setCoordenadas(null);
     setIdTipo(null); setSeveridad('MEDIA'); setDescTouched(false);
     setCurrentDraftId(null); setProximidadSiasar(null);
-    setFoto(null); setFotoSubida(null);
+    setFotosNuevas([]);
   };
 
   const tipoLabel = () => tipos.find((t) => t.id_tipo_incidente === idTipo)?.nombre;
@@ -364,25 +327,26 @@ export default function CrearReporteScreen(props: Props) {
       fuente_reporte: 'CIUDADANO',
     };
 
-    // Sin foto: payload idéntico al de siempre (sin la clave imagen_url).
-    if (!foto) { await crearReporte(payload); return; }
-
-    if (fotoSubida) { await crearReporte({ ...payload, imagen_url: fotoSubida }); return; }
-
-    let imagenUrl: string;
-    try {
-      setLoading(true);
-      imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
-      setFotoSubida(imagenUrl);
-    } catch (_) {
-      setLoading(false);
-      showDialog('No se pudo subir la foto.', '¿Quieres reintentar o enviar el reporte sin foto?', { tone: 'error', buttons: [
-        { text: 'Reintentar', onPress: () => { handleSubmit(); } },
-        { text: 'Enviar sin foto', onPress: () => { crearReporte(payload); } },
-      ] });
-      return;
+    // Fotos (migración 0008): se suben todas antes de crear el reporte. La
+    // primera va a imagen_url (legado), el resto a imagenes[] -- sin foto,
+    // el payload queda idéntico al de siempre (sin ninguna de las dos claves).
+    if (fotosNuevas.length > 0) {
+      try {
+        setLoading(true);
+        const urls = await subirFotos(fotosNuevas, reportesAPI.subirImagen);
+        payload.imagen_url = urls[0];
+        if (urls.length > 1) payload.imagenes = urls.slice(1);
+      } catch (_) {
+        setLoading(false);
+        showDialog('No se pudieron subir algunas fotos.', '¿Quieres reintentar o enviar el reporte sin ellas?', { tone: 'error', buttons: [
+          { text: 'Reintentar', onPress: () => { handleSubmit(); } },
+          { text: 'Enviar sin fotos', onPress: () => { crearReporte(payload); } },
+        ] });
+        return;
+      }
     }
-    await crearReporte({ ...payload, imagen_url: imagenUrl });
+
+    await crearReporte(payload);
   };
 
   const crearReporte = async (payload: ReporteCreateRequest) => {
@@ -434,30 +398,33 @@ export default function CrearReporteScreen(props: Props) {
       longitud: ubicacion.longitude,
     };
 
-    if (foto) {
-      // Reemplazar: sube la foto nueva (o reutiliza la ya subida en un
-      // intento anterior) y envía su ruta.
-      let imagenUrl = fotoSubida;
-      if (!imagenUrl) {
+    // Fotos: mismo criterio que antes tenía solo imagen_url (ausente =
+    // conserva). Solo se manda la clave si algo realmente cambió --
+    // agregar, quitar o ambas -- para no pisar con [] lo que el ciudadano
+    // no tocó. La primera de la lista final va a imagen_url, el resto a
+    // imagenes[].
+    const fotosCambiaron = fotosNuevas.length > 0
+      || fotosExistentes.length !== fotosOriginal.length
+      || fotosExistentes.some((u, i) => u !== fotosOriginal[i]);
+    if (fotosCambiaron) {
+      let nuevasUrls: string[] = [];
+      if (fotosNuevas.length > 0) {
         try {
           setLoading(true);
-          imagenUrl = (await reportesAPI.subirImagen(await construirFormFoto(foto))).data.imagen_url;
-          setFotoSubida(imagenUrl);
+          nuevasUrls = await subirFotos(fotosNuevas, reportesAPI.subirImagen);
         } catch (_) {
           setLoading(false);
-          showDialog('No se pudo subir la foto.', 'Tus cambios todavía no se guardaron. ¿Quieres reintentar?', { tone: 'error', buttons: [
+          showDialog('No se pudieron subir algunas fotos.', 'Tus cambios todavía no se guardaron. ¿Quieres reintentar?', { tone: 'error', buttons: [
             { text: 'Cancelar', style: 'cancel' },
             { text: 'Reintentar', onPress: () => { handleSubmit(); } },
           ] });
           return;
         }
       }
-      payload.imagen_url = imagenUrl;
-    } else if (imagenOriginal && !imagenActual) {
-      // Quitar: la foto que tenía el reporte se eliminó del formulario.
-      payload.imagen_url = null;
+      const todas = [...fotosExistentes, ...nuevasUrls];
+      payload.imagen_url = todas[0] ?? null;
+      payload.imagenes = todas.slice(1);
     }
-    // Conservar: sin la clave imagen_url, el backend deja la foto actual.
 
     try {
       setLoading(true);
@@ -492,7 +459,7 @@ export default function CrearReporteScreen(props: Props) {
       <View style={styles.container}>
         <LiftHeader>
           <View style={styles.topRow}>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
+            <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
               <Text style={styles.closeIcon}>✕</Text>
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
@@ -509,10 +476,10 @@ export default function CrearReporteScreen(props: Props) {
             <Text style={styles.queuedCardTitle}>{successSummary}</Text>
             <Text style={styles.queuedCardMeta}>Reporte guardado</Text>
           </View>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
             <Text style={styles.primaryBtnText}>Ver mis reportes</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.textBtn} onPress={() => setMode('form')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.textBtn} onPress={() => setMode('form')}>
             <Text style={styles.textBtnText}>Reportar otra cosa</Text>
           </TouchableOpacity>
         </LiftSurface>
@@ -525,7 +492,7 @@ export default function CrearReporteScreen(props: Props) {
       <View style={styles.container}>
         <LiftHeader>
           <View style={styles.topRow}>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setMode('form')}>
+            <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => setMode('form')}>
               <Text style={styles.closeIcon}>✕</Text>
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
@@ -550,10 +517,10 @@ export default function CrearReporteScreen(props: Props) {
             <Text style={styles.queuedCardTitle}>{savedSummary}</Text>
             <Text style={styles.queuedCardMeta}>Guardado como borrador</Text>
           </View>
-          <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.primaryBtn} onPress={() => navigation.navigate('Reportes')}>
             <Text style={styles.primaryBtnText}>Ver mis reportes</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.textBtn} onPress={() => setMode('form')}>
+          <TouchableOpacity accessibilityRole="button" style={styles.textBtn} onPress={() => setMode('form')}>
             <Text style={styles.textBtnText}>Seguir editando</Text>
           </TouchableOpacity>
         </LiftSurface>
@@ -565,7 +532,7 @@ export default function CrearReporteScreen(props: Props) {
     <View style={styles.container}>
       <LiftHeader>
         <View style={styles.topRow}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.closeBtn}
             onPress={esEdicion ? () => props.navigation.goBack() : () => navigation.navigate('Mapa')}
           >
@@ -588,7 +555,7 @@ export default function CrearReporteScreen(props: Props) {
             <View style={styles.chipWrap}>
               {tipos.length === 0 && <Text style={styles.mutedText}>Cargando tipos…</Text>}
               {tipos.map((t) => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={t.id_tipo_incidente}
                   style={[styles.typeChip, idTipo === t.id_tipo_incidente && styles.typeChipActive]}
                   onPress={() => handleSelectTipo(t)}
@@ -633,14 +600,14 @@ export default function CrearReporteScreen(props: Props) {
                     <Text style={styles.coordPending}>Arrastra el mapa para marcar el punto</Text>
                   )}
                   {!!direccion.trim() && Platform.OS !== 'web' && (
-                    <TouchableOpacity onPress={ubicarDireccion} disabled={geoLoading} hitSlop={8} style={styles.geoLink}>
+                    <TouchableOpacity accessibilityRole="button" onPress={ubicarDireccion} disabled={geoLoading} hitSlop={8} style={styles.geoLink}>
                       {geoLoading
                         ? <ActivityIndicator size="small" color={ANDI_COLORS.primary700} />
                         : <Text style={styles.geoLinkText}>Ubicar esta dirección en el mapa</Text>}
                     </TouchableOpacity>
                   )}
                 </View>
-                <TouchableOpacity style={styles.adjustBtn} onPress={getMyLocation} disabled={locLoading}>
+                <TouchableOpacity accessibilityRole="button" style={styles.adjustBtn} onPress={getMyLocation} disabled={locLoading}>
                   {locLoading ? <ActivityIndicator size="small" color={ANDI_COLORS.primary700} /> : <Text style={styles.adjustBtnText}>Mi ubicación</Text>}
                 </TouchableOpacity>
               </View>
@@ -667,63 +634,25 @@ export default function CrearReporteScreen(props: Props) {
             />
           </Section>
 
-          <Section styles={styles} n="05" title="Foto (opcional)">
-            {foto ? (
-              <View style={styles.fotoCard}>
-                <Image source={{ uri: foto.uri }} style={styles.fotoPreview} resizeMode="cover" />
-                <View style={[styles.fotoActions, styles.fotoActionsCard]}>
-                  <TouchableOpacity style={styles.fotoBtn} onPress={elegirDeGaleria} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Cambiar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.fotoBtn} onPress={tomarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Tomar otra</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.fotoBtn} onPress={quitarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnRemoveText}>Quitar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : imagenActualUri ? (
-              // Solo edición: la foto que el reporte ya tiene en el servidor.
-              <View style={styles.fotoCard}>
-                <Image
-                  source={{ uri: imagenActualUri }}
-                  style={styles.fotoPreview}
-                  resizeMode="cover"
-                  accessibilityLabel="Fotografía actual del reporte"
-                />
-                <View style={[styles.fotoActions, styles.fotoActionsCard]}>
-                  <TouchableOpacity style={styles.fotoBtn} onPress={elegirDeGaleria} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Cambiar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.fotoBtn} onPress={tomarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnText}>Tomar otra</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.fotoBtn} onPress={quitarFoto} disabled={loading}>
-                    <Text style={styles.fotoBtnRemoveText}>Quitar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.fotoActions}>
-                <TouchableOpacity style={styles.fotoBtn} onPress={tomarFoto}>
-                  <Text style={styles.fotoBtnText}>Tomar foto</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.fotoBtn} onPress={elegirDeGaleria}>
-                  <Text style={styles.fotoBtnText}>Galería</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+          <Section styles={styles} n="05" title="Fotos">
+            <MultiFotoPicker
+              existentes={fotosExistentes}
+              onQuitarExistente={(url) => setFotosExistentes((prev) => prev.filter((u) => u !== url))}
+              nuevas={fotosNuevas}
+              onChangeNuevas={setFotosNuevas}
+              disabled={loading}
+              onPermisoCamaraDenegado={() => showDialog('Permiso denegado', 'Activa el permiso de cámara o elige fotos de la galería.', { tone: 'warning' })}
+            />
           </Section>
 
           {/* Los borradores locales son solo para reportes nuevos. */}
           {!esEdicion && (
-            <TouchableOpacity style={styles.draftLink} onPress={handleSaveDraft}>
+            <TouchableOpacity accessibilityRole="button" style={styles.draftLink} onPress={handleSaveDraft}>
               <Text style={styles.draftLinkText}>Guardar como borrador para terminar después</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={[styles.submitBtn, loading && styles.disabled]} onPress={handleSubmit} disabled={loading}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.submitBtn, loading && styles.disabled]} onPress={handleSubmit} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>{esEdicion ? 'Guardar cambios' : 'Enviar reporte'}</Text>}
           </TouchableOpacity>
           </View>
@@ -758,7 +687,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  closeIcon: { color: '#fff', fontSize: 16 },
+  closeIcon: { color: '#fff', fontSize: 20 },
   screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   progressRow: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   progressBar: { height: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
@@ -779,7 +708,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   mapCard: { borderRadius: ANDI_RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant },
   map: { height: 180 },
   mapFooter: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, padding: ANDI_SPACING.s3, backgroundColor: ANDI_COLORS.surface },
-  direccionInput: { fontSize: r.scaleFont(13), color: ANDI_COLORS.onSurface, padding: 0 },
+  direccionInput: { fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface, padding: 0 },
   coordText: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant, marginTop: 4 },
   coordPending: { fontSize: r.scaleFont(11), color: ANDI_COLORS.warning, marginTop: 4, fontWeight: '600' },
   adjustBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
@@ -788,15 +717,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   geoLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 11, textDecorationLine: 'underline' },
   siasarHint: { fontSize: 11, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
 
-  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: 14, color: ANDI_COLORS.onSurface, minHeight: 90 },
-
-  fotoCard: { borderRadius: ANDI_RADIUS.xl, overflow: 'hidden', borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, backgroundColor: ANDI_COLORS.surface },
-  fotoPreview: { width: '100%', height: 180 },
-  fotoActions: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
-  fotoActionsCard: { padding: ANDI_SPACING.s3 },
-  fotoBtn: { flex: 1, minHeight: 44, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  fotoBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
-  fotoBtnRemoveText: { color: ANDI_COLORS.error, fontWeight: '600', fontSize: 12 },
+  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: 16, color: ANDI_COLORS.onSurface, minHeight: 90 },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
   draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },

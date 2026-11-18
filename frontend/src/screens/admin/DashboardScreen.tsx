@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator,
-  TextInput, TouchableOpacity, FlatList,
+  TextInput, TouchableOpacity, FlatList, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -11,7 +11,10 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, siasarAPI, usuariosAPI, entidadesAPI, auditoriaAPI } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
-import type { EstadisticasResponse, ResumenMunicipio } from '../../types/domain';
+import AndiErrorState from '../../components/andi/AndiErrorState';
+import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
+import type { EstadisticasResponse, ResumenMunicipio, Reporte } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
@@ -48,11 +51,6 @@ function formatFecha(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
-function initials(nombre: string) {
-  const parts = nombre.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-}
-
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Buenos días,';
@@ -78,26 +76,49 @@ export default function DashboardScreen() {
   });
   const [busquedaMunicipio, setBusquedaMunicipio] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { loadStats(); }, []);
+  // Tocar un municipio de la tabla SIASAR muestra sus reportes ciudadanos
+  // -- antes la fila no hacía nada, solo mostraba la calificación oficial
+  // sin ninguna forma de ver qué hay reportado ahí.
+  const [municipioAbierto, setMunicipioAbierto] = useState<string | null>(null);
+  const [reportesMunicipio, setReportesMunicipio] = useState<Reporte[]>([]);
+  const [cargandoReportesMunicipio, setCargandoReportesMunicipio] = useState(false);
 
-  const loadStats = async (silent = false) => {
-    if (!silent) setLoading(true);
+  const abrirMunicipio = async (municipio: string) => {
+    setMunicipioAbierto(municipio);
+    setCargandoReportesMunicipio(true);
+    try {
+      const res = await reportesAPI.listar({ municipio_siasar: municipio });
+      setReportesMunicipio(res.data || []);
+    } catch (_) {
+      setReportesMunicipio([]);
+    } finally {
+      setCargandoReportesMunicipio(false);
+    }
+  };
+
+  const loadStats = async () => {
     // Cada estadística viene de un endpoint independiente -- allSettled para
     // que una falla no vacíe las demás (ver fix previo en este mismo
     // screen: SIASAR caído no debe ocultar el conteo de reportes).
-    const [statsR, siasarR, usuariosR, entidadesR, pendientesR, repActR, authActR, usrActR] =
-      await Promise.allSettled([
-        reportesAPI.estadisticas(),
-        siasarAPI.resumenMunicipios(),
-        usuariosAPI.listar(),
-        entidadesAPI.listar(),
-        usuariosAPI.pendientes(),
-        auditoriaAPI.listar({ modulo: 'REPORTES', limite: 1 }),
-        auditoriaAPI.listar({ modulo: 'AUTH', limite: 1 }),
-        auditoriaAPI.listar({ modulo: 'USUARIOS', limite: 1 }),
-      ]);
+    const results = await Promise.allSettled([
+      reportesAPI.estadisticas(),
+      siasarAPI.resumenMunicipios(),
+      usuariosAPI.listar(),
+      entidadesAPI.listar(),
+      usuariosAPI.pendientes(),
+      auditoriaAPI.listar({ modulo: 'REPORTES', limite: 1 }),
+      auditoriaAPI.listar({ modulo: 'AUTH', limite: 1 }),
+      auditoriaAPI.listar({ modulo: 'USUARIOS', limite: 1 }),
+    ]);
+    const [statsR, siasarR, usuariosR, entidadesR, pendientesR, repActR, authActR, usrActR] = results;
+
+    // Solo se trata como error de pantalla completa si TODO falló (caída
+    // total de red/backend) -- una falla puntual (p.ej. solo SIASAR) sigue
+    // el criterio de arriba: se degrada esa tarjeta, no toda la pantalla.
+    setError(results.every(res => res.status === 'rejected'));
 
     setStats(statsR.status === 'fulfilled' ? statsR.value.data : null);
     setResumenSiasar(siasarR.status === 'fulfilled' ? (siasarR.value.data || []) : []);
@@ -114,11 +135,31 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
+  // loadStats también es el handler del RefreshControl de abajo -- no se
+  // puede inlinear como IIFE en este efecto sin duplicar toda esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadStats(); }, []);
+
   if (loading) {
     return (
       <View style={styles.loadingWrap}>
         <ActivityIndicator size="large" color={andiColors.primary600} />
         <Text style={styles.loadingText}>Cargando estadísticas…</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.loadingWrap}>
+        <AndiErrorState
+          icon="wifi-off"
+          title="No se pudo cargar"
+          body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+          code="Error de red"
+          ctaLabel="Reintentar"
+          onPressCta={() => loadStats()}
+        />
       </View>
     );
   }
@@ -141,14 +182,10 @@ export default function DashboardScreen() {
             <Text style={styles.greeting}>{greeting()}</Text>
             <Text style={styles.adminName}>{user?.nombre_completo ?? 'Administrador'}</Text>
           </View>
-          <TouchableOpacity
+          <ProfileAvatarButton
+            name={user?.nombre_completo ?? '?'}
             onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials(user?.nombre_completo ?? 'A')}</Text>
-            </View>
-          </TouchableOpacity>
+          />
         </View>
         <Text style={styles.headerTitle}>Panel de administración</Text>
       </LinearGradient>
@@ -156,24 +193,24 @@ export default function DashboardScreen() {
       <ScrollView
         contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(true); }} colors={[andiColors.primary600]} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadStats(); }} colors={[andiColors.primary600]} />
         }
       >
         <View style={{ width: '100%', maxWidth: r.maxContentWidth(900) }}>
-        {/* KPI tiles */}
+        {/* KPI tiles -- cada una navega a su propia pantalla de administración */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.kpiRow}>
-          <View style={styles.kpiTile}>
+          <TouchableOpacity accessibilityRole="button" style={styles.kpiTile} onPress={() => navigation.navigate('Reportes')} activeOpacity={0.8}>
             <Text style={styles.kpiNum}>{totalReportes}</Text>
             <Text style={styles.kpiLabel}>Reportes</Text>
-          </View>
-          <View style={styles.kpiTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.kpiTile} onPress={() => navigation.navigate('Usuarios')} activeOpacity={0.8}>
             <Text style={styles.kpiNum}>{usuariosCount ?? '—'}</Text>
             <Text style={styles.kpiLabel}>Usuarios</Text>
-          </View>
-          <View style={styles.kpiTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.kpiTile} onPress={() => navigation.navigate('Entidades')} activeOpacity={0.8}>
             <Text style={styles.kpiNum}>{entidadesCount ?? '—'}</Text>
             <Text style={styles.kpiLabel}>{entidadesCount === 1 ? 'Entidad' : 'Entidades'}</Text>
-          </View>
+          </TouchableOpacity>
         </ScrollView>
 
         {/* Alerta de cuentas pendientes -- solo si hay alguna */}
@@ -184,7 +221,7 @@ export default function DashboardScreen() {
             </View>
             <Text style={styles.alertTitle}>Cuentas pendientes de activación</Text>
             <Text style={styles.alertDesc}>Revisa y activa las cuentas que están esperando aprobación.</Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.alertBtn}
               onPress={() => navigation.navigate('Usuarios', { filter: 'PENDIENTE' })}
               activeOpacity={0.8}
@@ -214,29 +251,34 @@ export default function DashboardScreen() {
           })}
         </View>
 
-        {/* Actividad por módulo */}
+        {/* Actividad por módulo -- cada tile abre el registro completo de Auditoría */}
         <Text style={styles.sectionTitle}>Actividad por módulo</Text>
         <View style={styles.statTileRow}>
-          <View style={styles.statTile}>
+          <TouchableOpacity accessibilityRole="button" style={styles.statTile} onPress={() => navigation.navigate('Auditoría')} activeOpacity={0.8}>
             <Feather name="file-text" size={20} color={andiColors.primary600} />
             <Text style={styles.statTileNum}>{actividad.REPORTES ?? '—'} REPORTES</Text>
-          </View>
-          <View style={styles.statTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.statTile} onPress={() => navigation.navigate('Auditoría')} activeOpacity={0.8}>
             <Feather name="log-in" size={20} color={andiColors.primary600} />
             <Text style={styles.statTileNum}>{actividad.AUTH ?? '—'} AUTH</Text>
-          </View>
-          <View style={styles.statTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.statTile} onPress={() => navigation.navigate('Auditoría')} activeOpacity={0.8}>
             <Feather name="users" size={20} color={andiColors.primary600} />
             <Text style={styles.statTileNum}>{actividad.USUARIOS ?? '—'} USUARIOS</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* SIASAR vs reportes ciudadanos */}
+        {/* SIASAR vs reportes ciudadanos -- tabla de solo lectura: el buscador
+            filtra las filas por municipio; tocar una muestra sus reportes
+            ciudadanos (ver abrirMunicipio() más abajo). */}
         <Text style={styles.sectionTitle}>SIASAR vs. reportes ciudadanos</Text>
+        <Text style={styles.sectionHint}>
+          Compara la calificación oficial SIASAR de cada municipio con sus reportes ciudadanos. Toca un municipio para ver sus reportes.
+        </Text>
         <View style={styles.searchWrap}>
           <Feather name="search" size={16} color={andiColors.onSurfaceVariant} />
           <TextInput
-            style={[styles.searchInput, { fontSize: r.scaleFont(13) }]}
+            style={[styles.searchInput, { fontSize: r.scaleFont(16) }]}
             placeholder="Buscar municipio…"
             placeholderTextColor={andiColors.onSurfaceVariant}
             value={busquedaMunicipio}
@@ -251,14 +293,15 @@ export default function DashboardScreen() {
           renderItem={({ item }) => {
             const sev = severidadMunicipio(item);
             return (
-              <View style={styles.siasarRow}>
+              <TouchableOpacity accessibilityRole="button" style={styles.siasarRow} activeOpacity={0.7} onPress={() => abrirMunicipio(item.municipio)}>
                 <Text style={styles.siasarMunicipio} numberOfLines={1}>{item.municipio}</Text>
                 <View style={[styles.severidadChip, { backgroundColor: andiSeverityColor[sev] + '22' }]}>
                   <View style={[styles.severidadDot, { backgroundColor: andiSeverityColor[sev] }]} />
                   <Text style={[styles.severidadChipText, { color: andiSeverityColor[sev] }]}>{SEVERIDAD_LABEL[sev]}</Text>
                 </View>
                 <Text style={styles.siasarFecha}>{formatFecha(item.fecha_encuesta_max)}</Text>
-              </View>
+                <Feather name="chevron-right" size={16} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
             );
           }}
           ListEmptyComponent={
@@ -270,6 +313,45 @@ export default function DashboardScreen() {
         />
         </View>
       </ScrollView>
+
+      <Modal visible={!!municipioAbierto} transparent animationType="slide" onRequestClose={() => setMunicipioAbierto(null)}>
+        <View style={styles.municipioModalOverlay}>
+          <View style={styles.municipioModalCard}>
+            <View style={styles.municipioModalHeader}>
+              <Text style={styles.municipioModalTitle}>Reportes en {municipioAbierto}</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => setMunicipioAbierto(null)}>
+                <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            {cargandoReportesMunicipio ? (
+              <ActivityIndicator size="small" color={andiColors.primary600} style={{ marginVertical: andiSpace[5] }} />
+            ) : (
+              <FlatList
+                data={reportesMunicipio}
+                keyExtractor={rep => String(rep.id_reporte)}
+                style={{ maxHeight: 420 }}
+                ListEmptyComponent={<Text style={styles.municipioModalEmpty}>Sin reportes ciudadanos en este municipio todavía.</Text>}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    style={styles.municipioModalRow}
+                    onPress={() => {
+                      setMunicipioAbierto(null);
+                      navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('DetalleReporte', { reporte: item });
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.municipioModalRowTitle} numberOfLines={1}>{item.descripcion || 'Sin descripción'}</Text>
+                      <Text style={styles.municipioModalRowMeta} numberOfLines={1}>{item.direccion || '—'}</Text>
+                    </View>
+                    <AndiStatusBadge status={item.estado} />
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -283,11 +365,6 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   headerTopRow: { flexDirection: 'row', alignItems: 'center' },
   greeting: { ...andiType.bodySm, color: andiColors.primary200, minHeight: 16 },
   adminName: { ...andiType.card, color: andiColors.surface, minHeight: 22 },
-  avatar: {
-    width: 44, height: 44, borderRadius: andiRadius.full,
-    backgroundColor: andiColors.primary400, justifyContent: 'center', alignItems: 'center',
-  },
-  avatarText: { ...andiType.label, color: andiColors.surface },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface, marginTop: andiSpace[3] },
 
   scroll: { padding: andiSpace[4], paddingBottom: andiSpace[10] },
@@ -319,6 +396,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
     ...andiType.labelMd, textTransform: 'uppercase', letterSpacing: 0.8,
     color: andiColors.onSurfaceVariant, marginTop: andiSpace[6], marginBottom: andiSpace[2],
   },
+  sectionHint: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginBottom: andiSpace[3] },
 
   estadoList: { gap: andiSpace[3] },
   estadoRow: {},
@@ -340,7 +418,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
     backgroundColor: andiColors.surface, paddingHorizontal: andiSpace[3], minHeight: 40,
   },
-  searchInput: { flex: 1, minHeight: 40, fontSize: 13, color: andiColors.onSurface },
+  searchInput: { flex: 1, minHeight: 40, fontSize: 16, color: andiColors.onSurface },
 
   siasarRow: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: andiColors.surface,
@@ -354,4 +432,19 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
 
   emptyState: { alignItems: 'center', paddingVertical: andiSpace[8] },
   emptyStateText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3] },
+
+  municipioModalOverlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end' },
+  municipioModalCard: {
+    backgroundColor: andiColors.surface, borderTopLeftRadius: andiRadius.xl, borderTopRightRadius: andiRadius.xl,
+    paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[8], maxHeight: '80%',
+  },
+  municipioModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: andiSpace[3] },
+  municipioModalTitle: { ...andiType.headingMd, color: andiColors.onSurface, flex: 1 },
+  municipioModalEmpty: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, paddingVertical: andiSpace[5], textAlign: 'center' },
+  municipioModalRow: {
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[3],
+    paddingVertical: andiSpace[3], borderBottomWidth: 1, borderBottomColor: andiColors.outlineVariant,
+  },
+  municipioModalRowTitle: { ...andiType.labelMd, color: andiColors.onSurface },
+  municipioModalRowMeta: { ...andiType.caption, color: andiColors.onSurfaceVariant, marginTop: 2 },
 });

@@ -36,7 +36,7 @@ export default function AndiErrorState({
       <View style={styles.codeChip}>
         <Text style={styles.codeText}>{code}</Text>
       </View>
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         onPress={onPressCta}
         style={[styles.cta, ctaVariant === 'solid' ? styles.ctaSolid : styles.ctaOutline]}
       >

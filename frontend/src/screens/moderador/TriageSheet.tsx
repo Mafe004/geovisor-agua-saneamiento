@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, Modal, KeyboardAvoidingView, Platform, ScrollView, Alert,
+  ActivityIndicator, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import { reportesAPI } from '../../api/services';
+import { useToast } from '../../components/andi/Toast';
+import { useSwipeDismiss } from '../../utils/useSwipeDismiss';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiElevation } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem, EntidadDetalle } from '../../types/domain';
@@ -29,14 +31,21 @@ export default function TriageSheet({
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const [idEntidad, setIdEntidad] = useState<number | null>(null);
   const [changingEntidad, setChangingEntidad] = useState(false);
   const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
   const [comentario, setComentario] = useState('');
   const [saving, setSaving] = useState(false);
+  const { translateY, handlePanHandlers } = useSwipeDismiss(onClose, visible);
 
+  // Resetea el formulario al abrir la hoja para un reporte nuevo -- el
+  // Modal se queda montado entre aperturas (no remonta por `key`), así que
+  // esto reemplaza eso. Reset síncrono a propósito: el formulario debe
+  // verse limpio apenas se abre, no un frame después.
   useEffect(() => {
     if (visible && reporte) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIdEntidad(reporte.id_entidad ?? reporte.id_entidad_sugerida ?? null);
       setChangingEntidad(false);
       setIdEstadoNuevo(null);
@@ -59,7 +68,7 @@ export default function TriageSheet({
     const estadoCambio = !!estadoSeleccionado && estadoSeleccionado.nombre !== reporte.estado;
 
     if (!entidadCambio && !estadoCambio) {
-      Alert.alert('Sin cambios', 'Selecciona una entidad o un estado diferente al actual.');
+      toast.warning('Sin cambios', 'Selecciona una entidad o un estado diferente al actual.');
       return;
     }
 
@@ -83,7 +92,7 @@ export default function TriageSheet({
       onClose();
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo guardar el triage.');
+      toast.error('Error', msg || 'No se pudo guardar el triage.');
     } finally {
       setSaving(false);
     }
@@ -93,15 +102,24 @@ export default function TriageSheet({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
-          <View style={[styles.card, andiElevation[4]]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+          <Animated.View style={[styles.card, andiElevation[4], { transform: [{ translateY }] }]}>
+            {/* Toda esta zona (no solo la barrita) responde al arrastre --
+                una franja de 4px es casi imposible de agarrar a propósito;
+                el título/X quedan afuera del ScrollView para que el gesto
+                de cerrar no compita con el scroll interno del formulario. */}
+            <View {...handlePanHandlers} style={styles.handleArea}>
               <View style={styles.handle} />
-
-              <View style={styles.titleBlock}>
-                <Text style={andiType.section}>Triar reporte</Text>
-                <Text style={[andiType.caption, styles.caption]}>Queda registrado en el historial con tu nombre.</Text>
+              <View style={[styles.titleBlock, styles.titleBlockRow]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={andiType.section}>Triar reporte</Text>
+                  <Text style={[andiType.caption, styles.caption]}>Queda registrado en el historial con tu nombre.</Text>
+                </View>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={onClose} style={styles.closeBtn}>
+                  <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+                </TouchableOpacity>
               </View>
-
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.section}>
                 <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Entidad</Text>
                 <View style={styles.entidadCard}>
@@ -118,7 +136,7 @@ export default function TriageSheet({
                         : 'Asignación manual'}
                     </Text>
                   </View>
-                  <TouchableOpacity style={styles.changeBtn} onPress={() => setChangingEntidad(v => !v)}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.changeBtn} onPress={() => setChangingEntidad(v => !v)}>
                     <Text style={styles.changeBtnText}>Cambiar</Text>
                   </TouchableOpacity>
                 </View>
@@ -126,7 +144,7 @@ export default function TriageSheet({
                 {changingEntidad && (
                   <View style={styles.entidadGrid}>
                     {entidades.map(ent => (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={ent.id_entidad}
                         style={[styles.entidadChip, idEntidad === ent.id_entidad && styles.entidadChipActive]}
                         onPress={() => { setIdEntidad(ent.id_entidad); setChangingEntidad(false); }}
@@ -148,7 +166,7 @@ export default function TriageSheet({
                     const isSelected = idEstadoNuevo === e.id_estado;
                     const cfg = andiStatusPill[e.nombre] ?? andiStatusPill.PENDIENTE!;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={e.id_estado}
                         disabled={isCurrent}
                         onPress={() => setIdEstadoNuevo(e.id_estado)}
@@ -188,10 +206,10 @@ export default function TriageSheet({
               </View>
 
               <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
+                <TouchableOpacity accessibilityRole="button" style={styles.cancelBtn} onPress={onClose}>
                   <Text style={styles.cancelBtnText}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[styles.saveBtn, andiElevation[2], saving && styles.saveBtnDisabled]}
                   onPress={handleGuardar}
                   disabled={saving}
@@ -202,7 +220,7 @@ export default function TriageSheet({
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -218,8 +236,14 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[3], paddingBottom: andiSpace[6],
     width: '100%', maxHeight: '88%',
   },
-  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center', marginBottom: andiSpace[4] },
+  // Área de agarre más alta que la barrita visual (handle) -- el gesto de
+  // deslizar hacia abajo debe poder iniciarse en todo este margen, no solo
+  // en los 4px exactos de la barrita.
+  handleArea: { paddingTop: andiSpace[2], paddingBottom: andiSpace[4] },
+  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center' },
   titleBlock: { marginBottom: andiSpace[4] },
+  titleBlockRow: { flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2] },
+  closeBtn: { padding: andiSpace[1] },
   caption: { color: andiColors.onSurfaceVariant, marginTop: 2 },
 
   section: { marginBottom: andiSpace[4] },
@@ -266,7 +290,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   comentarioInput: {
     backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outlineVariant,
     borderRadius: andiRadius.lg, padding: andiSpace[3], minHeight: 64,
-    fontSize: r.scaleFont(14), lineHeight: 20, color: andiColors.onSurface,
+    fontSize: r.scaleFont(16), lineHeight: 22, color: andiColors.onSurface,
   },
 
   actionRow: { flexDirection: 'row', gap: andiSpace[2] },

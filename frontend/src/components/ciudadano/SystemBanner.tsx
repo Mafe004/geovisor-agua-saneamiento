@@ -34,7 +34,7 @@ export default function SystemBanner({ tone = 'info', icon, title, message, acti
         <Text style={[styles.title, { color: t.fg }]}>{title}</Text>
         {!!message && <Text style={[styles.message, { color: t.fg }]}>{message}</Text>}
         {!!actionLabel && (
-          <TouchableOpacity style={[styles.actionBtn, { borderColor: t.border }]} onPress={onAction} activeOpacity={0.8}>
+          <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, { borderColor: t.border }]} onPress={onAction} activeOpacity={0.8}>
             <Text style={[styles.actionText, { color: t.fg }]}>{actionLabel}</Text>
           </TouchableOpacity>
         )}

@@ -15,6 +15,11 @@ class UserPublic(BaseModel):
     id_entidad: int | None
     nombre_completo: str
     correo: str
+    # Solo tiene sentido cuando id_rol=ENTIDAD (migración 0007): el titular
+    # ve/gestiona todo el pool de reportes de su entidad y puede agregar
+    # trabajadores; un trabajador normal solo ve lo que se le asignó a él.
+    # False para cualquier otro rol.
+    es_titular_entidad: bool
 
 
 class LoginResponse(BaseModel):

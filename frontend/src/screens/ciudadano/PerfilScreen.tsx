@@ -12,6 +12,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { usuariosAPI, reportesAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
+import { useToast } from '../../components/andi/Toast';
 import AndiDialog, { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import { getDrafts, type ReporteDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
@@ -36,6 +37,7 @@ type Props = {
 export default function PerfilScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { user: userReal, logout, updateUser } = useContext(AuthContext);
   const user = userReal as UserLegacy | null;
 
@@ -151,6 +153,7 @@ export default function PerfilScreen({ navigation }: Props) {
   const confirmLogout = async () => {
     setLogoutModal(false);
     await logout();
+    toast.success('Sesión cerrada', 'Vuelve cuando quieras.');
   };
 
   return (
@@ -206,10 +209,10 @@ export default function PerfilScreen({ navigation }: Props) {
                 <Text style={styles.fieldLabel}>Ciudad (opcional)</Text>
                 <TextInput style={styles.input} value={ciudad || ''} onChangeText={setCiudad} placeholder="Ej: Zipaquirá" placeholderTextColor={ANDI_COLORS.n400} />
                 <View style={styles.editActions}>
-                  <TouchableOpacity style={styles.editCancelBtn} onPress={handleCancelEdit}>
+                  <TouchableOpacity accessibilityRole="button" style={styles.editCancelBtn} onPress={handleCancelEdit}>
                     <Text style={styles.editCancelText}>Cancelar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
+                  <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
                     {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
                   </TouchableOpacity>
                 </View>
@@ -224,18 +227,18 @@ export default function PerfilScreen({ navigation }: Props) {
 
             {drafts.length > 0 && (
               <View style={styles.pendingCard}>
-                <View style={styles.pendingIcon}><Text style={{ fontSize: 16, color: ANDI_COLORS.onSurfaceVariant }}>✎</Text></View>
+                <View style={styles.pendingIcon}><Text style={{ fontSize: 20, color: ANDI_COLORS.onSurfaceVariant }}>✎</Text></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pendingTitle}>Borradores sin enviar</Text>
                   <Text style={styles.pendingMeta}>{drafts.length} borrador{drafts.length === 1 ? '' : 'es'} guardado{drafts.length === 1 ? '' : 's'}</Text>
                 </View>
-                <TouchableOpacity style={styles.pendingBtn} onPress={() => navigation.navigate('Reportes')}>
+                <TouchableOpacity accessibilityRole="button" style={styles.pendingBtn} onPress={() => navigation.navigate('Reportes')}>
                   <Text style={styles.pendingBtnText}>Ver</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+            <TouchableOpacity accessibilityRole="button" style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
               <Text style={styles.logoutText}>Cerrar sesión</Text>
             </TouchableOpacity>
 
@@ -251,7 +254,7 @@ export default function PerfilScreen({ navigation }: Props) {
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Cambiar contraseña</Text>
-                <TouchableOpacity onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
                   <Text style={styles.modalClose}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -259,13 +262,13 @@ export default function PerfilScreen({ navigation }: Props) {
               <Text style={styles.fieldLabel}>Contraseña actual</Text>
               <View style={styles.passWrap}>
                 <TextInput style={styles.passInput} value={passActual} onChangeText={setPassActual} secureTextEntry={!showActual} placeholder="••••••••" placeholderTextColor={ANDI_COLORS.n400} autoCapitalize="none" />
-                <TouchableOpacity onPress={() => setShowActual((p) => !p)} style={styles.eyeBtn}><Text>{showActual ? '🙈' : '👁️'}</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" onPress={() => setShowActual((p) => !p)} style={styles.eyeBtn}><Text>{showActual ? '🙈' : '👁️'}</Text></TouchableOpacity>
               </View>
 
               <Text style={styles.fieldLabel}>Nueva contraseña</Text>
               <View style={styles.passWrap}>
                 <TextInput style={styles.passInput} value={passNueva} onChangeText={setPassNueva} secureTextEntry={!showNueva} placeholder="Mínimo 6 caracteres" placeholderTextColor={ANDI_COLORS.n400} autoCapitalize="none" />
-                <TouchableOpacity onPress={() => setShowNueva((p) => !p)} style={styles.eyeBtn}><Text>{showNueva ? '🙈' : '👁️'}</Text></TouchableOpacity>
+                <TouchableOpacity accessibilityRole="button" onPress={() => setShowNueva((p) => !p)} style={styles.eyeBtn}><Text>{showNueva ? '🙈' : '👁️'}</Text></TouchableOpacity>
               </View>
 
               <Text style={styles.fieldLabel}>Confirmar nueva contraseña</Text>
@@ -280,7 +283,7 @@ export default function PerfilScreen({ navigation }: Props) {
               />
               {!!passConfirm && passNueva !== passConfirm && <Text style={styles.errorText}>Las contraseñas no coinciden</Text>}
 
-              <TouchableOpacity style={[styles.saveBtn, { marginTop: ANDI_SPACING.s5 }, savingPass && styles.disabled]} onPress={handleChangePass} disabled={savingPass}>
+              <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, { marginTop: ANDI_SPACING.s5 }, savingPass && styles.disabled]} onPress={handleChangePass} disabled={savingPass}>
                 {savingPass ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Cambiar contraseña</Text>}
               </TouchableOpacity>
             </View>
@@ -318,7 +321,7 @@ function StatBlock({ value, label, styles }: { value: number; label: string; sty
 
 function MenuRow({ icon, label, value, onPress, last, styles }: { icon: string; label: string; value?: string; onPress: () => void; last?: boolean; styles: PerfilStyles }) {
   return (
-    <TouchableOpacity style={[styles.menuRow, !last && styles.menuRowBorder]} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity accessibilityRole="button" style={[styles.menuRow, !last && styles.menuRowBorder]} onPress={onPress} activeOpacity={0.7}>
       <Text style={styles.menuIcon}>{icon}</Text>
       <Text style={styles.menuLabel}>{label}</Text>
       {!!value && <Text style={styles.menuValue}>{value}</Text>}
@@ -356,17 +359,17 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   rowsCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, overflow: 'hidden' },
   menuRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, paddingHorizontal: ANDI_SPACING.s4 },
   menuRowBorder: { borderBottomWidth: 1, borderBottomColor: ANDI_COLORS.outlineVariant },
-  menuIcon: { fontSize: 17, color: ANDI_COLORS.primary600, width: 20, textAlign: 'center' },
+  menuIcon: { fontSize: 20, color: ANDI_COLORS.primary600, width: 24, textAlign: 'center' },
   menuLabel: { flex: 1, ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
   menuValue: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant },
-  menuChevron: { color: ANDI_COLORS.onSurfaceVariant, fontSize: 16 },
+  menuChevron: { color: ANDI_COLORS.onSurfaceVariant, fontSize: 18 },
 
   editCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
   fieldLabel: { ...ANDI_TYPE.label, fontSize: r.scaleFont(12), color: ANDI_COLORS.onSurfaceVariant, marginBottom: 6, marginTop: ANDI_SPACING.s3 },
   input: {
     borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md,
     backgroundColor: ANDI_COLORS.surfaceMid, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12,
-    fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface,
+    fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface,
   },
   inputError: { borderColor: ANDI_COLORS.error },
   errorText: { color: ANDI_COLORS.error, fontSize: r.scaleFont(11), marginTop: 4 },
@@ -395,6 +398,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   modalTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface },
   modalClose: { fontSize: 20, color: ANDI_COLORS.onSurfaceVariant, padding: 4 },
   passWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, backgroundColor: ANDI_COLORS.surfaceMid, paddingRight: 8 },
-  passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: r.scaleFont(14), color: ANDI_COLORS.onSurface },
+  passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface },
   eyeBtn: { padding: 6 },
 });

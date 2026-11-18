@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -10,6 +11,7 @@ from app.core.deps import get_client_ip, require_active_user, require_roles
 from app.core.errors import handle_db_error
 from app.core.policies import (
     ESTADO_EDITABLE,
+    puede_asignar_trabajador,
     puede_cambiar_estado,
     puede_editar_reporte,
     puede_ver_detalle_comunitario,
@@ -20,6 +22,7 @@ from app.core.policies import (
 from app.core.roles import EstadoCuenta, Rol
 from app.db.database import get_connection, transaccion
 from app.schemas.reportes import (
+    AsignarUsuarioReporteResponse,
     CambiarEstadoResponse,
     CrearReporteResponse,
     EditarReporteResponse,
@@ -42,11 +45,29 @@ UPLOADS_DIR = Path(__file__).resolve().parents[2] / "uploads"
 IMAGENES_REPORTES_DIR = UPLOADS_DIR / "reportes"
 MAX_IMAGEN_BYTES = 5 * 1024 * 1024
 IMAGEN_URL_PATTERN = r"^/uploads/reportes/[0-9a-f]{32}\.(jpg|png|webp)$"
+# Migración 0008: varias fotos por reporte (además de la columna legada
+# imagen_url, que sigue aceptando como máximo una). 6 es suficiente para
+# documentar un incidente o una atención sin que alguien suba un álbum
+# completo -- cada una ya pesó hasta 5MB al subirla con POST /reportes/imagen.
+MAX_IMAGENES_POR_LISTA = 6
 
 
 # =========================
 # MODELOS
 # =========================
+
+
+def _validar_lista_imagenes(v: list[str] | None) -> list[str] | None:
+    """Cada ruta de la lista debe ser una ya devuelta por POST
+    /reportes/imagen -- mismo contrato que el imagen_url legado, aplicado
+    a cada elemento (Field(pattern=...) no valida item por item en una
+    lista). Compartido por los tres modelos que aceptan `imagenes`."""
+    if v is None:
+        return v
+    for url in v:
+        if not re.match(IMAGEN_URL_PATTERN, url):
+            raise ValueError(f"Ruta de imagen inválida: {url!r}")
+    return v
 
 
 class ReporteCreateRequest(BaseModel):
@@ -65,7 +86,16 @@ class ReporteCreateRequest(BaseModel):
     # /reportes/imagen -- nunca un file:// local del teléfono ni una URL
     # externa.
     imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+    # Fotos adicionales del incidente, además de imagen_url (migración
+    # 0008) -- ambas pueden venir juntas; el frontend manda la primera
+    # como imagen_url (compatibilidad) y todas en esta lista.
+    imagenes: list[str] | None = Field(None, max_length=MAX_IMAGENES_POR_LISTA)
     fuente_reporte: str = Field("CIUDADANO", max_length=50)
+
+    @field_validator("imagenes")
+    @classmethod
+    def _imagenes_validas(cls, v: list[str] | None) -> list[str] | None:
+        return _validar_lista_imagenes(v)
 
 
 class ReporteUpdateRequest(BaseModel):
@@ -100,6 +130,10 @@ class ReporteUpdateRequest(BaseModel):
     latitud: float = Field(..., ge=-90, le=90, allow_inf_nan=False)
     longitud: float = Field(..., ge=-180, le=180, allow_inf_nan=False)
     imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+    # Igual que en ReporteCreateRequest -- None (clave ausente) conserva
+    # las fotos adicionales actuales, [] las quita todas, una lista nueva
+    # las reemplaza por completo.
+    imagenes: list[str] | None = Field(None, max_length=MAX_IMAGENES_POR_LISTA)
 
     @field_validator("descripcion")
     @classmethod
@@ -108,14 +142,47 @@ class ReporteUpdateRequest(BaseModel):
             raise ValueError("La descripción no puede estar vacía")
         return v
 
+    @field_validator("imagenes")
+    @classmethod
+    def _imagenes_validas(cls, v: list[str] | None) -> list[str] | None:
+        return _validar_lista_imagenes(v)
+
 
 class CambiarEstadoRequest(BaseModel):
     id_estado_nuevo: int = Field(..., ge=1)
     comentario: str | None = Field(None, max_length=500)
+    # Evidencia de la atención (p.ej. foto del arreglo) -- mismo contrato que
+    # ReporteCreateRequest.imagen_url: solo rutas devueltas por POST
+    # /reportes/imagen, nunca un file:// local ni una URL externa. Columna
+    # distinta (historial_reportes.imagen_url, migración 0005): esta es la
+    # foto de CÓMO quedó, no la foto original del reporte.
+    imagen_url: str | None = Field(None, max_length=300, pattern=IMAGEN_URL_PATTERN)
+    # Varias fotos de evidencia para esta transición (migración 0008) --
+    # conviven con imagen_url (legado, una sola). Siempre se agregan a las
+    # que ya tenga ESTE cambio de estado, nunca reemplazan ni tocan las de
+    # otras transiciones anteriores del mismo reporte.
+    imagenes: list[str] | None = Field(None, max_length=MAX_IMAGENES_POR_LISTA)
+    # Opcional: permite que "Tomar" sea una sola llamada (cambia estado Y
+    # asigna a quien lo tomó) en vez de dos requests separadas. None =
+    # no toca el reparto actual; ver AsignarUsuarioReporteRequest para
+    # asignar/reasignar sin cambiar el estado.
+    id_usuario_asignado: int | None = Field(None, ge=1)
+
+    @field_validator("imagenes")
+    @classmethod
+    def _imagenes_validas(cls, v: list[str] | None) -> list[str] | None:
+        return _validar_lista_imagenes(v)
 
 
 class AsignarEntidadRequest(BaseModel):
     id_entidad: int = Field(..., ge=1)
+
+
+class AsignarUsuarioReporteRequest(BaseModel):
+    """Body de PUT /reportes/{id_reporte}/asignar-usuario. None desasigna
+    (vuelve al pool compartido de la entidad)."""
+
+    id_usuario_asignado: int | None = Field(..., ge=1)
 
 
 # =========================
@@ -146,6 +213,28 @@ def _get_usuario_entidad(cursor, id_usuario: int) -> int | None:
     return row.get("id_entidad")
 
 
+def _validar_usuario_asignado(cursor, id_usuario_asignado: int, id_entidad_reporte: int | None) -> None:
+    """
+    El trabajador a asignar debe ser ENTIDAD y pertenecer a la MISMA entidad
+    que el reporte -- nunca se valida solo contra el id_entidad del que hace
+    la petición, porque un ADMIN puede asignar reportes de cualquier
+    entidad. Se valida siempre en el servidor aunque el picker del cliente
+    ya solo ofrezca compañeros de la misma entidad.
+    """
+    cursor.execute(
+        "SELECT id_rol, id_entidad FROM usuarios WHERE id_usuario = %s;",
+        (id_usuario_asignado,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="El usuario a asignar no existe")
+    if row["id_rol"] != Rol.ENTIDAD or row["id_entidad"] != id_entidad_reporte:
+        raise HTTPException(
+            status_code=400,
+            detail="Solo puedes asignar el reporte a un trabajador de la misma entidad",
+        )
+
+
 def _select_reporte_detalle_sql() -> str:
     return """
     SELECT
@@ -174,7 +263,9 @@ def _select_reporte_detalle_sql() -> str:
       sc.municipio      AS vereda_municipio,
       sc.calificacion   AS vereda_calificacion,
       sc.fecha_encuesta AS vereda_fecha_encuesta,
-      r.distancia_siasar_m AS vereda_distancia_m
+      r.distancia_siasar_m AS vereda_distancia_m,
+      r.id_usuario_asignado,
+      ua.nombre_completo AS usuario_asignado
     FROM reportes r
     JOIN usuarios      u  ON r.id_usuario        = u.id_usuario
     JOIN estado_reporte er ON r.id_estado         = er.id_estado
@@ -183,6 +274,7 @@ def _select_reporte_detalle_sql() -> str:
     LEFT JOIN tipo_incidente_entidad tie ON r.id_tipo_incidente = tie.id_tipo_incidente
     LEFT JOIN entidades esug ON tie.id_entidad = esug.id_entidad
     LEFT JOIN siasar_comunidad sc ON r.id_siasar_comunidad = sc.id_siasar
+    LEFT JOIN usuarios ua ON r.id_usuario_asignado = ua.id_usuario
     """
 
 
@@ -215,10 +307,13 @@ def _anidar_vereda_siasar(row: dict[str, Any]) -> dict[str, Any]:
 def _reporte_a_comunidad(row: dict[str, Any]) -> dict[str, Any]:
     """
     Reduce una fila de _select_reporte_detalle_sql() (ya anidada por
-    _anidar_vereda_siasar) a la vista comunitaria: sin id_usuario ni usuario
-    (nombre del creador) -- ver puede_ver_detalle_comunitario().
+    _anidar_vereda_siasar) a la vista comunitaria: sin id_usuario/usuario
+    (nombre del creador) ni id_usuario_asignado/usuario_asignado (reparto
+    interno de la entidad, no es información para el ciudadano) -- ver
+    puede_ver_detalle_comunitario().
     """
-    return {k: v for k, v in row.items() if k not in ("id_usuario", "usuario")}
+    ocultos = ("id_usuario", "usuario", "id_usuario_asignado", "usuario_asignado")
+    return {k: v for k, v in row.items() if k not in ocultos}
 
 
 def _extension_imagen(data: bytes) -> str | None:
@@ -242,19 +337,95 @@ def _insertar_historial(
     estado_nuevo: str,
     id_usuario_accion: int,
     comentario: str | None = None,
-):
+    imagen_url: str | None = None,
+) -> int:
     """
     Inserta un registro en historial_reportes.
     Se llama tanto al CREAR un reporte como al CAMBIAR su estado.
+    `imagen_url` es la evidencia de la atención (p.ej. foto del arreglo),
+    distinta de reportes.imagen_url (la foto del reporte original) -- ver
+    migrations/0005_historial_evidencia.sql.
+
+    Devuelve el id_historial insertado -- lo usa cambiar_estado() para
+    colgar de ahí las fotos EVIDENCIA adicionales (migración 0008).
     """
     cursor.execute(
         """
         INSERT INTO historial_reportes
-            (id_reporte, estado_anterior, estado_nuevo, comentario, id_usuario_accion, fecha_cambio)
-        VALUES (%s, %s, %s, %s, %s, NOW());
+            (id_reporte, estado_anterior, estado_nuevo, comentario, imagen_url, id_usuario_accion, fecha_cambio)
+        VALUES (%s, %s, %s, %s, %s, %s, NOW());
     """,
-        (id_reporte, estado_anterior, estado_nuevo, comentario, id_usuario_accion),
+        (id_reporte, estado_anterior, estado_nuevo, comentario, imagen_url, id_usuario_accion),
     )
+    return cursor.lastrowid
+
+
+def _cargar_imagenes(
+    cursor, id_reporte: int, tipo: str, id_historial: int | None = None
+) -> list[dict[str, Any]]:
+    """
+    Trae las filas de reporte_imagenes (migración 0008) para un reporte.
+    tipo='INCIDENTE' siempre cuelga de id_reporte solo; tipo='EVIDENCIA'
+    además filtra por id_historial (sin eso, mezclaría evidencia de todos
+    los cambios de estado del reporte en una sola lista).
+    """
+    if tipo == "EVIDENCIA":
+        cursor.execute(
+            """
+            SELECT id_imagen, imagen_url, creado_en FROM reporte_imagenes
+            WHERE id_reporte = %s AND tipo = %s AND id_historial = %s
+            ORDER BY id_imagen;
+            """,
+            (id_reporte, tipo, id_historial),
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT id_imagen, imagen_url, creado_en FROM reporte_imagenes
+            WHERE id_reporte = %s AND tipo = %s
+            ORDER BY id_imagen;
+            """,
+            (id_reporte, tipo),
+        )
+    return cursor.fetchall()
+
+
+def _insertar_imagenes(
+    cursor,
+    id_reporte: int,
+    tipo: str,
+    urls: list[str] | None,
+    id_historial: int | None = None,
+) -> None:
+    """
+    Agrega a reporte_imagenes una fila por cada URL en `urls` (ya validadas
+    por _validar_lista_imagenes en el esquema del request). No-op si `urls`
+    es None o vacío -- nunca borra nada, solo suma.
+    """
+    if not urls:
+        return
+    cursor.executemany(
+        """
+        INSERT INTO reporte_imagenes (id_reporte, id_historial, tipo, imagen_url)
+        VALUES (%s, %s, %s, %s);
+        """,
+        [(id_reporte, id_historial, tipo, url) for url in urls],
+    )
+
+
+def _reemplazar_imagenes(cursor, id_reporte: int, tipo: str, urls: list[str] | None) -> None:
+    """
+    Reemplaza por completo las imágenes tipo='INCIDENTE' de un reporte (sin
+    id_historial, que para ese tipo siempre es NULL) -- usado por
+    editar_reporte, donde `imagenes` en el body ya significa "la lista
+    completa nueva", igual que `imagen_url`. `urls=None` es manejado por el
+    caller (clave ausente del body = no tocar nada, no llamar a esto).
+    """
+    cursor.execute(
+        "DELETE FROM reporte_imagenes WHERE id_reporte = %s AND tipo = %s AND id_historial IS NULL;",
+        (id_reporte, tipo),
+    )
+    _insertar_imagenes(cursor, id_reporte, tipo, urls)
 
 
 def _insertar_notificacion(cursor, id_usuario: int, id_reporte: int, tipo: str, mensaje: str):
@@ -519,6 +690,8 @@ def obtener_reporte(
         with conn.cursor() as cursor:
             cursor.execute(sql, (id_reporte,))
             row = cursor.fetchone()
+            if row:
+                row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
 
         if not row:
             raise HTTPException(status_code=404, detail="Reporte no encontrado")
@@ -595,6 +768,12 @@ def crear_reporte(
         raise HTTPException(status_code=403, detail="Tu cuenta no está ACTIVA")
     if user.get("id_rol") not in (Rol.CIUDADANO, Rol.ENTIDAD):
         raise HTTPException(status_code=403, detail="No tienes permisos para crear reportes")
+    # El titular reparte trabajo entre su equipo, no reporta él mismo (ver
+    # migración 0007) -- crear un reporte es para un trabajador normal.
+    if user.get("id_rol") == Rol.ENTIDAD and user.get("es_titular_entidad"):
+        raise HTTPException(
+            status_code=403, detail="El titular de la entidad no crea reportes, solo los reparte"
+        )
 
     id_usuario_token = user["id_usuario"]
 
@@ -644,6 +823,10 @@ def crear_reporte(
             )
             new_id = cursor.lastrowid
 
+            # Fotos adicionales del incidente (migración 0008), además de
+            # la que ya quedó en reportes.imagen_url.
+            _insertar_imagenes(cursor, new_id, "INCIDENTE", payload.imagenes)
+
             # Vínculo SIASAR: el cliente nunca envía id_siasar_comunidad/
             # distancia_siasar_m (ReporteCreateRequest no declara esos
             # campos, así que si los manda se ignoran) -- se calculan acá,
@@ -691,7 +874,9 @@ def crear_reporte(
             # Retornar el reporte recién creado con todos los datos
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (new_id,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, new_id, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "created", "reporte": row}
 
@@ -718,7 +903,7 @@ def cambiar_estado(
             # Obtener reporte actual con su estado actual
             cursor.execute(
                 """
-                SELECT r.id_reporte, r.id_entidad, r.id_usuario,
+                SELECT r.id_reporte, r.id_entidad, r.id_usuario, r.id_usuario_asignado,
                        er.nombre AS estado_actual
                 FROM reportes r
                 JOIN estado_reporte er ON r.id_estado = er.id_estado
@@ -734,6 +919,11 @@ def cambiar_estado(
                 if user["id_rol"] == Rol.ENTIDAD and not user.get("id_entidad"):
                     raise HTTPException(
                         status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
+                    )
+                if user["id_rol"] == Rol.ENTIDAD and user.get("es_titular_entidad"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="El titular de la entidad no resuelve reportes, solo los reparte",
                     )
                 if user["id_rol"] == Rol.ENTIDAD:
                     raise HTTPException(
@@ -753,20 +943,58 @@ def cambiar_estado(
                 raise HTTPException(status_code=400, detail="id_estado_nuevo no existe")
             nombre_estado_nuevo = nuevo_estado_row["nombre"]
 
-            # Actualizar estado del reporte
-            cursor.execute(
-                "UPDATE reportes SET id_estado = %s, updated_at = NOW() WHERE id_reporte = %s;",
-                (payload.id_estado_nuevo, id_reporte),
-            )
+            # Marcar RESUELTO sin ninguna foto no prueba que se hizo nada --
+            # al menos una (la principal o una de `imagenes`) es obligatoria
+            # para esta transición específica; para las demás sigue siendo
+            # opcional.
+            if nombre_estado_nuevo == "RESUELTO" and not payload.imagen_url and not payload.imagenes:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Adjunta al menos una foto de evidencia para marcar el reporte como resuelto",
+                )
+
+            if payload.id_usuario_asignado is not None:
+                # Un trabajador (ENTIDAD no titular) solo puede usar este
+                # campo para auto-asignarse ("Tomar") -- repartir hacia
+                # OTRO compañero es exclusivo de asignar_usuario_reporte,
+                # que sí exige ser titular. Sin este chequeo, cambiar_estado
+                # sería una puerta de atrás para saltarse esa restricción.
+                if (
+                    user["id_rol"] == Rol.ENTIDAD
+                    and not user.get("es_titular_entidad")
+                    and payload.id_usuario_asignado != user["id_usuario"]
+                ):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Solo puedes asignarte el reporte a ti mismo",
+                    )
+                _validar_usuario_asignado(cursor, payload.id_usuario_asignado, rep["id_entidad"])
+                cursor.execute(
+                    "UPDATE reportes SET id_estado = %s, id_usuario_asignado = %s, updated_at = NOW() "
+                    "WHERE id_reporte = %s;",
+                    (payload.id_estado_nuevo, payload.id_usuario_asignado, id_reporte),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE reportes SET id_estado = %s, updated_at = NOW() WHERE id_reporte = %s;",
+                    (payload.id_estado_nuevo, id_reporte),
+                )
 
             # ✅ REGISTRAR EN HISTORIAL: cambio de estado
-            _insertar_historial(
+            id_historial = _insertar_historial(
                 cursor,
                 id_reporte=id_reporte,
                 estado_anterior=rep["estado_actual"],
                 estado_nuevo=nombre_estado_nuevo,
                 id_usuario_accion=user["id_usuario"],
                 comentario=payload.comentario,
+                imagen_url=payload.imagen_url,
+            )
+
+            # Evidencia adicional de ESTA transición (migración 0008),
+            # además de la que ya quedó en historial_reportes.imagen_url.
+            _insertar_imagenes(
+                cursor, id_reporte, "EVIDENCIA", payload.imagenes, id_historial=id_historial
             )
 
             # ✅ NOTIFICACIÓN: avisar al dueño del reporte
@@ -789,7 +1017,9 @@ def cambiar_estado(
             # Retornar reporte actualizado
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "updated", "reporte": row}
 
@@ -852,7 +1082,88 @@ def asignar_entidad(
 
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
+
+        return {"message": "updated", "reporte": row}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
+
+
+@router.put(
+    "/{id_reporte}/asignar-usuario",
+    summary="Asignar/reasignar un reporte a un trabajador de la entidad (ENTIDAD propia / MODERADOR / ADMIN)",
+    response_model=AsignarUsuarioReporteResponse,
+    responses={
+        404: {"description": "Reporte o usuario a asignar no encontrado"},
+        403: {"description": "Sin permiso"},
+        400: {"description": "El usuario a asignar no es ENTIDAD de la misma entidad del reporte"},
+    },
+)
+def asignar_usuario_reporte(
+    id_reporte: int,
+    payload: AsignarUsuarioReporteRequest,
+    user: dict[str, Any] = Depends(require_active_user),
+    ip: str | None = Depends(get_client_ip),
+) -> dict[str, Any]:
+    """
+    Reparto interno dentro de una misma entidad -- distinto de asignar_entidad
+    (que decide A QUÉ ENTIDAD pertenece el reporte, siempre MODERADOR/ADMIN).
+    Repartir trabajo es decisión del TITULAR de la entidad (o de MODERADOR/
+    ADMIN, p.ej. para intervenir si una entidad no se está organizando) --
+    un trabajador normal nunca reparte, ni siquiera su propio reporte
+    asignado (eso sería re-asignárselo a otro sin que el titular lo decida).
+    """
+    try:
+        with transaccion() as cursor:
+            cursor.execute(
+                "SELECT id_reporte, id_entidad, id_usuario, id_usuario_asignado FROM reportes WHERE id_reporte = %s;",
+                (id_reporte,),
+            )
+            rep = cursor.fetchone()
+            if not rep:
+                raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+            if user["id_rol"] == Rol.ENTIDAD and not user.get("id_entidad"):
+                raise HTTPException(
+                    status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
+                )
+            if user["id_rol"] == Rol.ENTIDAD and not user.get("es_titular_entidad"):
+                raise HTTPException(
+                    status_code=403, detail="Solo el titular de tu entidad puede repartir reportes"
+                )
+            if not puede_asignar_trabajador(user, rep):
+                raise HTTPException(
+                    status_code=403, detail="No puedes asignar reportes de otra entidad"
+                )
+
+            if payload.id_usuario_asignado is not None:
+                _validar_usuario_asignado(cursor, payload.id_usuario_asignado, rep["id_entidad"])
+
+            cursor.execute(
+                "UPDATE reportes SET id_usuario_asignado = %s, updated_at = NOW() WHERE id_reporte = %s;",
+                (payload.id_usuario_asignado, id_reporte),
+            )
+
+            # No se toca historial_reportes: igual que asignar_entidad, esto
+            # no es una transición de estado -- el rastro es la auditoría.
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ASIGNAR_TRABAJADOR,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
+            sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
+            cursor.execute(sql, (id_reporte,))
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "updated", "reporte": row}
 
@@ -1015,6 +1326,11 @@ def editar_reporte(
                 ),
             )
 
+            # Mismo criterio que imagen_url: clave ausente del body = no
+            # tocar las fotos adicionales actuales.
+            if "imagenes" in payload.model_fields_set:
+                _reemplazar_imagenes(cursor, id_reporte, "INCIDENTE", payload.imagenes)
+
             registrar_auditoria(
                 cursor,
                 id_usuario=user["id_usuario"],
@@ -1025,7 +1341,9 @@ def editar_reporte(
 
             sql = _select_reporte_detalle_sql() + " WHERE r.id_reporte = %s;"
             cursor.execute(sql, (id_reporte,))
-            row = _anidar_vereda_siasar(cursor.fetchone())
+            row = cursor.fetchone()
+            row["imagenes"] = _cargar_imagenes(cursor, id_reporte, "INCIDENTE")
+            row = _anidar_vereda_siasar(row)
 
         return {"message": "updated", "reporte": row}
 
@@ -1081,6 +1399,54 @@ def eliminar_reporte(
                 raise HTTPException(
                     status_code=409, detail="El reporte cambió y no puede eliminarse"
                 )
+
+            registrar_auditoria(
+                cursor,
+                id_usuario=user["id_usuario"],
+                accion=Accion.ELIMINAR_REPORTE,
+                modulo=Modulo.REPORTES,
+                ip=ip,
+            )
+
+        return {"message": "deleted", "id_reporte": id_reporte}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_db_error(e)
+
+
+@router.delete(
+    "/{id_reporte}/admin",
+    summary="Eliminar cualquier reporte (solo ADMINISTRADOR)",
+    response_model=EliminarReporteResponse,
+    responses={404: {"description": "Reporte no encontrado"}},
+)
+def eliminar_reporte_admin(
+    id_reporte: int,
+    user: dict[str, Any] = Depends(require_roles(Rol.ADMIN)),
+    ip: str | None = Depends(get_client_ip),
+) -> dict[str, Any]:
+    """
+    Borrado administrativo: a diferencia de eliminar_reporte() (CIUDADANO
+    dueño, solo PENDIENTE y sin entidad), esto borra CUALQUIER reporte en
+    cualquier estado -- es una ruta separada en vez de una rama más dentro
+    de la misma función para no mezclar dos políticas de permiso muy
+    distintas (una por fila vía puede_editar_reporte, esta por rol) en un
+    mismo WHERE de la query de borrado.
+    """
+    try:
+        with transaccion() as cursor:
+            cursor.execute(
+                "SELECT id_reporte FROM reportes WHERE id_reporte = %s FOR UPDATE;",
+                (id_reporte,),
+            )
+            if not cursor.fetchone():
+                raise HTTPException(status_code=404, detail="Reporte no encontrado")
+
+            cursor.execute("DELETE FROM notificaciones WHERE id_reporte = %s;", (id_reporte,))
+            cursor.execute("DELETE FROM historial_reportes WHERE id_reporte = %s;", (id_reporte,))
+            cursor.execute("DELETE FROM reportes WHERE id_reporte = %s;", (id_reporte,))
 
             registrar_auditoria(
                 cursor,

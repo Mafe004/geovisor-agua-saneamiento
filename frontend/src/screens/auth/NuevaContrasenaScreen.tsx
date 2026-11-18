@@ -108,7 +108,7 @@ export default function NuevaContrasenaScreen({ navigation, route }: Props) {
           <Text style={styles.subtitle}>El enlace expiró o ya fue usado. Solicita uno nuevo</Text>
         </View>
         <View style={styles.card}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.btn}
             onPress={() => navigation.replace('ForgotPassword')}
             activeOpacity={0.85}
@@ -117,7 +117,7 @@ export default function NuevaContrasenaScreen({ navigation, route }: Props) {
               <Text style={styles.btnText}>Solicitar un nuevo enlace</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
+          <TouchableOpacity accessibilityRole="button" style={styles.linkRow} onPress={() => navigation.replace('Login')} activeOpacity={0.7}>
             <Text style={styles.linkText}>Volver a la entrada</Text>
           </TouchableOpacity>
         </View>
@@ -164,7 +164,12 @@ export default function NuevaContrasenaScreen({ navigation, route }: Props) {
                 secureTextEntry={!showNueva}
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={() => setShowNueva(p => !p)} style={styles.eyeBtn}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={showNueva ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onPress={() => setShowNueva(p => !p)}
+                style={styles.eyeBtn}
+              >
                 <Feather name={showNueva ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
@@ -181,7 +186,12 @@ export default function NuevaContrasenaScreen({ navigation, route }: Props) {
                 secureTextEntry={!showConfirmar}
                 autoCapitalize="none"
               />
-              <TouchableOpacity onPress={() => setShowConfirmar(p => !p)} style={styles.eyeBtn}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={showConfirmar ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onPress={() => setShowConfirmar(p => !p)}
+                style={styles.eyeBtn}
+              >
                 <Feather name={showConfirmar ? 'eye-off' : 'eye'} size={18} color={andiColors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
@@ -193,7 +203,7 @@ export default function NuevaContrasenaScreen({ navigation, route }: Props) {
               </View>
             )}
 
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.btn, styles.submitBtn, loading && styles.btnDisabled]}
               onPress={handleSubmit}
               disabled={loading}
@@ -249,7 +259,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     minHeight: 48,
   },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(15), color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: r.scaleFont(16), color: andiColors.onSurface },
   inputPassword: { paddingRight: andiSpace[2] },
   eyeBtn: { padding: andiSpace[1] },
   errorBanner: {

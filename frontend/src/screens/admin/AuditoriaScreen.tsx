@@ -2,10 +2,23 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { auditoriaAPI } from '../../api/services';
+import { useAuth } from '../../context/AuthContext';
+import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { LogAuditoriaItem } from '../../types/domain';
+import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
+
+// Solo `navigation` (no BottomTabScreenProps completo) -- este archivo no
+// usa `route`, y tipar `route` acá choca con el Tab.Navigator sin genérico
+// de AdminTabs (ParamListBase), porque Auditoría: undefined no calza con lo
+// que ese Tab.Navigator infiere para esa ruta. Mismo patrón ya usado por
+// TodosReportesScreen/DashboardScreen en este mismo stack de tabs.
+type Props = { navigation: BottomTabNavigationProp<AdminTabParamList, 'Auditoría'> };
 
 type ModuloFilter = 'TODOS' | 'REPORTES' | 'AUTH' | 'USUARIOS';
 const FILTERS: { key: ModuloFilter; label: string }[] = [
@@ -58,19 +71,16 @@ function formatFecha(iso: string) {
   return `${fecha} ${hora}`;
 }
 
-export default function AuditoriaScreen() {
+export default function AuditoriaScreen({ navigation }: Props) {
+  const { user } = useAuth();
   const r = useResponsive();
   const andiType = useScaledType(andiTypeBase);
   const styles = useMemo(() => makeStyles(andiType), [andiType]);
   const [logs, setLogs] = useState<LogAuditoriaItem[]>([]);
   const [filter, setFilter] = useState<ModuloFilter>('TODOS');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Un solo efecto por [filter] cubre tanto el mount inicial (primera
-  // ejecución) como cada cambio de filtro después -- evita el doble
-  // fetch que resultaría de un efecto de mount aparte más uno por filtro.
-  useEffect(() => { loadLogs(); }, [filter]);
 
   const loadLogs = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -80,25 +90,41 @@ export default function AuditoriaScreen() {
         limite: 100,
       });
       setLogs(res.data.logs || []);
+      setError(false);
     } catch (_) {
-      setLogs([]);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
+  // Un solo efecto por [filter] cubre tanto el mount inicial (primera
+  // ejecución) como cada cambio de filtro después -- evita el doble
+  // fetch que resultaría de un efecto de mount aparte más uno por filtro.
+  // loadLogs hace setLoading(true) síncrono (necesario: muestra el spinner
+  // de pantalla completa de nuevo al cambiar de filtro, no es un no-op
+  // como en otras pantallas donde loading ya arranca en true).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadLogs(); }, [filter]);
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
-        <Text style={styles.headerTitle}>Auditoría</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Auditoría</Text>
+          <ProfileAvatarButton
+            name={user?.nombre_completo ?? '?'}
+            onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('AdminPerfil')}
+          />
+        </View>
       </LinearGradient>
 
       <View style={styles.filterRow}>
         {FILTERS.map(f => {
           const active = filter === f.key;
           return (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={f.key}
               style={[styles.chip, active && styles.chipActive]}
               onPress={() => setFilter(f.key)}
@@ -114,6 +140,15 @@ export default function AuditoriaScreen() {
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={andiColors.primary600} />
         </View>
+      ) : error ? (
+        <AndiErrorState
+          icon="wifi-off"
+          title="No se pudo cargar"
+          body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+          code="Error de red"
+          ctaLabel="Reintentar"
+          onPressCta={() => loadLogs()}
+        />
       ) : (
         <FlatList
           data={logs}
@@ -160,6 +195,7 @@ export default function AuditoriaScreen() {
 const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   container: { flex: 1, backgroundColor: andiColors.surfaceMid },
   header: { paddingTop: andiSpace[10], paddingHorizontal: andiSpace[4], paddingBottom: andiSpace[4] },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { ...andiType.headingLg, color: andiColors.surface },
 
   filterRow: {

@@ -9,6 +9,7 @@ import AndiChip from '../../components/andi/AndiChip';
 import AndiReportCard from '../../components/andi/AndiReportCard';
 import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
+import AndiErrorState from '../../components/andi/AndiErrorState';
 import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
 import TriageSheet from './TriageSheet';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
@@ -42,6 +43,7 @@ export default function TriageScreen() {
   const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
   const [entidades, setEntidades] = useState<EntidadDetalle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [reporteSeleccionado, setReporteSeleccionado] = useState<Reporte | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -64,8 +66,9 @@ export default function TriageScreen() {
     try {
       const res = await reportesAPI.listar({ solo_activos: true });
       setReportes(res.data || []);
+      setError(false);
     } catch (_) {
-      setReportes([]);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -110,6 +113,7 @@ export default function TriageScreen() {
               setBusquedaVisible(v => !v);
               if (busquedaVisible) setBusqueda('');
             }}
+            accessibilityLabel={busquedaVisible ? 'Cerrar búsqueda' : 'Buscar'}
           />
         }
       />
@@ -139,6 +143,15 @@ export default function TriageScreen() {
           <View style={styles.list}>
             <AndiSkeletonList count={4} />
           </View>
+        ) : error ? (
+          <AndiErrorState
+            icon="wifi-off"
+            title="No se pudo cargar"
+            body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+            code="Error de red"
+            ctaLabel="Reintentar"
+            onPressCta={() => loadReportes()}
+          />
         ) : reportesFiltrados.length === 0 ? (
           busqueda.trim() ? (
             <AndiEmptyState
@@ -228,7 +241,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingHorizontal: andiSpace[3], height: 44,
     maxWidth: r.maxContentWidth(700), alignSelf: 'center',
   },
-  searchInput: { flex: 1, fontSize: r.scaleFont(14), color: andiColors.onSurface, height: '100%' },
+  searchInput: { flex: 1, fontSize: r.scaleFont(16), color: andiColors.onSurface, height: '100%' },
   chipsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2],
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[3],

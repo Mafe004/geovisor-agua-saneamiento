@@ -17,55 +17,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const logout = async () => {
+    await AsyncStorage.removeItem('token');
+    await AsyncStorage.removeItem('user');
+    setToken(null);
+    setUser(null);
+  };
+
   useEffect(() => {
     // Cualquier 401 en cualquier request (no solo el chequeo de arranque)
     // pasa por acá — sin esto, la UI se queda en una pantalla logueada con
     // un token que el backend ya rechazó.
     registerSessionExpiredHandler(logout);
-    loadStoredAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  const loadStoredAuth = async () => {
-    try {
-      const storedToken = await AsyncStorage.getItem('token');
-      const storedUser = await AsyncStorage.getItem('user');
-
-      if (!storedToken || !storedUser) {
-        return; // no hay sesión guardada, nada que revalidar
-      }
-
+    // Inline (no una función nombrada aparte, que no se reusa en ningún
+    // otro lado) -- así el linter puede ver que todo setState ocurre
+    // después de un await, en vez de tratar la llamada como si pudiera
+    // setState de forma síncrona dentro del efecto.
+    (async () => {
       try {
-        // El servidor es la fuente de verdad, no lo que quedó cacheado:
-        // si mientras tanto cambiaron el rol o suspendieron la cuenta,
-        // esto lo refleja apenas se abre la app.
-        const res = await authAPI.me();
-        const freshUser = res.data;
-        await AsyncStorage.setItem('user', JSON.stringify(freshUser));
-        setToken(storedToken);
-        setUser(freshUser);
-      } catch (err) {
-        const status = axios.isAxiosError(err) ? err.response?.status : undefined;
-        if (status === 401 || status === 403) {
-          // El token ya no es válido de verdad (vencido, rechazado, cuenta
-          // suspendida) — cerrar sesión y mandar a login.
-          await logout();
-        } else {
-          // Sin error.response: no hubo respuesta del servidor (backend
-          // caído, sin red, timeout). No se sabe si la sesión sigue siendo
-          // válida, así que NO se borra — usar lo cacheado para que la app
-          // abra igual con WiFi inestable. Vaciar una sesión válida porque
-          // se cayó el WiFi es peor que el bug que esto arregla.
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+        const storedToken = await AsyncStorage.getItem('token');
+        const storedUser = await AsyncStorage.getItem('user');
+
+        if (!storedToken || !storedUser) {
+          return; // no hay sesión guardada, nada que revalidar
         }
+
+        try {
+          // El servidor es la fuente de verdad, no lo que quedó cacheado:
+          // si mientras tanto cambiaron el rol o suspendieron la cuenta,
+          // esto lo refleja apenas se abre la app.
+          const res = await authAPI.me();
+          const freshUser = res.data;
+          await AsyncStorage.setItem('user', JSON.stringify(freshUser));
+          setToken(storedToken);
+          setUser(freshUser);
+        } catch (err) {
+          const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+          if (status === 401 || status === 403) {
+            // El token ya no es válido de verdad (vencido, rechazado, cuenta
+            // suspendida) — cerrar sesión y mandar a login.
+            await logout();
+          } else {
+            // Sin error.response: no hubo respuesta del servidor (backend
+            // caído, sin red, timeout). No se sabe si la sesión sigue siendo
+            // válida, así que NO se borra — usar lo cacheado para que la app
+            // abra igual con WiFi inestable. Vaciar una sesión válida porque
+            // se cayó el WiFi es peor que el bug que esto arregla.
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+          }
+        }
+      } catch (e) {
+        console.log('Error cargando auth:', e);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      console.log('Error cargando auth:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+  }, []);
 
   const login = async (correo: string, password: string) => {
     const res = await authAPI.login(correo, password);
@@ -75,13 +84,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setToken(access_token);
     setUser(userData);
     return userData;
-  };
-
-  const logout = async () => {
-    await AsyncStorage.removeItem('token');
-    await AsyncStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
   };
 
   const updateUser = (userData: UserPublic) => {

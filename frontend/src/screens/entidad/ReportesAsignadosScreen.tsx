@@ -1,12 +1,14 @@
 import React, { useState, useCallback, useContext, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import axios from 'axios';
+import { Feather } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, catalogosAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
 import AndiReportCard from '../../components/andi/AndiReportCard';
@@ -14,6 +16,8 @@ import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
 import AndiEmptyState from '../../components/andi/AndiEmptyState';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
+import AsignarTrabajadorModal from '../../components/andi/AsignarTrabajadorModal';
+import { useToast } from '../../components/andi/Toast';
 import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem } from '../../types/domain';
@@ -31,6 +35,7 @@ type Props = {
 };
 
 type Filtro = 'abiertos' | 'alta' | 'cerrados' | 'todos';
+type Vista = 'mios' | 'equipo';
 
 function formatRelative(dateStr: string | undefined) {
   if (!dateStr) return '—';
@@ -46,13 +51,17 @@ function formatRelative(dateStr: string | undefined) {
 export default function ReportesAsignadosScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { user } = useContext(AuthContext);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [entidadNombre, setEntidadNombre] = useState<string>('');
   const [estadosDisponibles, setEstadosDisponibles] = useState<EstadoReporteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>('abiertos');
+  const [vista, setVista] = useState<Vista>('mios');
   const [tomandoId, setTomandoId] = useState<number | null>(null);
+  const [asignandoReporte, setAsignandoReporte] = useState<Reporte | null>(null);
+  const [asignando, setAsignando] = useState(false);
 
   const loadReportes = useCallback(async () => {
     if (!user?.id_entidad) { setLoading(false); return; }
@@ -69,7 +78,7 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id_entidad]);
+  }, [user]);
 
   useFocusEffect(useCallback(() => {
     loadReportes();
@@ -81,7 +90,10 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
   if (!user?.id_entidad) {
     return (
       <View style={styles.container}>
-        <AndiHeader title="Asignados" />
+        <AndiHeader
+          title="Asignados"
+          rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
+        />
         <AndiBody>
           <AndiErrorState
             icon="alert-triangle"
@@ -98,32 +110,63 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
     );
   }
 
-  const abiertos = reportes.filter(r => r.estado !== 'RESUELTO');
-  const altas = reportes.filter(r => r.severidad === 'ALTA' || r.severidad === 'CRITICA');
-  const cerrados = reportes.filter(r => r.estado === 'RESUELTO');
-  const enProceso = reportes.filter(r => r.estado === 'EN_PROCESO');
-  const porAtender = reportes.filter(r => r.estado === 'PENDIENTE' || r.estado === 'EN_REVISION');
+  // El titular ve todo el pool de la entidad y reparte trabajo; un
+  // trabajador normal (migración 0007) solo ve lo suyo -- el backend ya
+  // filtra reportesAPI.listar() así para él, así que "Equipo" ni siquiera
+  // se muestra en ese caso (ver JSX más abajo).
+  const esTitular = !!user?.es_titular_entidad;
+
+  // "Mis reportes" = los que tengo asignados a mí; "Equipo" = todo el pool
+  // de la entidad, igual que antes de que existiera el reparto por
+  // trabajador (migración 0006) -- sigue sirviendo para ver qué está sin
+  // repartir y asignárselo a alguien.
+  const base = vista === 'mios'
+    ? reportes.filter(r => r.id_usuario_asignado === user?.id_usuario)
+    : reportes;
+
+  const abiertos = base.filter(r => r.estado !== 'RESUELTO');
+  const altas = base.filter(r => r.severidad === 'ALTA' || r.severidad === 'CRITICA');
+  const cerrados = base.filter(r => r.estado === 'RESUELTO');
+  const enProceso = base.filter(r => r.estado === 'EN_PROCESO');
+  const porAtender = base.filter(r => r.estado === 'PENDIENTE' || r.estado === 'EN_REVISION');
 
   const reportesFiltrados =
     filtro === 'abiertos' ? abiertos :
     filtro === 'alta' ? altas :
     filtro === 'cerrados' ? cerrados :
-    reportes;
+    base;
 
   const handleTomar = async (reporte: Reporte) => {
     const enProcesoEstado = estadosDisponibles.find(e => e.nombre === 'EN_PROCESO');
-    if (!enProcesoEstado) return;
+    if (!enProcesoEstado || !user) return;
     try {
       setTomandoId(reporte.id_reporte);
       const res = await reportesAPI.cambiarEstado(reporte.id_reporte, {
         id_estado_nuevo: enProcesoEstado.id_estado,
+        id_usuario_asignado: user.id_usuario,
       });
       setReportes(prev => prev.map(r => r.id_reporte === res.data.reporte.id_reporte ? res.data.reporte : r));
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo tomar el reporte.');
+      toast.error('Error', msg || 'No se pudo tomar el reporte.');
     } finally {
       setTomandoId(null);
+    }
+  };
+
+  const handleAsignar = async (idUsuarioAsignado: number | null) => {
+    if (!asignandoReporte) return;
+    try {
+      setAsignando(true);
+      const res = await reportesAPI.asignarUsuario(asignandoReporte.id_reporte, { id_usuario_asignado: idUsuarioAsignado });
+      setReportes(prev => prev.map(r => r.id_reporte === res.data.reporte.id_reporte ? res.data.reporte : r));
+      toast.success(idUsuarioAsignado ? 'Asignado' : 'Desasignado', idUsuarioAsignado ? 'El reporte quedó asignado.' : 'El reporte vuelve al pool de la entidad.');
+      setAsignandoReporte(null);
+    } catch (e) {
+      const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
+      toast.error('Error', msg || 'No se pudo asignar el reporte.');
+    } finally {
+      setAsignando(false);
     }
   };
 
@@ -137,9 +180,21 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
           { value: enProceso.length, label: 'En proceso' },
           { value: cerrados.length, label: 'Cerrados' },
         ]}
+        rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
       />
 
       <AndiBody>
+        {esTitular && (
+          <View style={styles.vistaRow}>
+            <TouchableOpacity accessibilityRole="button" style={[styles.vistaTab, vista === 'mios' && styles.vistaTabActive]} onPress={() => setVista('mios')}>
+              <Text style={[styles.vistaTabText, vista === 'mios' && styles.vistaTabTextActive]}>Mis reportes</Text>
+            </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" style={[styles.vistaTab, vista === 'equipo' && styles.vistaTabActive]} onPress={() => setVista('equipo')}>
+              <Text style={[styles.vistaTabText, vista === 'equipo' && styles.vistaTabTextActive]}>Equipo · {entidadNombre || 'tu entidad'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.chipsRow}>
           <AndiChip label={`Abiertos · ${abiertos.length}`} variant={filtro === 'abiertos' ? 'solid' : 'outline'} onPress={() => setFiltro('abiertos')} />
           <AndiChip label="Alta" variant={filtro === 'alta' ? 'solid' : 'outline'} onPress={() => setFiltro('alta')} />
@@ -152,10 +207,14 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
           <AndiEmptyState
             icon="check"
             title="Nada pendiente"
-            body={`Cerraste los ${cerrados.length} reportes que te llegaron este mes. Si ves un daño en campo, puedes reportarlo tú mismo.`}
-            ctaLabel="Reportar un daño"
+            body={
+              esTitular
+                ? `Cerraron ${cerrados.length} reportes este mes. Si hay trabajo pendiente de repartir, revisa "Equipo".`
+                : `Cerraste los ${cerrados.length} reportes que te llegaron este mes. Si ves un daño en campo, puedes reportarlo tú mismo.`
+            }
+            ctaLabel={esTitular ? undefined : 'Reportar un daño'}
             ctaVariant="solid"
-            onPressCta={() => navigation.navigate('Crear')}
+            onPressCta={esTitular ? undefined : () => navigation.navigate('Crear')}
           />
         ) : (
           <FlatList
@@ -166,7 +225,14 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
               const idLabel = item.estado === 'EN_PROCESO'
                 ? `#${item.id_reporte} · asignado`
                 : `#${item.id_reporte} · ${formatRelative(item.created_at)}`;
-              const puedeTomar = item.estado === 'PENDIENTE' || item.estado === 'EN_REVISION';
+              // El titular reparte trabajo, no lo hace él mismo -- "Tomar"
+              // (auto-asignarse) es solo para un trabajador normal. El
+              // titular usa el botón de asignar para dárselo a alguien.
+              const puedeTomar = !esTitular && (item.estado === 'PENDIENTE' || item.estado === 'EN_REVISION');
+              const esMio = item.id_usuario_asignado === user?.id_usuario;
+              const nota = item.id_usuario_asignado == null
+                ? 'Sin asignar'
+                : esMio ? 'Tú lo tomaste' : `Lo tomó ${item.usuario_asignado ?? 'otro compañero'}`;
 
               if (item.estado === 'EN_PROCESO') {
                 return (
@@ -177,7 +243,7 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
                     title={item.descripcion || 'Sin descripción'}
                     meta={`${item.direccion || '—'} · ${item.usuario || '—'}`}
                     severidad={item.severidad}
-                    note="Tú lo tomaste"
+                    note={nota}
                     primaryLabel="Cerrar reporte"
                     onPress={() => navigation.navigate('DetalleReporte', { reporte: item })}
                     onPrimaryPress={() => navigation.navigate('DetalleReporte', { reporte: item })}
@@ -191,19 +257,26 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
                   idLabel={idLabel}
                   badge={<AndiStatusBadge status={item.estado} />}
                   title={item.descripcion || 'Sin descripción'}
-                  meta={`${item.direccion || '—'} · ${item.usuario || '—'}`}
+                  meta={`${item.direccion || '—'} · ${item.usuario || '—'} · ${nota}`}
                   severidad={item.severidad}
                   onPress={() => navigation.navigate('DetalleReporte', { reporte: item })}
                   footerRight={
-                    puedeTomar ? (
-                      tomandoId === item.id_reporte ? (
-                        <ActivityIndicator size="small" color={andiColors.primary} />
-                      ) : (
-                        <TouchableOpacity style={styles.tomarBtn} onPress={() => handleTomar(item)}>
-                          <Text style={styles.tomarBtnText}>Tomar</Text>
+                    <View style={styles.footerActions}>
+                      {esTitular && (
+                        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Asignar a un compañero" style={styles.asignarBtn} onPress={() => setAsignandoReporte(item)}>
+                          <Feather name="user-plus" size={14} color={andiColors.onSurfaceVariant} />
                         </TouchableOpacity>
-                      )
-                    ) : null
+                      )}
+                      {puedeTomar && (
+                        tomandoId === item.id_reporte ? (
+                          <ActivityIndicator size="small" color={andiColors.primary} />
+                        ) : (
+                          <TouchableOpacity accessibilityRole="button" style={styles.tomarBtn} onPress={() => handleTomar(item)}>
+                            <Text style={styles.tomarBtnText}>Tomar</Text>
+                          </TouchableOpacity>
+                        )
+                      )}
+                    </View>
                   }
                 />
               );
@@ -212,6 +285,18 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
           />
         )}
       </AndiBody>
+
+      {!!user?.id_entidad && (
+        <AsignarTrabajadorModal
+          visible={!!asignandoReporte}
+          onClose={() => setAsignandoReporte(null)}
+          idEntidad={user.id_entidad}
+          idUsuarioActual={asignandoReporte?.id_usuario_asignado ?? null}
+          idUsuarioPropio={user.id_usuario}
+          onElegir={handleAsignar}
+          asignando={asignando}
+        />
+      )}
     </View>
   );
 }
@@ -226,4 +311,19 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     backgroundColor: andiColors.primary50, alignItems: 'center', justifyContent: 'center',
   },
   tomarBtnText: { fontSize: r.scaleFont(13), lineHeight: r.scaleFont(18), fontWeight: '600', color: andiColors.primary700 },
+
+  vistaRow: { flexDirection: 'row', gap: andiSpace[2], paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4] },
+  vistaTab: {
+    flex: 1, minHeight: 40, borderRadius: andiRadius.full, borderWidth: 1, borderColor: andiColors.outline,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: andiSpace[2],
+  },
+  vistaTabActive: { backgroundColor: andiColors.primary600, borderColor: andiColors.primary600 },
+  vistaTabText: { fontSize: r.scaleFont(12), fontWeight: '600', color: andiColors.onSurface },
+  vistaTabTextActive: { color: andiColors.surface },
+
+  footerActions: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2] },
+  asignarBtn: {
+    width: 36, height: 36, borderRadius: andiRadius.full, borderWidth: 1, borderColor: andiColors.outline,
+    alignItems: 'center', justifyContent: 'center',
+  },
 });

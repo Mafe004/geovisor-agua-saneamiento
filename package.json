@@ -19,8 +19,8 @@
   "packageManager": "npm@11.6.2",
   "overrides": {
     "react-native-web": {
-      "react": "19.2.3",
-      "react-dom": "19.2.3"
+      "react": "19.3.0",
+      "react-dom": "19.3.0"
     },
     "openapi-typescript": {
       "typescript": "~6.0.3"

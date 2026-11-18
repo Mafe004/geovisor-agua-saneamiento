@@ -60,8 +60,6 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
   const [tokenModal, setTokenModal] = useState<{ token: string; nota: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => { load(); }, []);
-
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     setLoadError(null);
@@ -76,6 +74,12 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
       setRefreshing(false);
     }
   };
+
+  // load también es el botón "Reintentar" del estado de error y el handler
+  // del RefreshControl -- no se puede inlinear como IIFE en este efecto sin
+  // duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { load(); }, []);
 
   const toggleExpanded = (id: number) => {
     setExpandedIds(prev => {
@@ -134,7 +138,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
     <View style={styles.container}>
       <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
             <Feather name="arrow-left" size={22} color={andiColors.surface} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Solicitudes de acceso</Text>
@@ -148,7 +152,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
         <View style={styles.errorBanner}>
           <Feather name="alert-triangle" size={16} color={andiColors.error600} />
           <Text style={styles.errorBannerText}>{actionError}</Text>
-          <TouchableOpacity onPress={() => setActionError(null)}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar aviso de error" onPress={() => setActionError(null)}>
             <Feather name="x" size={16} color={andiColors.error600} />
           </TouchableOpacity>
         </View>
@@ -162,7 +166,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
         <View style={styles.loadingWrap}>
           <Feather name="alert-triangle" size={40} color={andiColors.error600} />
           <Text style={styles.loadErrorText}>{loadError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => load()} activeOpacity={0.8}>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => load()} activeOpacity={0.8}>
             <Text style={styles.retryBtnText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -194,7 +198,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
                   </View>
                 </View>
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   activeOpacity={motivoEsLargo ? 0.7 : 1}
                   onPress={() => motivoEsLargo && toggleExpanded(item.id)}
                 >
@@ -222,7 +226,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
 
                 {item.estado === 'PENDIENTE' && (
                   <View style={styles.cardActions}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.rejectBtn, isActioning && styles.btnDisabled]}
                       onPress={() => setRechazarTarget(item)}
                       disabled={isActioning}
@@ -230,7 +234,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
                     >
                       <Text style={styles.rejectBtnText}>Rechazar</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.approveBtn, isActioning && styles.btnDisabled]}
                       onPress={() => handleAprobar(item)}
                       disabled={isActioning}
@@ -263,10 +267,10 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
               ¿Rechazar la solicitud de {rechazarTarget?.nombre_completo}?
             </Text>
             <View style={styles.modalBtnRow}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRechazarTarget(null)}>
+              <TouchableOpacity accessibilityRole="button" style={styles.modalCancelBtn} onPress={() => setRechazarTarget(null)}>
                 <Text style={styles.modalCancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.modalRejectBtn} onPress={handleRechazarConfirmado}>
+              <TouchableOpacity accessibilityRole="button" style={styles.modalRejectBtn} onPress={handleRechazarConfirmado}>
                 <Text style={styles.modalRejectBtnText}>Rechazar</Text>
               </TouchableOpacity>
             </View>
@@ -293,12 +297,12 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
             <Text style={styles.tokenText}>{tokenModal?.token}</Text>
             <Text style={styles.notaText}>{tokenModal?.nota}</Text>
 
-            <TouchableOpacity style={styles.copyBtn} onPress={handleCopiar} activeOpacity={0.8}>
+            <TouchableOpacity accessibilityRole="button" style={styles.copyBtn} onPress={handleCopiar} activeOpacity={0.8}>
               <Feather name={copied ? 'check' : 'copy'} size={16} color={andiColors.primary600} />
               <Text style={styles.copyBtnText}>{copied ? 'Copiado' : 'Copiar código'}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.modalCloseBtn}
               onPress={() => { setTokenModal(null); load(true); }}
               activeOpacity={0.85}

@@ -1,13 +1,25 @@
 import React, { useState, useContext, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, entidadesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
+import AndiErrorState from '../../components/andi/AndiErrorState';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { EstadisticasResponse } from '../../types/domain';
+import type { RootStackParamList } from '../../navigation/types';
+
+type Props = {
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<ParamListBase>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
+};
 
 const MES_LABEL: Record<string, string> = {
   '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun',
@@ -23,7 +35,7 @@ function cap(s: string) {
   return s ? s.charAt(0) + s.slice(1).toLowerCase() : s;
 }
 
-export default function CifrasEntidadScreen() {
+export default function CifrasEntidadScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
   const andiType = useScaledType(andiTypeBase);
@@ -31,6 +43,7 @@ export default function CifrasEntidadScreen() {
   const [stats, setStats] = useState<EstadisticasResponse | null>(null);
   const [entidadNombre, setEntidadNombre] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,12 +54,13 @@ export default function CifrasEntidadScreen() {
       ]);
       setStats(statsRes.data);
       if (entRes) setEntidadNombre(entRes.data.nombre_entidad);
+      setError(false);
     } catch (_) {
-      setStats(null);
+      setError(true);
     } finally {
       setLoading(false);
     }
-  }, [user?.id_entidad]);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -61,11 +75,21 @@ export default function CifrasEntidadScreen() {
       <AndiHeader
         title="Cifras"
         subtitle={`Solo ${entidadNombre || 'tu entidad'} · últimos 6 meses`}
+        rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
       />
 
       <AndiBody>
         {loading ? (
           <View style={styles.center}><ActivityIndicator size="large" color={andiColors.primary} /></View>
+        ) : error ? (
+          <AndiErrorState
+            icon="wifi-off"
+            title="No se pudo cargar"
+            body="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
+            code="Error de red"
+            ctaLabel="Reintentar"
+            onPressCta={() => load()}
+          />
         ) : (
           <ScrollView contentContainerStyle={[styles.scroll, { alignItems: 'center' }]}>
             <View style={styles.contentWrap}>
@@ -108,15 +132,21 @@ export default function CifrasEntidadScreen() {
             <View style={styles.mesChart}>
               {porMes.map((m, i) => (
                 <View key={i} style={styles.mesCol}>
-                  <View style={[
-                    styles.mesBar,
-                    {
-                      height: `${Math.max(6, Math.round((m.total / maxMes) * 100))}%`,
-                      backgroundColor: interpolatePrimary(m.total / maxMes),
-                    },
-                  ]} />
-                  <Text style={[andiType.overline, styles.mesLabel]}>{mesLabel(m.mes)}</Text>
+                  <View
+                    style={[
+                      styles.mesBar,
+                      {
+                        height: `${Math.max(6, Math.round((m.total / maxMes) * 100))}%`,
+                        backgroundColor: interpolatePrimary(m.total / maxMes),
+                      },
+                    ]}
+                  />
                 </View>
+              ))}
+            </View>
+            <View style={styles.mesLabelRow}>
+              {porMes.map((m, i) => (
+                <Text key={i} style={[andiType.overline, styles.mesLabel]}>{mesLabel(m.mes)}</Text>
               ))}
             </View>
 
@@ -157,9 +187,10 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   severidadLabel: { color: andiColors.onSurfaceVariant },
 
   mesChart: { flexDirection: 'row', alignItems: 'flex-end', gap: andiSpace[2], height: r.scaleHeight(120) },
-  mesCol: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 6 },
+  mesCol: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   mesBar: { width: '100%', borderTopLeftRadius: andiRadius.sm, borderTopRightRadius: andiRadius.sm },
-  mesLabel: { color: andiColors.onSurfaceVariant },
+  mesLabelRow: { flexDirection: 'row', gap: andiSpace[2], marginTop: andiSpace[2] },
+  mesLabel: { flex: 1, textAlign: 'center', color: andiColors.onSurfaceVariant },
 
   footerNote: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[5] },
 });

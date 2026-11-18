@@ -3,14 +3,15 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Platform
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import axios from 'axios';
-import { API_URL } from '../../api/client';
 import { reportesAPI } from '../../api/services';
+import { uriImagenServidor } from '../../utils/fotoEvidencia';
 import { AuthContext } from '../../context/AuthContext';
 import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { SeverityChip, CategoryChip } from '../../components/ciudadano/Chip';
 import Timeline from '../../components/ciudadano/Timeline';
 import Skeleton from '../../components/ciudadano/Skeleton';
+import FotoGaleria from '../../components/andi/FotoGaleria';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO, statusMeta } from '../../theme/andi';
@@ -95,19 +96,15 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
 
   useFocusEffect(useCallback(() => { loadHistorial(); }, [loadHistorial]));
 
-  // imagen_url llega relativa al mount /uploads del backend
-  // (/uploads/reportes/<uuid>.jpg) -- se antepone el mismo API_URL que usa
-  // axios. Una URL absoluta (filas antiguas) se usa tal cual.
-  const imagenPath = reporte.imagen_url?.trim();
-  const imagenUri = imagenPath
-    ? /^https?:\/\//i.test(imagenPath)
-      ? imagenPath
-      : `${API_URL}${imagenPath.startsWith('/') ? '' : '/'}${imagenPath}`
-    : null;
+  const imagenUri = uriImagenServidor(reporte.imagen_url);
   const [fotoRatio, setFotoRatio] = useState<number | null>(null);
   const [fotoError, setFotoError] = useState(false);
 
   useEffect(() => {
+    // Reset síncrono a propósito: al cambiar de foto (o quedar sin ella) no
+    // tiene sentido seguir mostrando la proporción/error de la anterior
+    // mientras se mide la nueva.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFotoRatio(null);
     setFotoError(false);
     if (!imagenUri) return;
@@ -195,7 +192,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       <LiftHeader>
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <TouchableOpacity accessibilityRole="button" style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
@@ -220,7 +217,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
                   <Text style={styles.mapLabel}>{reporte.direccion || 'Ubicación aproximada'}</Text>
                   <Text style={styles.mapCoords}>{lat!.toFixed(5)}, {lng!.toFixed(5)}</Text>
                 </View>
-                <TouchableOpacity style={styles.mapBtn} onPress={abrirComoLlegar}>
+                <TouchableOpacity accessibilityRole="button" style={styles.mapBtn} onPress={abrirComoLlegar}>
                   <Text style={styles.mapBtnText}>Cómo llegar</Text>
                 </TouchableOpacity>
               </View>
@@ -246,6 +243,10 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
                 />
               )}
             </View>
+          )}
+
+          {!!reporte.imagenes?.length && (
+            <FotoGaleria titulo="Más fotos del incidente" urls={reporte.imagenes.map((i) => i.imagen_url)} />
           )}
 
           {reporteEditable && (
@@ -305,7 +306,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { color: '#fff', fontSize: 18 },
+  backIcon: { color: '#fff', fontSize: 22 },
   kicker: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.primary200 },
   screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },

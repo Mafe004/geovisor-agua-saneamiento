@@ -151,21 +151,44 @@ export default function MapaScreen({ navigation }: Props) {
     }
   }, []);
 
+  // requestLocation también es el botón "reintentar ubicación" de más abajo
+  // -- no se puede inlinear como IIFE en este efecto sin duplicar esa lógica.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { requestLocation(); }, [requestLocation]);
 
-  const loadMunicipios = useCallback(async () => {
-    try {
-      const res = await siasarAPI.municipios();
-      const lista = res.data || [];
-      setMunicipios(lista);
-      const zipaquira = lista.find((m) => m.municipio === 'ZIPAQUIRÁ');
-      setMunicipio(zipaquira?.municipio ?? lista[0]?.municipio ?? null);
-    } catch (_) {
-      setMunicipios([]);
-    }
-  }, []);
+  // Posición en tiempo real: requestLocation solo toma una foto puntual al
+  // entrar (para centrar el mapa una vez); este watch mantiene `self`
+  // actualizado mientras la pantalla esté montada, sin volver a mover el
+  // centro del mapa (si no, cada tick de GPS le quitaría al usuario el
+  // control de panear libremente).
+  useEffect(() => {
+    if (locStatus !== 'granted') return undefined;
+    let subscription: Location.LocationSubscription | null = null;
+    let cancelado = false;
+    Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, timeInterval: 4000, distanceInterval: 10 },
+      (loc) => setSelf({ latitude: loc.coords.latitude, longitude: loc.coords.longitude }),
+    ).then((sub) => { if (cancelado) sub.remove(); else subscription = sub; });
+    return () => { cancelado = true; subscription?.remove(); };
+  }, [locStatus]);
 
-  useEffect(() => { loadMunicipios(); }, [loadMunicipios]);
+  useEffect(() => {
+    // Inline (no un useCallback aparte, que no se reusa en ningún otro
+    // lado) -- así el linter puede ver que todo setState ocurre después de
+    // un await, en vez de tratar la llamada como si pudiera setState de
+    // forma síncrona dentro del efecto.
+    (async () => {
+      try {
+        const res = await siasarAPI.municipios();
+        const lista = res.data || [];
+        setMunicipios(lista);
+        const zipaquira = lista.find((m) => m.municipio === 'ZIPAQUIRÁ');
+        setMunicipio(zipaquira?.municipio ?? lista[0]?.municipio ?? null);
+      } catch (_) {
+        setMunicipios([]);
+      }
+    })();
+  }, []);
 
   const cargarComunidadesSiasar = useCallback(async (m: string) => {
     try {
@@ -185,12 +208,19 @@ export default function MapaScreen({ navigation }: Props) {
     }
   }, []);
 
+  // cargarComunidadesSiasar es un useCallback, no un inline IIFE, así que
+  // el linter la trata como caja negra y asume que podría hacer setState
+  // síncrono -- en realidad todo su setState ocurre tras el await (ver su
+  // definición arriba). El reset de la rama `else` sí es síncrono a
+  // propósito: apagar el switch de la capa vacía sus marcadores de inmediato.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (capaComunidades && municipio) cargarComunidadesSiasar(municipio);
     else setComunidadesSiasar([]);
   }, [capaComunidades, municipio, cargarComunidadesSiasar]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (capaSistemas && municipio) cargarSistemasSiasar(municipio);
     else setSistemasSiasar([]);
   }, [capaSistemas, municipio, cargarSistemasSiasar]);
@@ -211,6 +241,7 @@ export default function MapaScreen({ navigation }: Props) {
 
   const handleMarkerPress = async (marker: MapMarker) => {
     const id = String(marker.id ?? '');
+    if (id === 'self') return;
     if (id.startsWith('com-')) {
       setSelectedPin(null);
       setCargandoDetalleSiasar(true);
@@ -342,7 +373,11 @@ export default function MapaScreen({ navigation }: Props) {
       }))
     : [];
 
-  const markers = [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers];
+  const selfMarker: MapMarker[] = self
+    ? [{ id: 'self', lat: self.latitude, lng: self.longitude, titulo: 'Tú', color: '#2563EB', shape: 'circle', scale: 8 }]
+    : [];
+
+  const markers = [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers, ...selfMarker];
 
   const hoy = new Date().toDateString();
   const criticosHoy = pines.filter((p) =>
@@ -359,7 +394,7 @@ export default function MapaScreen({ navigation }: Props) {
             <Text style={styles.kicker}>Cundinamarca</Text>
             <Text style={styles.title}>Cerca de ti</Text>
           </View>
-          <TouchableOpacity style={styles.searchBtn} onPress={() => setSearching((s) => !s)}>
+          <TouchableOpacity accessibilityRole="button" style={styles.searchBtn} onPress={() => setSearching((s) => !s)}>
             <Text style={styles.searchIcon}>⌕</Text>
           </TouchableOpacity>
         </View>
@@ -385,7 +420,7 @@ export default function MapaScreen({ navigation }: Props) {
       <LiftSurface>
         <View style={styles.filterBar}>
           {FILTERS.map((f) => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={f.key}
               style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
               onPress={() => setFilter(f.key)}
@@ -458,26 +493,26 @@ export default function MapaScreen({ navigation }: Props) {
 
         {/* Capas SIASAR (datos oficiales, capa de solo lectura) */}
         <View style={styles.layerBar}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.layerChip, capaReportes && styles.layerChipActive]}
             onPress={() => setCapaReportes((v) => !v)}
           >
             <Text style={[styles.layerChipText, capaReportes && styles.layerChipTextActive]}>Reportes</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.layerChip, capaComunidades && styles.layerChipActiveSiasar]}
             onPress={() => setCapaComunidades((v) => !v)}
           >
             <Text style={[styles.layerChipText, capaComunidades && styles.layerChipTextActive]}>⬤ Veredas SIASAR</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.layerChip, capaSistemas && styles.layerChipActiveSiasar]}
             onPress={() => setCapaSistemas((v) => !v)}
           >
             <Text style={[styles.layerChipText, capaSistemas && styles.layerChipTextActive]}>⬤ Acueductos SIASAR</Text>
           </TouchableOpacity>
           {(capaComunidades || capaSistemas) && municipio && (
-            <TouchableOpacity style={styles.municipioBtn} onPress={() => setSelectorMunicipioAbierto((v) => !v)}>
+            <TouchableOpacity accessibilityRole="button" style={styles.municipioBtn} onPress={() => setSelectorMunicipioAbierto((v) => !v)}>
               <Text style={styles.municipioBtnText}>{municipio} ▾</Text>
             </TouchableOpacity>
           )}
@@ -486,7 +521,7 @@ export default function MapaScreen({ navigation }: Props) {
         {selectorMunicipioAbierto && (
           <ScrollView style={styles.municipioList}>
             {municipios.map((m) => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={m.municipio}
                 style={styles.municipioItem}
                 onPress={() => { setMunicipio(m.municipio); setSelectorMunicipioAbierto(false); }}
@@ -512,10 +547,10 @@ export default function MapaScreen({ navigation }: Props) {
                 <Text style={styles.noLocationText}>
                   Sin ubicación puedo mostrarte Cundinamarca completo, pero no lo que tienes al lado.
                 </Text>
-                <TouchableOpacity style={styles.primaryBtn} onPress={requestLocation}>
+                <TouchableOpacity accessibilityRole="button" style={styles.primaryBtn} onPress={requestLocation}>
                   <Text style={styles.primaryBtnText}>Permitir ubicación</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.outlineBtn} onPress={() => setCenter(ZIPAQUIRA)}>
+                <TouchableOpacity accessibilityRole="button" style={styles.outlineBtn} onPress={() => setCenter(ZIPAQUIRA)}>
                   <Text style={styles.outlineBtnText}>Ver todo Cundinamarca</Text>
                 </TouchableOpacity>
               </View>
@@ -530,7 +565,7 @@ export default function MapaScreen({ navigation }: Props) {
                 onMarkerPress={handleMarkerPress}
                 style={styles.map}
               />
-              <TouchableOpacity style={styles.recenterBtn} onPress={recentrar}>
+              <TouchableOpacity accessibilityRole="button" style={styles.recenterBtn} onPress={recentrar}>
                 <Text style={styles.recenterIcon}>◎</Text>
               </TouchableOpacity>
 
@@ -540,7 +575,7 @@ export default function MapaScreen({ navigation }: Props) {
                 </View>
               )}
 
-              {markers.length === 0 && (
+              {markers.length - selfMarker.length === 0 && (
                 <View pointerEvents="none" style={styles.emptyOverlay}>
                   {/* Mascota oculta temporalmente (este estado también aparece cuando falla la carga). */}
                   {/* <MascotAndi size={90} /> */}
@@ -562,7 +597,7 @@ export default function MapaScreen({ navigation }: Props) {
           <View style={styles.anchorCard}>
             <View style={styles.anchorTop}>
               <Text style={styles.anchorId}>Reporte #{selectedPin.id_reporte}</Text>
-              <TouchableOpacity onPress={() => setSelectedPin(null)}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedPin(null)}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
             </View>
             <Text style={styles.anchorTitle} numberOfLines={2}>
               {selectedPin.title || 'Reporte'}
@@ -571,7 +606,7 @@ export default function MapaScreen({ navigation }: Props) {
               <StatusChip estado={selectedPin.estado} />
               <SeverityChip severidad={selectedPin.severidad} />
             </View>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.anchorBtn}
               onPress={() => verDetalle(selectedPin.id_reporte)}
             >
@@ -602,7 +637,7 @@ function ComunidadPanel({ data, onClose, styles }: { data: ComunidadDetalle; onC
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
         <Text style={styles.siasarTitle}>{data.nombre}</Text>
-        <TouchableOpacity onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
       </View>
       <SiasarComunidadInfo data={data} />
     </View>
@@ -614,7 +649,7 @@ function SistemaPanel({ data, onClose, styles }: { data: SistemaDetalle; onClose
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
         <Text style={styles.siasarTitle}>{data.nombre}</Text>
-        <TouchableOpacity onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
       </View>
       <Text style={styles.siasarSubtitle}>{data.municipio}</Text>
 
@@ -652,13 +687,13 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   kicker: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary200 },
   title: { ...r.scaleType(ANDI_TYPE.display), color: '#fff', marginTop: 2 },
   searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  searchIcon: { color: '#fff', fontSize: 17 },
+  searchIcon: { color: '#fff', fontSize: 22 },
   countRow: { flexDirection: 'row', alignItems: 'baseline', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   countNum: { ...ANDI_TYPE.displayLg, fontSize: r.scaleFont(30), color: '#fff' },
   countLabel: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.primary200 },
   searchInput: {
     marginTop: ANDI_SPACING.s4, backgroundColor: ANDI_COLORS.primary700, borderRadius: ANDI_RADIUS.md,
-    paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 10, color: '#fff', fontSize: r.scaleFont(14),
+    paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 10, color: '#fff', fontSize: r.scaleFont(16),
   },
 
   filterBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, padding: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s2 },
@@ -720,7 +755,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     width: 44, height: 44, borderRadius: 22, backgroundColor: ANDI_COLORS.surface,
     borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, alignItems: 'center', justifyContent: 'center',
   },
-  recenterIcon: { color: ANDI_COLORS.primary600, fontSize: 17 },
+  recenterIcon: { color: ANDI_COLORS.primary600, fontSize: 22 },
 
   siasarLoadingOverlay: {
     position: 'absolute', top: ANDI_SPACING.s4, left: ANDI_SPACING.s4,
@@ -743,7 +778,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   },
   anchorTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: ANDI_SPACING.s2 },
   anchorId: { fontSize: r.scaleFont(12), color: ANDI_COLORS.primary200, fontWeight: '600' },
-  anchorClose: { color: ANDI_COLORS.primary200, fontSize: 16 },
+  anchorClose: { color: ANDI_COLORS.primary200, fontSize: 20 },
   anchorTitle: { ...r.scaleType(ANDI_TYPE.card), color: '#fff' },
   anchorChips: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s3, marginBottom: ANDI_SPACING.s3 },
   anchorBtn: { minHeight: 48, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary100, alignItems: 'center', justifyContent: 'center' },

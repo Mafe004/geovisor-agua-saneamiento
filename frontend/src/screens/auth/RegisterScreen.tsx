@@ -31,7 +31,7 @@ const ROL_LABEL: Record<number, string> = {
 function Header({ id_rol, onBack }: { id_rol: number; onBack: () => void }) {
   return (
     <View style={styles.topBar}>
-      <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" onPress={onBack} style={styles.backBtn}>
         <Feather name="arrow-left" size={22} color={andiColors.surface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>{ROL_LABEL[id_rol] ?? 'Crear cuenta'}</Text>
@@ -62,7 +62,7 @@ function Field({
       <View style={[styles.inputWrap, readOnly && styles.inputWrapReadOnly]}>
         <Feather name={icon} size={18} color={andiColors.onSurfaceVariant} style={styles.inputIcon} />
         <TextInput
-          style={[styles.input, { fontSize: r.scaleFont(15) }]}
+          style={[styles.input, { fontSize: r.scaleFont(16) }]}
           placeholder={placeholder}
           placeholderTextColor={andiColors.onSurfaceVariant}
           value={value}
@@ -73,7 +73,12 @@ function Field({
           editable={!readOnly}
         />
         {rightIcon && (
-          <TouchableOpacity onPress={onRightIconPress} style={styles.eyeBtn}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={rightIcon === 'eye' ? 'Mostrar contraseña' : 'Ocultar contraseña'}
+            onPress={onRightIconPress}
+            style={styles.eyeBtn}
+          >
             <Feather name={rightIcon} size={18} color={andiColors.onSurfaceVariant} />
           </TouchableOpacity>
         )}
@@ -137,7 +142,7 @@ function PrimaryButton({ label, onPress, loading, disabled }: {
   label: string; onPress: () => void; loading?: boolean; disabled?: boolean;
 }) {
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       style={[styles.btn, disabled && styles.btnDisabled]}
       onPress={onPress}
       disabled={disabled || loading}
@@ -158,7 +163,7 @@ function ConductAgreement({ checked, onToggle }: { checked: boolean; onToggle: (
         información veraz, respetar a otros usuarios y a las entidades, y no usar el sistema para
         fines distintos a la gestión de agua y saneamiento de Cundinamarca.
       </Text>
-      <TouchableOpacity style={styles.checkboxRow} onPress={onToggle} activeOpacity={0.7}>
+      <TouchableOpacity accessibilityRole="button" style={styles.checkboxRow} onPress={onToggle} activeOpacity={0.7}>
         <Feather
           name={checked ? 'check-square' : 'square'}
           size={20}
@@ -181,7 +186,7 @@ function SegmentedControl<T extends string>({ options, value, onChange }: {
       {options.map(opt => {
         const active = opt.value === value;
         return (
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             key={opt.value}
             style={[styles.segment, active && styles.segmentActive]}
             onPress={() => onChange(opt.value)}
@@ -273,11 +278,11 @@ function CiudadanoFlow({ navigation }: Props) {
           <View style={{ flex: 1 }}>
             <Text style={styles.errorTextOrange}>Ya existe una cuenta con este correo.</Text>
             <View style={styles.duplicateBtnRow}>
-              <TouchableOpacity style={styles.duplicateOutlineBtn} onPress={() => navigation.navigate('Login')}>
+              <TouchableOpacity accessibilityRole="button" style={styles.duplicateOutlineBtn} onPress={() => navigation.navigate('Login')}>
                 <Text style={styles.duplicateOutlineBtnText}>Entrar</Text>
               </TouchableOpacity>
               {/* TODO: point to a password-recovery screen once one exists — Login for now */}
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Login')}>
                 <Text style={styles.duplicateLinkText}>Olvidé la clave</Text>
               </TouchableOpacity>
             </View>
@@ -313,7 +318,7 @@ function StepNav({ onBack, onNext, nextLabel, nextDisabled, loading }: {
   return (
     <View style={styles.stepNavRow}>
       {onBack && (
-        <TouchableOpacity style={styles.stepBackBtn} onPress={onBack}>
+        <TouchableOpacity accessibilityRole="button" style={styles.stepBackBtn} onPress={onBack}>
           <Text style={styles.stepBackBtnText}>Atrás</Text>
         </TouchableOpacity>
       )}
@@ -659,7 +664,7 @@ const styles = StyleSheet.create({
   },
   inputWrapReadOnly: { backgroundColor: andiColors.surfaceMid },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: 15, color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: 16, color: andiColors.onSurface },
   eyeBtn: { padding: andiSpace[1] },
 
   strengthWrap: { marginTop: andiSpace[2] },

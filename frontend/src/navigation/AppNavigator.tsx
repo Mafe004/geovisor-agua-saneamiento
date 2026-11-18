@@ -1,14 +1,15 @@
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer, type LinkingOptions, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, type BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AuthContext } from '../context/AuthContext';
 import LoadingScreen from '../components/LoadingScreen';
 import type { RootStackParamList } from './types';
-import { andiColors, andiRadius, andiElevation, andiType } from '../theme/andi';
+import { andiColors, andiRadius, andiElevation, andiType, andiSpace } from '../theme/andi';
 
 // Auth
 import LoginScreen    from '../screens/auth/LoginScreen';
@@ -89,16 +90,6 @@ const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
   Cifras:        { icon: '📊',  label: 'Cifras'     },
 };
 
-// ── Tab bar icon personalizado ────────────────────────────────
-function TabIcon({ name, focused }: { name: string; focused: boolean; color: string }) {
-  const cfg = TAB_CONFIG[name] || { icon: '•' };
-  return (
-    <View style={[tabStyles.iconWrap, focused && tabStyles.iconWrapActive]}>
-      <Text style={tabStyles.iconText}>{cfg.icon}</Text>
-    </View>
-  );
-}
-
 // ── Tabs de Moderador/Entidad (sistema visual Andi) ────────────
 // Ícono Feather + si es el tab de "Crear" (solo Entidad), un FAB elevado
 // en vez de un ícono normal -- así lo dibuja el canvas.
@@ -121,27 +112,27 @@ function AndiTabIcon({ name, focused }: { name: string; focused: boolean }) {
     );
   }
   const icon = ANDI_TAB_ICON[name] ?? 'circle';
-  return <Feather name={icon} size={20} color={focused ? andiColors.primary : andiColors.onSurfaceVariant} />;
+  return <Feather name={icon} size={24} color={focused ? andiColors.primary : andiColors.onSurfaceVariant} />;
 }
 
-function makeAndiTabOptions(barHeight: number) {
+// `bottomInset` es useSafeAreaInsets().bottom del navigator que llama a
+// esto -- sin sumarlo, el home-indicator/la barra de gestos de Android se
+// solapa con los iconos del tab bar (la altura y el padding del canvas son
+// fijos y no cuentan con esa zona).
+function makeAndiTabOptions(barHeight: number, bottomInset: number) {
   return ({ route }: { route: RouteProp<ParamListBase> }): BottomTabNavigationOptions => {
     const isFab = route.name === 'Crear';
     return {
       headerShown: false,
       tabBarActiveTintColor: andiColors.primary,
       tabBarInactiveTintColor: andiColors.onSurfaceVariant,
-      tabBarStyle: [andiTabStyles.bar, { height: barHeight }],
+      tabBarStyle: [andiTabStyles.bar, { height: barHeight + bottomInset, paddingBottom: andiSpace[2] + bottomInset }],
       tabBarLabelStyle: andiTabStyles.label,
       tabBarLabel: isFab ? () => null : (TAB_CONFIG[route.name]?.label || route.name),
       tabBarIcon: ({ focused }) => <AndiTabIcon name={route.name} focused={focused} />,
     };
   };
 }
-// Moderador: 4 tabs, sin FAB (88px en el canvas). Entidad: 5 tabs con FAB
-// central elevado, que necesita más espacio libre arriba (96px).
-const andiTabOptionsModerador = makeAndiTabOptions(88);
-const andiTabOptionsEntidad = makeAndiTabOptions(96);
 
 // ── Tabs de Admin (sistema visual Andi) ────────────────────────
 // 5 tabs planos, sin FAB -- a diferencia de Moderador/Entidad, Admin no
@@ -159,36 +150,22 @@ function AdminTabIcon({ name, focused }: { name: string; focused: boolean }) {
   return <Feather name={icon} size={22} color={focused ? andiColors.primary600 : andiColors.onSurfaceVariant} />;
 }
 
-const adminTabOptions = ({ route }: { route: RouteProp<ParamListBase> }): BottomTabNavigationOptions => ({
-  headerShown: false,
-  tabBarActiveTintColor: andiColors.primary600,
-  tabBarInactiveTintColor: andiColors.onSurfaceVariant,
-  tabBarStyle: {
-    height: 72,
-    backgroundColor: andiColors.surface,
-    borderTopWidth: 1,
-    borderTopColor: andiColors.outlineVariant,
-  },
-  tabBarLabelStyle: andiType.labelSm,
-  tabBarIcon: ({ focused }) => <AdminTabIcon name={route.name} focused={focused} />,
-});
-
-// ── Opciones compartidas del tab navigator ────────────────────
-const sharedTabOptions = ({
-  route,
-}: {
-  route: RouteProp<ParamListBase>;
-}): BottomTabNavigationOptions => ({
-  headerShown: false,
-  tabBarActiveTintColor:   '#1565C0',
-  tabBarInactiveTintColor: '#9CA3AF',
-  tabBarStyle: tabStyles.bar,
-  tabBarLabelStyle: tabStyles.label,
-  tabBarLabel: TAB_CONFIG[route.name]?.label || route.name,
-  tabBarIcon: ({ focused, color }) => (
-    <TabIcon name={route.name} focused={focused} color={color} />
-  ),
-});
+function makeAdminTabOptions(bottomInset: number) {
+  return ({ route }: { route: RouteProp<ParamListBase> }): BottomTabNavigationOptions => ({
+    headerShown: false,
+    tabBarActiveTintColor: andiColors.primary600,
+    tabBarInactiveTintColor: andiColors.onSurfaceVariant,
+    tabBarStyle: {
+      height: 72 + bottomInset,
+      paddingBottom: bottomInset,
+      backgroundColor: andiColors.surface,
+      borderTopWidth: 1,
+      borderTopColor: andiColors.outlineVariant,
+    },
+    tabBarLabelStyle: andiType.labelSm,
+    tabBarIcon: ({ focused }) => <AdminTabIcon name={route.name} focused={focused} />,
+  });
+}
 
 // ── Tab bar de Ciudadano (tema "Andi", FAB terracota) ──────────
 // Nombres con prefijo "Ciudadano" a propósito: Moderador/Entidad ya tienen
@@ -218,25 +195,25 @@ function CiudadanoAndiTabIcon({ name, focused }: { name: string; focused: boolea
   );
 }
 
-const ciudadanoTabOptions = ({
-  route,
-}: {
-  route: RouteProp<ParamListBase>;
-}): BottomTabNavigationOptions => ({
-  headerShown: false,
-  tabBarActiveTintColor:   andiColors.primary600,
-  tabBarInactiveTintColor: andiColors.n400,
-  tabBarStyle: ciudadanoAndiTabStyles.bar,
-  tabBarLabelStyle: ciudadanoAndiTabStyles.label,
-  tabBarLabel: CIUDADANO_ANDI_TAB_CONFIG[route.name]?.label ?? route.name,
-  tabBarIcon: ({ focused }) => <CiudadanoAndiTabIcon name={route.name} focused={focused} />,
-});
+function makeCiudadanoTabOptions(bottomInset: number) {
+  return ({ route }: { route: RouteProp<ParamListBase> }): BottomTabNavigationOptions => ({
+    headerShown: false,
+    tabBarActiveTintColor:   andiColors.primary600,
+    tabBarInactiveTintColor: andiColors.n400,
+    tabBarStyle: [ciudadanoAndiTabStyles.bar, { height: 68 + bottomInset, paddingBottom: 10 + bottomInset }],
+    tabBarLabelStyle: ciudadanoAndiTabStyles.label,
+    tabBarLabel: CIUDADANO_ANDI_TAB_CONFIG[route.name]?.label ?? route.name,
+    tabBarIcon: ({ focused }) => <CiudadanoAndiTabIcon name={route.name} focused={focused} />,
+  });
+}
 
 // ── TAB NAVIGATORS ────────────────────────────────────────────
 
 function CiudadanoTabs() {
+  const insets = useSafeAreaInsets();
+  const screenOptions = useMemo(() => makeCiudadanoTabOptions(insets.bottom), [insets.bottom]);
   return (
-    <Tab.Navigator screenOptions={ciudadanoTabOptions}>
+    <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Mapa"           component={MapaScreen} />
       <Tab.Screen name="Reportes"       component={MisReportesScreen} />
       <Tab.Screen name="Crear"          component={CrearReporteScreen} />
@@ -247,21 +224,30 @@ function CiudadanoTabs() {
 }
 
 function EntidadTabs() {
+  const insets = useSafeAreaInsets();
+  const { user } = useContext(AuthContext);
+  // El titular reparte trabajo, no lo hace él mismo (ver migración 0007) --
+  // "Crear" (reportar un daño) es solo para trabajadores. Sin el FAB
+  // central, el titular necesita menos espacio libre arriba que un
+  // trabajador (88px, como Moderador, en vez de 96px).
+  const esTitular = !!user?.es_titular_entidad;
+  const screenOptions = useMemo(() => makeAndiTabOptions(esTitular ? 88 : 96, insets.bottom), [insets.bottom, esTitular]);
   return (
-    <Tab.Navigator screenOptions={andiTabOptionsEntidad}>
+    <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Asignados" component={ReportesAsignadosScreen} />
       <Tab.Screen name="Cifras"    component={CifrasEntidadScreen} />
-      <Tab.Screen name="Crear"     component={EntidadCrearReporteScreen} />
+      {!esTitular && <Tab.Screen name="Crear" component={EntidadCrearReporteScreen} />}
       <Tab.Screen name="Historial" component={HistorialScreen} />
       <Tab.Screen name="Mapa"      component={MapaEntidadScreen} />
-      <Tab.Screen name="Perfil"    component={PerfilScreen} />
     </Tab.Navigator>
   );
 }
 
 function ModeradorTabs() {
+  const insets = useSafeAreaInsets();
+  const screenOptions = useMemo(() => makeAndiTabOptions(88, insets.bottom), [insets.bottom]);
   return (
-    <Tab.Navigator screenOptions={andiTabOptionsModerador}>
+    <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Triage"    component={TriageScreen} />
       <Tab.Screen name="Historial" component={HistorialScreen} />
       <Tab.Screen name="Infra"     component={InfraestructuraScreen} />
@@ -271,8 +257,10 @@ function ModeradorTabs() {
 }
 
 function AdminTabs() {
+  const insets = useSafeAreaInsets();
+  const screenOptions = useMemo(() => makeAdminTabOptions(insets.bottom), [insets.bottom]);
   return (
-    <Tab.Navigator screenOptions={adminTabOptions}>
+    <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Panel"     component={DashboardScreen} />
       <Tab.Screen name="Reportes"  component={TodosReportesScreen} />
       <Tab.Screen name="Usuarios"  component={UsuariosScreen} />
@@ -321,6 +309,7 @@ export default function AppNavigator() {
         ) : user.id_rol === 2 ? (
           <>
             <Stack.Screen name="EntidadHome"    component={EntidadTabs} />
+            <Stack.Screen name="EntidadPerfil"  component={PerfilScreen} options={{ headerShown: false }} />
             <Stack.Screen name="DetalleReporte" component={DetalleReporteScreen} />
           </>
         ) : (
@@ -337,36 +326,6 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
-
-// ── Estilos del tab bar ───────────────────────────────────────
-const tabStyles = StyleSheet.create({
-  bar: {
-    height: 68,
-    paddingBottom: 10,
-    paddingTop: 6,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F4F8',
-    elevation: 12,
-    shadowColor: '#1565C0',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 0,
-  },
-  iconWrap: {
-    width: 36, height: 36, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  iconWrapActive: {
-    backgroundColor: '#EFF6FF',
-  },
-  iconText: { fontSize: 19 },
-});
 
 // ── Estilos del tab bar Andi (Moderador/Entidad) ───────────────
 const andiTabStyles = StyleSheet.create({
@@ -413,7 +372,7 @@ const ciudadanoAndiTabStyles = StyleSheet.create({
     width: 36, height: 36,
     justifyContent: 'center', alignItems: 'center',
   },
-  iconText: { fontSize: 19, color: andiColors.n400 },
+  iconText: { fontSize: 24, color: andiColors.n400 },
   iconTextActive: { color: andiColors.primary600 },
   fab: {
     width: 52, height: 52, borderRadius: 20,

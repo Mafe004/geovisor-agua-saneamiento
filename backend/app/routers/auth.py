@@ -43,7 +43,7 @@ def _get_user_by_email(correo: str) -> dict[str, Any]:
             cursor.execute(
                 """
                 SELECT
-                    id_usuario, id_rol, id_estado_cuenta, id_entidad,
+                    id_usuario, id_rol, id_estado_cuenta, id_entidad, es_titular_entidad,
                     nombre_completo, correo, password_hash
                 FROM usuarios
                 WHERE correo = %s
@@ -123,6 +123,7 @@ def login(payload: LoginRequest, ip: str | None = Depends(get_client_ip)):
         "id_rol": user["id_rol"],
         "id_estado_cuenta": user["id_estado_cuenta"],
         "id_entidad": user["id_entidad"],
+        "es_titular_entidad": bool(user["es_titular_entidad"]),
         "nombre_completo": user["nombre_completo"],
         "correo": user["correo"],
     }

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useContext, useMemo } from 'react';
-import { View, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, type CompositeNavigationProp, type ParamListBase } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,9 +8,11 @@ import axios from 'axios';
 import { reportesAPI } from '../../api/services';
 import { AuthContext } from '../../context/AuthContext';
 import AndiHeader from '../../components/andi/AndiHeader';
+import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import MapaWebView from '../../components/MapaWebView';
+import { useToast } from '../../components/andi/Toast';
 import { andiColors } from '../../theme/andi';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import type { ReporteMapaPunto } from '../../types/domain';
@@ -37,10 +40,12 @@ const LEGEND: { estado: string; label: string; color: string }[] = [
 export default function MapaEntidadScreen({ navigation }: Props) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
+  const toast = useToast();
   const { user } = useContext(AuthContext);
   const [puntos, setPuntos] = useState<ReporteMapaPunto[]>([]);
   const [loading, setLoading] = useState(true);
   const [cargandoDetalle, setCargandoDetalle] = useState<number | null>(null);
+  const [selectedPin, setSelectedPin] = useState<MapMarker | null>(null);
 
   const loadPuntos = useCallback(async () => {
     if (!user?.id_entidad) { setLoading(false); return; }
@@ -60,7 +65,7 @@ export default function MapaEntidadScreen({ navigation }: Props) {
   if (!user?.id_entidad) {
     return (
       <View style={styles.container}>
-        <AndiHeader title="Mapa" />
+        <AndiHeader title="Mapa" rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />} />
         <AndiBody>
           <AndiErrorState
             icon="alert-triangle"
@@ -90,16 +95,20 @@ export default function MapaEntidadScreen({ navigation }: Props) {
     severidad: p.severidad,
   }));
 
-  const handleMarkerPress = async (marker: MapMarker) => {
-    const id = marker.id_reporte ?? (typeof marker.id === 'number' ? marker.id : undefined);
-    if (id == null) return;
+  const handleMarkerPress = (marker: MapMarker) => {
+    setSelectedPin(marker);
+  };
+
+  const verDetalle = async (idReporte: number | undefined) => {
+    if (idReporte == null) return;
     try {
-      setCargandoDetalle(id);
-      const res = await reportesAPI.obtener(id);
+      setCargandoDetalle(idReporte);
+      const res = await reportesAPI.obtener(idReporte);
       navigation.navigate('DetalleReporte', { reporte: res.data });
+      setSelectedPin(null);
     } catch (e) {
       const msg = axios.isAxiosError<{ detail?: string }>(e) && e.response?.data?.detail;
-      Alert.alert('Error', msg || 'No se pudo abrir el detalle de este reporte.');
+      toast.error('Error', msg || 'No se pudo abrir el detalle de este reporte.');
     } finally {
       setCargandoDetalle(null);
     }
@@ -107,7 +116,11 @@ export default function MapaEntidadScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <AndiHeader title="Mapa" overline={`${puntos.length} reporte${puntos.length === 1 ? '' : 's'}`} />
+      <AndiHeader
+        title="Mapa"
+        overline={`${puntos.length} reporte${puntos.length === 1 ? '' : 's'}`}
+        rightElement={<ProfileAvatarButton name={user?.nombre_completo ?? '?'} onPress={() => navigation.navigate('EntidadPerfil')} />}
+      />
       <AndiBody style={styles.body}>
         <View style={styles.legendRow}>
           {LEGEND.map(l => (
@@ -132,9 +145,26 @@ export default function MapaEntidadScreen({ navigation }: Props) {
               showCenterPin={false}
               onMarkerPress={handleMarkerPress}
             />
-            {cargandoDetalle != null && (
-              <View style={styles.detailLoadingOverlay}>
-                <ActivityIndicator size="small" color={andiColors.primary} />
+            {selectedPin && (
+              <View style={styles.anchorCard}>
+                <View style={styles.anchorTop}>
+                  <Text style={styles.anchorId}>Reporte #{selectedPin.id_reporte}</Text>
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => setSelectedPin(null)}>
+                    <Feather name="x" size={18} color={andiColors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.anchorTitle} numberOfLines={2}>{selectedPin.descripcion || selectedPin.titulo || 'Reporte'}</Text>
+                {!!selectedPin.estado && <Text style={styles.anchorMeta}>{selectedPin.estado.replace(/_/g, ' ')}</Text>}
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  style={styles.anchorBtn}
+                  onPress={() => verDetalle(selectedPin.id_reporte)}
+                  disabled={cargandoDetalle != null}
+                >
+                  {cargandoDetalle != null
+                    ? <ActivityIndicator size="small" color={andiColors.surface} />
+                    : <Text style={styles.anchorBtnText}>Ver detalle</Text>}
+                </TouchableOpacity>
               </View>
             )}
           </View>

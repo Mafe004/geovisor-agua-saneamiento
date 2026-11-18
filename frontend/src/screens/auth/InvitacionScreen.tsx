@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, type NativeSyntheticEvent, type TextInputKeyPressEventData,
+  StyleSheet, KeyboardAvoidingView, Platform, type TextInputKeyPressEvent, type TextInputInstance,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -80,7 +80,7 @@ export default function InvitacionScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'expired' | 'used' | 'invalid' | null>(null);
   const [result, setResult] = useState<ConfirmResult | null>(null);
-  const inputRefs = useRef<(TextInput | null)[]>([]);
+  const inputRefs = useRef<(TextInputInstance | null)[]>([]);
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
@@ -136,7 +136,7 @@ export default function InvitacionScreen({ navigation }: Props) {
     }
   };
 
-  const handleKeyPress = (index: number, e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+  const handleKeyPress = (index: number, e: TextInputKeyPressEvent) => {
     if (e.nativeEvent.key === 'Backspace' && digits[index] === '' && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
@@ -145,7 +145,7 @@ export default function InvitacionScreen({ navigation }: Props) {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.contentWrap}>
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
         <Feather name="arrow-left" size={22} color={andiColors.surface} />
       </TouchableOpacity>
 
@@ -172,7 +172,7 @@ export default function InvitacionScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.solicitarAccesoLink}
         activeOpacity={0.7}
         onPress={() => navigation.navigate('SolicitarAcceso')}
@@ -185,7 +185,7 @@ export default function InvitacionScreen({ navigation }: Props) {
           <Feather name="clock" size={16} color={andiColors.warning700} />
           <View style={styles.bannerTextWrap}>
             <Text style={styles.bannerTextWarning}>Este código ya venció.</Text>
-            <TouchableOpacity onPress={() => navigation.replace('Register', { id_rol: Rol.CIUDADANO })}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => navigation.replace('Register', { id_rol: Rol.CIUDADANO })}>
               <Text style={styles.bannerLink}>Ingresar como Ciudadano</Text>
             </TouchableOpacity>
           </View>
@@ -225,7 +225,7 @@ export default function InvitacionScreen({ navigation }: Props) {
             </Text>
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.confirmBtn}
             activeOpacity={0.85}
             onPress={() => navigation.navigate('Register', {

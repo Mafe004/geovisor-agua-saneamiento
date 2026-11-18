@@ -360,8 +360,11 @@ def asignar_usuario_entidad(
                     detail="Solo se pueden asignar usuarios con rol ENTIDAD a una entidad",
                 )
 
+            # Vincular directamente (a diferencia de agregar un trabajador
+            # por invitación) es ADMIN designando a quién representa a la
+            # entidad -- por eso esta cuenta se vuelve titular.
             cursor.execute(
-                "UPDATE usuarios SET id_entidad = %s, updated_at = NOW() WHERE id_usuario = %s;",
+                "UPDATE usuarios SET id_entidad = %s, es_titular_entidad = 1, updated_at = NOW() WHERE id_usuario = %s;",
                 (id_entidad, id_usuario),
             )
 
@@ -425,16 +428,30 @@ def desasignar_usuario_entidad(
 
 @router.get(
     "/{id_entidad}/usuarios",
-    summary="Listar usuarios de una entidad (solo ADMIN)",
+    summary="Listar usuarios de una entidad (ADMIN, o ENTIDAD viendo su propia entidad)",
     response_model=UsuariosDeEntidadResponse,
-    responses={404: {"description": "Entidad no encontrada"}},
+    responses={404: {"description": "Entidad no encontrada"}, 403: {"description": "Sin permiso"}},
 )
 def usuarios_de_entidad(
-    id_entidad: int, user: dict[str, Any] = Depends(require_roles(Rol.ADMIN))
+    id_entidad: int, user: dict[str, Any] = Depends(require_active_user)
 ) -> dict[str, Any]:
     """
     Lista todos los usuarios asignados a una entidad específica.
+
+    ADMIN: cualquier entidad (lo usa para vincular/desvincular cuentas).
+    ENTIDAD: solo el TITULAR de SU PROPIA entidad -- la necesita para elegir
+    a qué trabajador asignarle un reporte (ver reportesAPI.asignarUsuario).
+    Un trabajador normal no reparte trabajo entre otros, así que no
+    necesita ver esta lista (ver migración 0007).
     """
+    if user["id_rol"] == Rol.ENTIDAD:
+        if user.get("id_entidad") != id_entidad:
+            raise HTTPException(status_code=403, detail="Solo puedes ver los usuarios de tu propia entidad")
+        if not user.get("es_titular_entidad"):
+            raise HTTPException(status_code=403, detail="Solo el titular de tu entidad puede ver esta lista")
+    elif user["id_rol"] != Rol.ADMIN:
+        raise HTTPException(status_code=403, detail="No tienes permisos para ver usuarios de una entidad")
+
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
@@ -453,6 +470,7 @@ def usuarios_de_entidad(
                     u.nombre_completo,
                     u.correo,
                     u.telefono,
+                    u.es_titular_entidad,
                     r.nombre  AS rol,
                     ec.nombre AS estado_cuenta
                 FROM usuarios u

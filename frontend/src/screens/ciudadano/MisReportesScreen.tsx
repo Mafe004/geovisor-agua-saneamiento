@@ -59,7 +59,7 @@ export default function MisReportesScreen({ navigation }: Props) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.id_usuario]);
+  }, [user]);
 
   useFocusEffect(useCallback(() => { loadAll(); }, [loadAll]));
 
@@ -152,7 +152,7 @@ export default function MisReportesScreen({ navigation }: Props) {
                 <Text style={styles.emptyText}>
                   Cuando veas una fuga, un rebose o agua turbia, márcalo en el mapa. Toma menos de medio minuto.
                 </Text>
-                <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('Crear')}>
+                <TouchableOpacity accessibilityRole="button" style={styles.emptyBtn} onPress={() => navigation.navigate('Crear')}>
                   <Text style={styles.emptyBtnText}>Reportar algo</Text>
                 </TouchableOpacity>
               </View>

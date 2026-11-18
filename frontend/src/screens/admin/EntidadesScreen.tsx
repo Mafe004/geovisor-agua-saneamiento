@@ -16,7 +16,7 @@ import { useToast } from '../../components/andi/Toast';
 import AndiErrorState from '../../components/andi/AndiErrorState';
 import AgregarTrabajadorModal from '../../components/andi/AgregarTrabajadorModal';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
-import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
 // Solo `navigation` -- ver nota en AuditoriaScreen.tsx sobre por qué
@@ -174,7 +174,7 @@ export default function EntidadesScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+      <LinearGradient colors={ANDI_GRADIENTS.header} style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Entidades</Text>
           <View style={styles.headerActions}>
@@ -488,7 +488,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   fieldLabel: { ...andiType.labelSm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3], marginBottom: andiSpace[1] },
   input: {
     minHeight: 48, borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
-    paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
+    paddingHorizontal: andiSpace[3], fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface,
   },
   sheetPrimaryBtn: {
     minHeight: 48, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600,

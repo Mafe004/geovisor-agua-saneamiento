@@ -13,7 +13,7 @@ import AndiErrorState from '../../components/andi/AndiErrorState';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { UsuarioListItem } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Props = BottomTabScreenProps<AdminTabParamList, 'Usuarios'>;
@@ -198,7 +198,7 @@ export default function UsuariosScreen({ route, navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+      <LinearGradient colors={ANDI_GRADIENTS.header} style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Usuarios</Text>
           <View style={styles.headerBadge}>
@@ -484,7 +484,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   modalInput: {
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
     backgroundColor: andiColors.surfaceDim, padding: andiSpace[3], marginTop: andiSpace[4],
-    minHeight: 60, textAlignVertical: 'top', color: andiColors.onSurface, fontSize: 16,
+    minHeight: 60, textAlignVertical: 'top', color: andiColors.onSurface, fontSize: andiType.bodyLg.fontSize,
   },
   modalBtnRow: { flexDirection: 'row', gap: andiSpace[3], marginTop: andiSpace[5] },
   modalCancelBtn: {

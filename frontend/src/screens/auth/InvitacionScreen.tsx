@@ -8,7 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { andiColors, andiType, andiRadius, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import { Rol } from '../../types/models';
 import { invitacionesAPI } from '../../api/services';
@@ -233,7 +233,7 @@ export default function InvitacionScreen({ navigation }: Props) {
               codigoData: { codigo, rol: result.rol, entidad: result.entidad ?? undefined },
             })}
           >
-            <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.confirmBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <LinearGradient colors={ANDI_GRADIENTS.button} style={styles.confirmBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <Text style={styles.confirmBtnText}>Continuar como {ROL_LABEL[result.rol]}</Text>
             </LinearGradient>
           </TouchableOpacity>

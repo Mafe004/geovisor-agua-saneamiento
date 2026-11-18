@@ -11,7 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { solicitudesAccesoAPI } from '../../api/services';
 import type { SolicitudAccesoItem } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SolicitudesAcceso'>;
@@ -136,7 +136,7 @@ export default function SolicitudesAccesoScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+      <LinearGradient colors={ANDI_GRADIENTS.header} style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
             <Feather name="arrow-left" size={22} color={andiColors.surface} />

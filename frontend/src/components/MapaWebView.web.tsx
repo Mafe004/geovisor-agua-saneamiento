@@ -2,7 +2,7 @@ import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, use
 import { View, StyleSheet } from 'react-native';
 import { buildMapHtml, prepareMarkers, resolveMapContainerStyle } from './mapHtml';
 import type { MapaWebViewHandle, MapaWebViewProps } from './MapaWebView.types';
-import { andiColors } from '../theme/andi';
+import { andiColors, andiRadius } from '../theme/andi';
 
 // Mismo contrato que postToHost() en mapHtml.ts -- ver la nota equivalente
 // en MapaWebView.tsx. HTMLIFrameElement/MessageEvent son tipos DOM: se usan
@@ -99,7 +99,7 @@ const MapaWebView = forwardRef<MapaWebViewHandle, MapaWebViewProps>(function Map
 export default MapaWebView;
 
 const styles = StyleSheet.create({
-  container: { borderRadius: 14, overflow: 'hidden' },
+  container: { borderRadius: andiRadius.lg, overflow: 'hidden' },
 });
 
 // Elemento DOM crudo (no un componente RN Web) - necesita un objeto CSS

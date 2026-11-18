@@ -12,7 +12,7 @@ import { usuariosAPI } from '../../api/services';
 import type { RegistroUsuario } from '../../types/domain';
 import type { RootStackParamList } from '../../navigation/types';
 import { Rol } from '../../types/models';
-import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { andiColors, andiType, andiRadius, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
@@ -148,7 +148,7 @@ function PrimaryButton({ label, onPress, loading, disabled }: {
       disabled={disabled || loading}
       activeOpacity={0.85}
     >
-      <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+      <LinearGradient colors={ANDI_GRADIENTS.button} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
         {loading ? <ActivityIndicator color={andiColors.surface} /> : <Text style={styles.btnText}>{label}</Text>}
       </LinearGradient>
     </TouchableOpacity>
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   inputWrapReadOnly: { backgroundColor: andiColors.surfaceMid },
   inputIcon: { marginRight: andiSpace[2] },
-  input: { flex: 1, minHeight: 48, fontSize: 16, color: andiColors.onSurface },
+  input: { flex: 1, minHeight: 48, fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface },
   eyeBtn: { padding: andiSpace[1] },
 
   strengthWrap: { marginTop: andiSpace[2] },

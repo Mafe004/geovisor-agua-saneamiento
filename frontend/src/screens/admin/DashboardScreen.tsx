@@ -16,7 +16,7 @@ import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { EstadisticasResponse, ResumenMunicipio, Reporte } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, andiSeverityColor } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, andiSeverityColor, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Nav = BottomTabNavigationProp<AdminTabParamList, 'Panel'>;
@@ -176,7 +176,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={[styles.header, { paddingTop: insets.top + andiSpace[4], height: 180 }]}>
+      <LinearGradient colors={ANDI_GRADIENTS.header} style={[styles.header, { paddingTop: insets.top + andiSpace[4], height: 180 }]}>
         <View style={styles.headerTopRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.greeting}>{greeting()}</Text>
@@ -418,7 +418,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
     backgroundColor: andiColors.surface, paddingHorizontal: andiSpace[3], minHeight: 40,
   },
-  searchInput: { flex: 1, minHeight: 40, fontSize: 16, color: andiColors.onSurface },
+  searchInput: { flex: 1, minHeight: 40, fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface },
 
   siasarRow: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: andiColors.surface,

@@ -228,11 +228,18 @@ export function buildMapHtml({
       centerMarker = new google.maps.Marker({
         position: center,
         map: map,
+        // Dentro del HTML del mapa no hay Feather (es JS corriendo en el
+        // WebView, no React) -- un pin de verdad en SVG en vez del emoji
+        // 📍 de antes, que varía mucho de forma/color entre fuentes de
+        // sistema según el teléfono.
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" font-size="28"><text y="26">📍</text></svg>'
+            '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 24 30">' +
+              '<path d="M12 0C6.5 0 2 4.5 2 10c0 7.5 10 20 10 20s10-12.5 10-20C22 4.5 17.5 0 12 0z" fill="${andiColors.primary}" stroke="#fff" stroke-width="1.5"/>' +
+              '<circle cx="12" cy="10" r="4" fill="#fff"/>' +
+            '</svg>'
           ),
-          anchor: new google.maps.Point(12, 28),
+          anchor: new google.maps.Point(16, 40),
         },
       });
       map.addListener('idle', function () {

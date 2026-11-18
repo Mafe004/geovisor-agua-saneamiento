@@ -358,12 +358,12 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   textarea: {
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.lg,
-    backgroundColor: andiColors.surface, padding: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
+    backgroundColor: andiColors.surface, padding: andiSpace[3], fontSize: andiTypeBase.bodyLg.fontSize, color: andiColors.onSurface,
     minHeight: 100,
   },
   input: {
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.lg,
-    backgroundColor: andiColors.surface, paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
+    backgroundColor: andiColors.surface, paddingHorizontal: andiSpace[3], fontSize: andiTypeBase.bodyLg.fontSize, color: andiColors.onSurface,
     minHeight: 48,
   },
 

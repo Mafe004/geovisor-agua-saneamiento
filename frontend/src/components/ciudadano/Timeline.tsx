@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { ANDI_COLORS, ANDI_SPACING, statusMeta } from '../../theme/andi';
+import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, statusMeta } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { HistorialEntry, HistorialEntryComunidad } from '../../types/domain';
 import FotoGaleria from '../andi/FotoGaleria';
@@ -64,7 +64,7 @@ export default function Timeline({ items }: TimelineProps) {
 const makeStyles = (r: Responsive) => StyleSheet.create({
   row: { flexDirection: 'row', gap: ANDI_SPACING.s3 },
   rail: { alignItems: 'center', width: 14 },
-  node: { width: 12, height: 12, borderRadius: 6 },
+  node: { width: 12, height: 12, borderRadius: ANDI_RADIUS.full },
   line: { flex: 1, width: 2, backgroundColor: ANDI_COLORS.outlineVariant, marginTop: 2 },
   content: { flex: 1 },
   contentSpacing: { paddingBottom: ANDI_SPACING.s4 },

@@ -10,7 +10,7 @@ import axios from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthContext } from '../../context/AuthContext';
 import type { RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { andiColors, andiType, andiRadius, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
@@ -166,7 +166,7 @@ export default function LoginScreen({ navigation, route }: Props) {
               disabled={loading}
               activeOpacity={0.85}
             >
-              <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient colors={ANDI_GRADIENTS.button} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 {loading
                   ? <ActivityIndicator color={andiColors.surface} />
                   : <Text style={styles.btnText}>Entrar</Text>

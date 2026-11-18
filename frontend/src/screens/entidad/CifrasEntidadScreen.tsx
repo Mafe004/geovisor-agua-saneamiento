@@ -183,7 +183,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   severidadRow: { flexDirection: 'row', gap: andiSpace[2] },
   severidadCard: { flex: 1, backgroundColor: andiColors.surfaceMid, borderRadius: andiRadius.lg, padding: andiSpace[3] },
   severidadHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  dot10: { width: 10, height: 10, borderRadius: 5 },
+  dot10: { width: 10, height: 10, borderRadius: andiRadius.full },
   severidadLabel: { color: andiColors.onSurfaceVariant },
 
   mesChart: { flexDirection: 'row', alignItems: 'flex-end', gap: andiSpace[2], height: r.scaleHeight(120) },

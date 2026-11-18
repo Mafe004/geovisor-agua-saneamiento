@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { buildMapHtml, prepareMarkers, resolveMapContainerStyle } from './mapHtml';
 import type { MapaWebViewHandle, MapaWebViewProps } from './MapaWebView.types';
-import { andiColors } from '../theme/andi';
+import { andiColors, andiRadius } from '../theme/andi';
 
 // Contrato de mensajes que mapHtml.ts postea de vuelta vía postToHost() --
 // este archivo es el único consumidor, así que se tipa acá en vez de en el
@@ -137,6 +137,6 @@ const MapaWebView = forwardRef<MapaWebViewHandle, MapaWebViewProps>(function Map
 export default MapaWebView;
 
 const styles = StyleSheet.create({
-  container: { borderRadius: 14, overflow: 'hidden' },
+  container: { borderRadius: andiRadius.lg, overflow: 'hidden' },
   webview: { flex: 1, backgroundColor: andiColors.mapGround },
 });

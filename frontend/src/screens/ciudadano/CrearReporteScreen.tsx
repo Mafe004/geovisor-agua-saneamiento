@@ -20,6 +20,7 @@ import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
 import { subirFotos } from '../../utils/fotoEvidencia';
 import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
+import Icon from '../../components/andi/Icon';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -475,7 +476,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftHeader>
           <View style={styles.topRow}>
             <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
-              <Text style={styles.closeIcon}>✕</Text>
+              <Icon name="x" size="md" color="#fff" />
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
           </View>
@@ -483,7 +484,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftSurface style={{ padding: ANDI_SPACING.s5, width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }}>
           <SystemBanner
             tone="success"
-            icon="✓"
+            icon="check"
             title="¡Reporte enviado!"
             message="Un moderador lo revisará pronto."
           />
@@ -508,7 +509,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftHeader>
           <View style={styles.topRow}>
             <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => setMode('form')}>
-              <Text style={styles.closeIcon}>✕</Text>
+              <Icon name="x" size="md" color="#fff" />
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
           </View>
@@ -516,7 +517,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftSurface style={{ padding: ANDI_SPACING.s5, width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }}>
           <SystemBanner
             tone={savedTone}
-            icon={savedTone === 'warning' ? '⇅' : '!'}
+            icon={savedTone === 'warning' ? 'wifi-off' : 'alert-circle'}
             title={savedTone === 'warning' ? 'Estás sin conexión' : 'Algo falló de nuestro lado'}
             message="No se perdió lo que escribiste: quedó guardado como borrador en este teléfono."
           />
@@ -551,7 +552,7 @@ export default function CrearReporteScreen(props: Props) {
             style={styles.closeBtn}
             onPress={esEdicion ? () => props.navigation.goBack() : () => navigation.navigate('Mapa')}
           >
-            <Text style={styles.closeIcon}>✕</Text>
+            <Icon name="x" size="md" color="#fff" />
           </TouchableOpacity>
           <Text style={styles.screenTitle}>{esEdicion ? 'Editar reporte' : 'Nuevo reporte'}</Text>
         </View>
@@ -694,7 +695,10 @@ function ProgressStep({ label, done, styles }: { label: string; done: boolean; s
   return (
     <View style={{ flex: 1 }}>
       <View style={[styles.progressBar, done && styles.progressBarDone]} />
-      <Text style={[styles.progressLabel, done && styles.progressLabelDone]}>{label}{done ? ' ✓' : ''}</Text>
+      <View style={styles.progressLabelRow}>
+        <Text style={[styles.progressLabel, done && styles.progressLabelDone]}>{label}</Text>
+        {done && <Icon name="check" size={12} color={ANDI_COLORS.primary100} />}
+      </View>
     </View>
   );
 }
@@ -702,13 +706,13 @@ function ProgressStep({ label, done, styles }: { label: string; done: boolean; s
 const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
-  closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  closeIcon: { color: '#fff', fontSize: 20 },
+  closeBtn: { width: 40, height: 40, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
   screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   progressRow: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   progressBar: { height: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
   progressBarDone: { backgroundColor: ANDI_COLORS.primary300 },
-  progressLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary300, marginTop: 6 },
+  progressLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  progressLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary300 },
   progressLabelDone: { color: ANDI_COLORS.primary100 },
 
   scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10 },
@@ -728,12 +732,12 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   coordText: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant, marginTop: 4 },
   coordPending: { fontSize: r.scaleFont(11), color: ANDI_COLORS.warning, marginTop: 4, fontWeight: '600' },
   adjustBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  adjustBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 11 },
+  adjustBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: ANDI_TYPE.caption.fontSize },
   geoLink: { marginTop: 6, alignSelf: 'flex-start' },
-  geoLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 11, textDecorationLine: 'underline' },
-  siasarHint: { fontSize: 11, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
+  geoLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: ANDI_TYPE.caption.fontSize, textDecorationLine: 'underline' },
+  siasarHint: { fontSize: ANDI_TYPE.caption.fontSize, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
 
-  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: 16, color: ANDI_COLORS.onSurface, minHeight: 90 },
+  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: ANDI_TYPE.bodyLg.fontSize, color: ANDI_COLORS.onSurface, minHeight: 90 },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
   draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },

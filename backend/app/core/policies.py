@@ -104,15 +104,36 @@ def puede_ver_reporte(user: dict, reporte: dict) -> bool:
 
 
 def puede_cambiar_estado(user: dict, reporte: dict) -> bool:
-    """CIUDADANO nunca. ENTIDAD titular: cualquiera de su entidad. ENTIDAD
-    trabajador: solo el que tiene asignado a él. MODERADOR/ADMIN siempre."""
+    """CIUDADANO nunca. ENTIDAD: solo el trabajador que tiene ESTE reporte
+    asignado a él -- el titular reparte el trabajo, nunca lo resuelve él
+    mismo (igual que ya no puede crearlo, ver crear_reporte). MODERADOR/
+    ADMIN siempre.
+
+    Distinto de puede_asignar_trabajador(): esa decide quién reparte a
+    quién (el titular); esta decide quién mueve el estado del reporte ya
+    repartido (el trabajador)."""
     id_rol = user.get("id_rol")
 
     if id_rol == Rol.CIUDADANO:
         return False
     if id_rol == Rol.ENTIDAD:
+        if user.get("es_titular_entidad"):
+            return False
         return _es_de_mi_entidad(user, reporte)
     # rol desconocido: fail closed, nunca fail open
+    return id_rol in (Rol.MODERADOR, Rol.ADMIN)
+
+
+def puede_asignar_trabajador(user: dict, reporte: dict) -> bool:
+    """Repartir un reporte a un trabajador de la entidad: el TITULAR de esa
+    entidad, o MODERADOR/ADMIN (p.ej. para intervenir si una entidad no se
+    está organizando). Nunca un trabajador normal, ni siquiera para
+    re-asignarse su propio reporte a otro -- esa decisión es del titular."""
+    id_rol = user.get("id_rol")
+    if id_rol == Rol.ENTIDAD:
+        return bool(user.get("es_titular_entidad")) and reporte.get("id_entidad") == user.get(
+            "id_entidad"
+        )
     return id_rol in (Rol.MODERADOR, Rol.ADMIN)
 
 

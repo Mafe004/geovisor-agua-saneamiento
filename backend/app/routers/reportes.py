@@ -11,6 +11,7 @@ from app.core.deps import get_client_ip, require_active_user, require_roles
 from app.core.errors import handle_db_error
 from app.core.policies import (
     ESTADO_EDITABLE,
+    puede_asignar_trabajador,
     puede_cambiar_estado,
     puede_editar_reporte,
     puede_ver_detalle_comunitario,
@@ -919,6 +920,11 @@ def cambiar_estado(
                     raise HTTPException(
                         status_code=403, detail="Usuario ENTIDAD sin id_entidad asignado"
                     )
+                if user["id_rol"] == Rol.ENTIDAD and user.get("es_titular_entidad"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="El titular de la entidad no resuelve reportes, solo los reparte",
+                    )
                 if user["id_rol"] == Rol.ENTIDAD:
                     raise HTTPException(
                         status_code=403, detail="No puedes modificar reportes de otra entidad"
@@ -936,6 +942,16 @@ def cambiar_estado(
             if not nuevo_estado_row:
                 raise HTTPException(status_code=400, detail="id_estado_nuevo no existe")
             nombre_estado_nuevo = nuevo_estado_row["nombre"]
+
+            # Marcar RESUELTO sin ninguna foto no prueba que se hizo nada --
+            # al menos una (la principal o una de `imagenes`) es obligatoria
+            # para esta transición específica; para las demás sigue siendo
+            # opcional.
+            if nombre_estado_nuevo == "RESUELTO" and not payload.imagen_url and not payload.imagenes:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Adjunta al menos una foto de evidencia para marcar el reporte como resuelto",
+                )
 
             if payload.id_usuario_asignado is not None:
                 # Un trabajador (ENTIDAD no titular) solo puede usar este
@@ -1120,7 +1136,7 @@ def asignar_usuario_reporte(
                 raise HTTPException(
                     status_code=403, detail="Solo el titular de tu entidad puede repartir reportes"
                 )
-            if not puede_cambiar_estado(user, rep):
+            if not puede_asignar_trabajador(user, rep):
                 raise HTTPException(
                     status_code=403, detail="No puedes asignar reportes de otra entidad"
                 )

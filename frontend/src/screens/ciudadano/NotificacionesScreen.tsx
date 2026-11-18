@@ -202,7 +202,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   iconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   iconWrapUnread: { backgroundColor: ANDI_COLORS.stProBg },
   iconWrapRead: { backgroundColor: ANDI_COLORS.surfaceMid },
-  icon: { fontSize: 16 },
+  icon: { fontSize: 20 },
   cardTitle: { ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
   cardTitleRead: { fontWeight: '400', color: ANDI_COLORS.n600 },
   cardMeta: { ...r.scaleType(ANDI_TYPE.caption), color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },

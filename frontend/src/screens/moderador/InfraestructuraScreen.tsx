@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity,
-  Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
+  Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import { infraestructuraAPI } from '../../api/services';
+import { useSwipeDismiss } from '../../utils/useSwipeDismiss';
 import AndiHeader, { AndiHeaderIconButton } from '../../components/andi/AndiHeader';
 import AndiBody from '../../components/andi/AndiBody';
 import AndiChip from '../../components/andi/AndiChip';
@@ -93,7 +94,6 @@ export default function InfraestructuraScreen() {
             longitude={items[0].longitud}
             zoom={13}
             markers={markers}
-            interactive={false}
             showCenterPin={false}
           />
         )}
@@ -187,6 +187,7 @@ function InfraestructuraForm({
   const [estado, setEstado] = useState<string>('ACTIVA');
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(null);
   const [saving, setSaving] = useState(false);
+  const { translateY, handlePanHandlers } = useSwipeDismiss(onClose, visible);
 
   const reset = () => {
     setNombre(''); setTipo(null); setFuente(''); setEstado('ACTIVA'); setCoordenadas(null);
@@ -221,9 +222,11 @@ function InfraestructuraForm({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
-          <View style={[styles.formCard, andiElevation[4]]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+          <Animated.View style={[styles.formCard, andiElevation[4], { transform: [{ translateY }] }]}>
+            <View {...handlePanHandlers} style={styles.handleArea}>
               <View style={styles.handle} />
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <View style={[styles.formHeader, styles.formHeaderRow]}>
                 <Text style={andiType.section}>Nueva infraestructura</Text>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => { reset(); onClose(); }} style={styles.closeBtn}>
@@ -293,7 +296,7 @@ function InfraestructuraForm({
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -326,7 +329,8 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     backgroundColor: andiColors.surface, borderTopLeftRadius: andiRadius['2xl'], borderTopRightRadius: andiRadius['2xl'],
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[3], paddingBottom: andiSpace[6], width: '100%', maxHeight: '90%',
   },
-  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center', marginBottom: andiSpace[4] },
+  handleArea: { paddingTop: andiSpace[2], paddingBottom: andiSpace[4] },
+  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center' },
   formHeader: { marginBottom: andiSpace[2] },
   formHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   closeBtn: { padding: andiSpace[1] },

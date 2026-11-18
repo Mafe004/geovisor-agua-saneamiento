@@ -230,25 +230,29 @@ export default function DashboardScreen() {
           })}
         </View>
 
-        {/* Actividad por módulo */}
+        {/* Actividad por módulo -- cada tile abre el registro completo de Auditoría */}
         <Text style={styles.sectionTitle}>Actividad por módulo</Text>
         <View style={styles.statTileRow}>
-          <View style={styles.statTile}>
+          <TouchableOpacity accessibilityRole="button" style={styles.statTile} onPress={() => navigation.navigate('Auditoría')} activeOpacity={0.8}>
             <Feather name="file-text" size={20} color={andiColors.primary600} />
             <Text style={styles.statTileNum}>{actividad.REPORTES ?? '—'} REPORTES</Text>
-          </View>
-          <View style={styles.statTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.statTile} onPress={() => navigation.navigate('Auditoría')} activeOpacity={0.8}>
             <Feather name="log-in" size={20} color={andiColors.primary600} />
             <Text style={styles.statTileNum}>{actividad.AUTH ?? '—'} AUTH</Text>
-          </View>
-          <View style={styles.statTile}>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" style={styles.statTile} onPress={() => navigation.navigate('Auditoría')} activeOpacity={0.8}>
             <Feather name="users" size={20} color={andiColors.primary600} />
             <Text style={styles.statTileNum}>{actividad.USUARIOS ?? '—'} USUARIOS</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        {/* SIASAR vs reportes ciudadanos */}
+        {/* SIASAR vs reportes ciudadanos -- tabla de solo lectura: el buscador
+            filtra las filas por municipio, no abre nada al tocarlas. */}
         <Text style={styles.sectionTitle}>SIASAR vs. reportes ciudadanos</Text>
+        <Text style={styles.sectionHint}>
+          Compara la calificación oficial SIASAR de cada municipio con sus reportes ciudadanos. Busca para filtrar la lista de abajo.
+        </Text>
         <View style={styles.searchWrap}>
           <Feather name="search" size={16} color={andiColors.onSurfaceVariant} />
           <TextInput
@@ -330,6 +334,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
     ...andiType.labelMd, textTransform: 'uppercase', letterSpacing: 0.8,
     color: andiColors.onSurfaceVariant, marginTop: andiSpace[6], marginBottom: andiSpace[2],
   },
+  sectionHint: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginBottom: andiSpace[3] },
 
   estadoList: { gap: andiSpace[3] },
   estadoRow: {},

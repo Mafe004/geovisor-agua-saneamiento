@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, Modal, KeyboardAvoidingView, Platform, ScrollView,
+  ActivityIndicator, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import axios from 'axios';
 import { reportesAPI } from '../../api/services';
 import { useToast } from '../../components/andi/Toast';
+import { useSwipeDismiss } from '../../utils/useSwipeDismiss';
 import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatusPill, andiElevation } from '../../theme/andi';
 import { useResponsive, useScaledType, type Responsive } from '../../theme/responsive';
 import type { Reporte, EstadoReporteItem, EntidadDetalle } from '../../types/domain';
@@ -36,6 +37,7 @@ export default function TriageSheet({
   const [idEstadoNuevo, setIdEstadoNuevo] = useState<number | null>(null);
   const [comentario, setComentario] = useState('');
   const [saving, setSaving] = useState(false);
+  const { translateY, handlePanHandlers } = useSwipeDismiss(onClose, visible);
 
   // Resetea el formulario al abrir la hoja para un reporte nuevo -- el
   // Modal se queda montado entre aperturas (no remonta por `key`), así que
@@ -100,9 +102,11 @@ export default function TriageSheet({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
-          <View style={[styles.card, andiElevation[4]]}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+          <Animated.View style={[styles.card, andiElevation[4], { transform: [{ translateY }] }]}>
+            <View {...handlePanHandlers} style={styles.handleArea}>
               <View style={styles.handle} />
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
 
               <View style={[styles.titleBlock, styles.titleBlockRow]}>
                 <View style={{ flex: 1 }}>
@@ -214,7 +218,7 @@ export default function TriageSheet({
                 </TouchableOpacity>
               </View>
             </ScrollView>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -230,7 +234,11 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[3], paddingBottom: andiSpace[6],
     width: '100%', maxHeight: '88%',
   },
-  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center', marginBottom: andiSpace[4] },
+  // Área de agarre más alta que la barrita visual (handle) -- el gesto de
+  // deslizar hacia abajo debe poder iniciarse en todo este margen, no solo
+  // en los 4px exactos de la barrita.
+  handleArea: { paddingTop: andiSpace[2], paddingBottom: andiSpace[4] },
+  handle: { width: 40, height: 4, borderRadius: andiRadius.full, backgroundColor: andiColors.outline, alignSelf: 'center' },
   titleBlock: { marginBottom: andiSpace[4] },
   titleBlockRow: { flexDirection: 'row', alignItems: 'flex-start', gap: andiSpace[2] },
   closeBtn: { padding: andiSpace[1] },

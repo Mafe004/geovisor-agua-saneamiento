@@ -687,7 +687,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   kicker: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary200 },
   title: { ...r.scaleType(ANDI_TYPE.display), color: '#fff', marginTop: 2 },
   searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  searchIcon: { color: '#fff', fontSize: 17 },
+  searchIcon: { color: '#fff', fontSize: 22 },
   countRow: { flexDirection: 'row', alignItems: 'baseline', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   countNum: { ...ANDI_TYPE.displayLg, fontSize: r.scaleFont(30), color: '#fff' },
   countLabel: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.primary200 },
@@ -755,7 +755,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     width: 44, height: 44, borderRadius: 22, backgroundColor: ANDI_COLORS.surface,
     borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, alignItems: 'center', justifyContent: 'center',
   },
-  recenterIcon: { color: ANDI_COLORS.primary600, fontSize: 17 },
+  recenterIcon: { color: ANDI_COLORS.primary600, fontSize: 22 },
 
   siasarLoadingOverlay: {
     position: 'absolute', top: ANDI_SPACING.s4, left: ANDI_SPACING.s4,
@@ -778,7 +778,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   },
   anchorTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: ANDI_SPACING.s2 },
   anchorId: { fontSize: r.scaleFont(12), color: ANDI_COLORS.primary200, fontWeight: '600' },
-  anchorClose: { color: ANDI_COLORS.primary200, fontSize: 16 },
+  anchorClose: { color: ANDI_COLORS.primary200, fontSize: 20 },
   anchorTitle: { ...r.scaleType(ANDI_TYPE.card), color: '#fff' },
   anchorChips: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s3, marginBottom: ANDI_SPACING.s3 },
   anchorBtn: { minHeight: 48, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary100, alignItems: 'center', justifyContent: 'center' },

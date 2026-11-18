@@ -738,7 +738,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  closeIcon: { color: '#fff', fontSize: 16 },
+  closeIcon: { color: '#fff', fontSize: 20 },
   screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   progressRow: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   progressBar: { height: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },

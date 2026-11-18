@@ -221,7 +221,10 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
               const idLabel = item.estado === 'EN_PROCESO'
                 ? `#${item.id_reporte} · asignado`
                 : `#${item.id_reporte} · ${formatRelative(item.created_at)}`;
-              const puedeTomar = item.estado === 'PENDIENTE' || item.estado === 'EN_REVISION';
+              // El titular reparte trabajo, no lo hace él mismo -- "Tomar"
+              // (auto-asignarse) es solo para un trabajador normal. El
+              // titular usa el botón de asignar para dárselo a alguien.
+              const puedeTomar = !esTitular && (item.estado === 'PENDIENTE' || item.estado === 'EN_REVISION');
               const esMio = item.id_usuario_asignado === user?.id_usuario;
               const nota = item.id_usuario_asignado == null
                 ? 'Sin asignar'

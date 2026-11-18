@@ -227,7 +227,7 @@ export default function PerfilScreen({ navigation }: Props) {
 
             {drafts.length > 0 && (
               <View style={styles.pendingCard}>
-                <View style={styles.pendingIcon}><Text style={{ fontSize: 16, color: ANDI_COLORS.onSurfaceVariant }}>✎</Text></View>
+                <View style={styles.pendingIcon}><Text style={{ fontSize: 20, color: ANDI_COLORS.onSurfaceVariant }}>✎</Text></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pendingTitle}>Borradores sin enviar</Text>
                   <Text style={styles.pendingMeta}>{drafts.length} borrador{drafts.length === 1 ? '' : 'es'} guardado{drafts.length === 1 ? '' : 's'}</Text>
@@ -359,10 +359,10 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   rowsCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, overflow: 'hidden' },
   menuRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, paddingHorizontal: ANDI_SPACING.s4 },
   menuRowBorder: { borderBottomWidth: 1, borderBottomColor: ANDI_COLORS.outlineVariant },
-  menuIcon: { fontSize: 17, color: ANDI_COLORS.primary600, width: 20, textAlign: 'center' },
+  menuIcon: { fontSize: 20, color: ANDI_COLORS.primary600, width: 24, textAlign: 'center' },
   menuLabel: { flex: 1, ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
   menuValue: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant },
-  menuChevron: { color: ANDI_COLORS.onSurfaceVariant, fontSize: 16 },
+  menuChevron: { color: ANDI_COLORS.onSurfaceVariant, fontSize: 18 },
 
   editCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
   fieldLabel: { ...ANDI_TYPE.label, fontSize: r.scaleFont(12), color: ANDI_COLORS.onSurfaceVariant, marginBottom: 6, marginTop: ANDI_SPACING.s3 },

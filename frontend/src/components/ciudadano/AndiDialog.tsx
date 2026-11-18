@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16, flexShrink: 0,
     alignItems: 'center', justifyContent: 'center',
   },
-  icon: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  icon: { fontSize: 18, fontWeight: '700', color: '#fff' },
   title: { flex: 1, ...ANDI_TYPE.section, color: ANDI_COLORS.onSurface },
   close: { fontSize: 20, color: ANDI_COLORS.onSurfaceVariant, padding: 4 },
   message: { ...ANDI_TYPE.body, color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s3 },

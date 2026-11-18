@@ -90,9 +90,14 @@ def marcar_todas_leidas(user: dict[str, Any] = Depends(require_active_user)) -> 
 )
 def marcar_leida(
     id_notificacion: int,
-    payload: MarcarLeidaRequest,
+    payload: MarcarLeidaRequest = MarcarLeidaRequest(),
     user: dict[str, Any] = Depends(require_active_user),  # ✅ Requiere token
 ) -> dict[str, Any]:
+    # payload trae default pese a que MarcarLeidaRequest.leida ya tiene uno
+    # propio -- FastAPI exige el BODY completo si el parámetro no tiene
+    # default, sin importar que todos sus campos lo tengan. Sin esto, un
+    # PUT sin body (el caso común: "marcar como leída") daba 422 antes de
+    # llegar aquí.
     conn = get_connection()
     try:
         with conn.cursor() as cursor:

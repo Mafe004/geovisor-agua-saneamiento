@@ -301,7 +301,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { color: '#fff', fontSize: 18 },
+  backIcon: { color: '#fff', fontSize: 22 },
   kicker: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.primary200 },
   screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },

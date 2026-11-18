@@ -1264,6 +1264,8 @@ export interface components {
             comentario?: string | null;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
             /** Id Usuario Asignado */
             id_usuario_asignado?: number | null;
         };
@@ -1675,6 +1677,8 @@ export interface components {
              * Format: date-time
              */
             fecha_cambio: string;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
         };
         /**
          * HistorialEntryComunidad
@@ -1708,6 +1712,26 @@ export interface components {
              * Format: date-time
              */
             fecha_cambio: string;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
+        };
+        /**
+         * ImagenReporte
+         * @description Una fila de reporte_imagenes (migración 0008). `tipo` no viaja aquí
+         *     -- cada lista (ReporteDetalle.imagenes vs HistorialEntry.imagenes) ya
+         *     es de un solo tipo por construcción (el SELECT que la llena filtra por
+         *     tipo), así que repetirlo en cada fila no agrega información.
+         */
+        ImagenReporte: {
+            /** Id Imagen */
+            id_imagen: number;
+            /** Imagen Url */
+            imagen_url: string;
+            /**
+             * Creado En
+             * Format: date-time
+             */
+            creado_en: string;
         };
         /** InfraestructuraCreate */
         InfraestructuraCreate: {
@@ -2104,6 +2128,8 @@ export interface components {
             /** Entidad Sugerida */
             entidad_sugerida: string | null;
             vereda_siasar?: components["schemas"]["VeredaSiasarResumen"] | null;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
         };
         /** ReporteCreateRequest */
         ReporteCreateRequest: {
@@ -2126,6 +2152,8 @@ export interface components {
             longitud?: number | null;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
             /**
              * Fuente Reporte
              * @default CIUDADANO
@@ -2188,6 +2216,8 @@ export interface components {
             id_usuario_asignado: number | null;
             /** Usuario Asignado */
             usuario_asignado: string | null;
+            /** Imagenes */
+            imagenes?: components["schemas"]["ImagenReporte"][];
         };
         /**
          * ReporteMapaPunto
@@ -2246,6 +2276,8 @@ export interface components {
             longitud: number;
             /** Imagen Url */
             imagen_url?: string | null;
+            /** Imagenes */
+            imagenes?: string[] | null;
         };
         /** RestablecerContrasena */
         RestablecerContrasena: {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, RefreshControl, ActivityIndicator,
-  TextInput, TouchableOpacity, FlatList,
+  TextInput, TouchableOpacity, FlatList, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -12,8 +12,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, siasarAPI, usuariosAPI, entidadesAPI, auditoriaAPI } from '../../api/services';
 import { useAuth } from '../../context/AuthContext';
 import AndiErrorState from '../../components/andi/AndiErrorState';
+import AndiStatusBadge from '../../components/andi/AndiStatusBadge';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
-import type { EstadisticasResponse, ResumenMunicipio } from '../../types/domain';
+import type { EstadisticasResponse, ResumenMunicipio, Reporte } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
 import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, andiSeverityColor } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
@@ -77,6 +78,26 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Tocar un municipio de la tabla SIASAR muestra sus reportes ciudadanos
+  // -- antes la fila no hacía nada, solo mostraba la calificación oficial
+  // sin ninguna forma de ver qué hay reportado ahí.
+  const [municipioAbierto, setMunicipioAbierto] = useState<string | null>(null);
+  const [reportesMunicipio, setReportesMunicipio] = useState<Reporte[]>([]);
+  const [cargandoReportesMunicipio, setCargandoReportesMunicipio] = useState(false);
+
+  const abrirMunicipio = async (municipio: string) => {
+    setMunicipioAbierto(municipio);
+    setCargandoReportesMunicipio(true);
+    try {
+      const res = await reportesAPI.listar({ municipio_siasar: municipio });
+      setReportesMunicipio(res.data || []);
+    } catch (_) {
+      setReportesMunicipio([]);
+    } finally {
+      setCargandoReportesMunicipio(false);
+    }
+  };
 
   const loadStats = async () => {
     // Cada estadística viene de un endpoint independiente -- allSettled para
@@ -248,10 +269,11 @@ export default function DashboardScreen() {
         </View>
 
         {/* SIASAR vs reportes ciudadanos -- tabla de solo lectura: el buscador
-            filtra las filas por municipio, no abre nada al tocarlas. */}
+            filtra las filas por municipio; tocar una muestra sus reportes
+            ciudadanos (ver abrirMunicipio() más abajo). */}
         <Text style={styles.sectionTitle}>SIASAR vs. reportes ciudadanos</Text>
         <Text style={styles.sectionHint}>
-          Compara la calificación oficial SIASAR de cada municipio con sus reportes ciudadanos. Busca para filtrar la lista de abajo.
+          Compara la calificación oficial SIASAR de cada municipio con sus reportes ciudadanos. Toca un municipio para ver sus reportes.
         </Text>
         <View style={styles.searchWrap}>
           <Feather name="search" size={16} color={andiColors.onSurfaceVariant} />
@@ -271,14 +293,15 @@ export default function DashboardScreen() {
           renderItem={({ item }) => {
             const sev = severidadMunicipio(item);
             return (
-              <View style={styles.siasarRow}>
+              <TouchableOpacity accessibilityRole="button" style={styles.siasarRow} activeOpacity={0.7} onPress={() => abrirMunicipio(item.municipio)}>
                 <Text style={styles.siasarMunicipio} numberOfLines={1}>{item.municipio}</Text>
                 <View style={[styles.severidadChip, { backgroundColor: andiSeverityColor[sev] + '22' }]}>
                   <View style={[styles.severidadDot, { backgroundColor: andiSeverityColor[sev] }]} />
                   <Text style={[styles.severidadChipText, { color: andiSeverityColor[sev] }]}>{SEVERIDAD_LABEL[sev]}</Text>
                 </View>
                 <Text style={styles.siasarFecha}>{formatFecha(item.fecha_encuesta_max)}</Text>
-              </View>
+                <Feather name="chevron-right" size={16} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
             );
           }}
           ListEmptyComponent={
@@ -290,6 +313,45 @@ export default function DashboardScreen() {
         />
         </View>
       </ScrollView>
+
+      <Modal visible={!!municipioAbierto} transparent animationType="slide" onRequestClose={() => setMunicipioAbierto(null)}>
+        <View style={styles.municipioModalOverlay}>
+          <View style={styles.municipioModalCard}>
+            <View style={styles.municipioModalHeader}>
+              <Text style={styles.municipioModalTitle}>Reportes en {municipioAbierto}</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => setMunicipioAbierto(null)}>
+                <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+            {cargandoReportesMunicipio ? (
+              <ActivityIndicator size="small" color={andiColors.primary600} style={{ marginVertical: andiSpace[5] }} />
+            ) : (
+              <FlatList
+                data={reportesMunicipio}
+                keyExtractor={rep => String(rep.id_reporte)}
+                style={{ maxHeight: 420 }}
+                ListEmptyComponent={<Text style={styles.municipioModalEmpty}>Sin reportes ciudadanos en este municipio todavía.</Text>}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    style={styles.municipioModalRow}
+                    onPress={() => {
+                      setMunicipioAbierto(null);
+                      navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('DetalleReporte', { reporte: item });
+                    }}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.municipioModalRowTitle} numberOfLines={1}>{item.descripcion || 'Sin descripción'}</Text>
+                      <Text style={styles.municipioModalRowMeta} numberOfLines={1}>{item.direccion || '—'}</Text>
+                    </View>
+                    <AndiStatusBadge status={item.estado} />
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -370,4 +432,19 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
 
   emptyState: { alignItems: 'center', paddingVertical: andiSpace[8] },
   emptyStateText: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3] },
+
+  municipioModalOverlay: { flex: 1, backgroundColor: 'rgba(14,20,22,0.5)', justifyContent: 'flex-end' },
+  municipioModalCard: {
+    backgroundColor: andiColors.surface, borderTopLeftRadius: andiRadius.xl, borderTopRightRadius: andiRadius.xl,
+    paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[8], maxHeight: '80%',
+  },
+  municipioModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: andiSpace[3] },
+  municipioModalTitle: { ...andiType.headingMd, color: andiColors.onSurface, flex: 1 },
+  municipioModalEmpty: { ...andiType.bodySm, color: andiColors.onSurfaceVariant, paddingVertical: andiSpace[5], textAlign: 'center' },
+  municipioModalRow: {
+    flexDirection: 'row', alignItems: 'center', gap: andiSpace[3],
+    paddingVertical: andiSpace[3], borderBottomWidth: 1, borderBottomColor: andiColors.outlineVariant,
+  },
+  municipioModalRowTitle: { ...andiType.labelMd, color: andiColors.onSurface },
+  municipioModalRowMeta: { ...andiType.caption, color: andiColors.onSurfaceVariant, marginTop: 2 },
 });

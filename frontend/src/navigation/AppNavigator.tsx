@@ -112,7 +112,7 @@ function AndiTabIcon({ name, focused }: { name: string; focused: boolean }) {
     );
   }
   const icon = ANDI_TAB_ICON[name] ?? 'circle';
-  return <Feather name={icon} size={20} color={focused ? andiColors.primary : andiColors.onSurfaceVariant} />;
+  return <Feather name={icon} size={24} color={focused ? andiColors.primary : andiColors.onSurfaceVariant} />;
 }
 
 // `bottomInset` es useSafeAreaInsets().bottom del navigator que llama a
@@ -225,16 +225,18 @@ function CiudadanoTabs() {
 
 function EntidadTabs() {
   const insets = useSafeAreaInsets();
-  // 5 tabs con FAB central elevado -- necesita más espacio libre arriba
-  // (96px) que Moderador (88px, sin FAB). "Perfil" ya no es un tab -- se
-  // llega a él desde la bolita de avatar en el header de cada tab (mismo
-  // patrón que AdminPerfil), así el tab bar no queda sobrecargado.
-  const screenOptions = useMemo(() => makeAndiTabOptions(96, insets.bottom), [insets.bottom]);
+  const { user } = useContext(AuthContext);
+  // El titular reparte trabajo, no lo hace él mismo (ver migración 0007) --
+  // "Crear" (reportar un daño) es solo para trabajadores. Sin el FAB
+  // central, el titular necesita menos espacio libre arriba que un
+  // trabajador (88px, como Moderador, en vez de 96px).
+  const esTitular = !!user?.es_titular_entidad;
+  const screenOptions = useMemo(() => makeAndiTabOptions(esTitular ? 88 : 96, insets.bottom), [insets.bottom, esTitular]);
   return (
     <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Asignados" component={ReportesAsignadosScreen} />
       <Tab.Screen name="Cifras"    component={CifrasEntidadScreen} />
-      <Tab.Screen name="Crear"     component={EntidadCrearReporteScreen} />
+      {!esTitular && <Tab.Screen name="Crear" component={EntidadCrearReporteScreen} />}
       <Tab.Screen name="Historial" component={HistorialScreen} />
       <Tab.Screen name="Mapa"      component={MapaEntidadScreen} />
     </Tab.Navigator>
@@ -370,7 +372,7 @@ const ciudadanoAndiTabStyles = StyleSheet.create({
     width: 36, height: 36,
     justifyContent: 'center', alignItems: 'center',
   },
-  iconText: { fontSize: 19, color: andiColors.n400 },
+  iconText: { fontSize: 24, color: andiColors.n400 },
   iconTextActive: { color: andiColors.primary600 },
   fab: {
     width: 52, height: 52, borderRadius: 20,

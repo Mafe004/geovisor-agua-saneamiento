@@ -103,11 +103,12 @@ export default function TriageSheet({
       <View style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
           <Animated.View style={[styles.card, andiElevation[4], { transform: [{ translateY }] }]}>
+            {/* Toda esta zona (no solo la barrita) responde al arrastre --
+                una franja de 4px es casi imposible de agarrar a propósito;
+                el título/X quedan afuera del ScrollView para que el gesto
+                de cerrar no compita con el scroll interno del formulario. */}
             <View {...handlePanHandlers} style={styles.handleArea}>
               <View style={styles.handle} />
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
-
               <View style={[styles.titleBlock, styles.titleBlockRow]}>
                 <View style={{ flex: 1 }}>
                   <Text style={andiType.section}>Triar reporte</Text>
@@ -117,7 +118,8 @@ export default function TriageSheet({
                   <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
-
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.section}>
                 <Text style={[andiType.overline, andiOverlineDecor, styles.sectionLabel]}>Entidad</Text>
                 <View style={styles.entidadCard}>

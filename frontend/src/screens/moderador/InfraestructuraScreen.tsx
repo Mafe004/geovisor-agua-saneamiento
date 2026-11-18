@@ -223,16 +223,18 @@ function InfraestructuraForm({
       <View style={styles.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.kbWrap, { maxWidth: r.maxContentWidth(560), alignSelf: 'center' }]}>
           <Animated.View style={[styles.formCard, andiElevation[4], { transform: [{ translateY }] }]}>
+            {/* Toda esta zona (no solo la barrita) responde al arrastre --
+                4px es casi imposible de agarrar a propósito. */}
             <View {...handlePanHandlers} style={styles.handleArea}>
               <View style={styles.handle} />
-            </View>
-            <ScrollView showsVerticalScrollIndicator={false}>
               <View style={[styles.formHeader, styles.formHeaderRow]}>
                 <Text style={andiType.section}>Nueva infraestructura</Text>
                 <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => { reset(); onClose(); }} style={styles.closeBtn}>
                   <Feather name="x" size={22} color={andiColors.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
 
               <Text style={styles.formLabel}>Nombre *</Text>
               <TextInput

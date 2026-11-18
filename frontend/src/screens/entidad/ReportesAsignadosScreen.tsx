@@ -207,10 +207,14 @@ export default function ReportesAsignadosScreen({ navigation }: Props) {
           <AndiEmptyState
             icon="check"
             title="Nada pendiente"
-            body={`Cerraste los ${cerrados.length} reportes que te llegaron este mes. Si ves un daño en campo, puedes reportarlo tú mismo.`}
-            ctaLabel="Reportar un daño"
+            body={
+              esTitular
+                ? `Cerraron ${cerrados.length} reportes este mes. Si hay trabajo pendiente de repartir, revisa "Equipo".`
+                : `Cerraste los ${cerrados.length} reportes que te llegaron este mes. Si ves un daño en campo, puedes reportarlo tú mismo.`
+            }
+            ctaLabel={esTitular ? undefined : 'Reportar un daño'}
             ctaVariant="solid"
-            onPressCta={() => navigation.navigate('Crear')}
+            onPressCta={esTitular ? undefined : () => navigation.navigate('Crear')}
           />
         ) : (
           <FlatList

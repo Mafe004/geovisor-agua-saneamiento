@@ -62,6 +62,23 @@ export default function MapaEntidadScreen({ navigation }: Props) {
 
   useFocusEffect(useCallback(() => { loadPuntos(); }, [loadPuntos]));
 
+  // GET /reportes/mapa ya viene escopado por id_entidad en el backend
+  // (scope_reportes) -- no hace falta filtrar de nuevo en el cliente.
+  // useMemo: sin esto, un array nuevo en cada render (aunque `puntos` no
+  // cambie) dispara un window.setMarkers(...) de más en MapaWebView por
+  // simple cambio de identidad. Declarado antes del return condicional de
+  // abajo -- los hooks no pueden depender de una rama del render.
+  const markers: MapMarker[] = useMemo(() => puntos.map(p => ({
+    id: p.id_reporte,
+    id_reporte: p.id_reporte,
+    lat: p.latitud,
+    lng: p.longitud,
+    titulo: `#${p.id_reporte}`,
+    descripcion: p.direccion || p.tipo_incidente,
+    estado: p.estado,
+    severidad: p.severidad,
+  })), [puntos]);
+
   if (!user?.id_entidad) {
     return (
       <View style={styles.container}>
@@ -81,19 +98,6 @@ export default function MapaEntidadScreen({ navigation }: Props) {
       </View>
     );
   }
-
-  // GET /reportes/mapa ya viene escopado por id_entidad en el backend
-  // (scope_reportes) -- no hace falta filtrar de nuevo en el cliente.
-  const markers: MapMarker[] = puntos.map(p => ({
-    id: p.id_reporte,
-    id_reporte: p.id_reporte,
-    lat: p.latitud,
-    lng: p.longitud,
-    titulo: `#${p.id_reporte}`,
-    descripcion: p.direccion || p.tipo_incidente,
-    estado: p.estado,
-    severidad: p.severidad,
-  }));
 
   const handleMarkerPress = (marker: MapMarker) => {
     setSelectedPin(marker);

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import type { Feather } from '@expo/vector-icons';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SHADOWS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
+import Icon from '../andi/Icon';
 
 export type AndiDialogTone = 'warning' | 'error' | 'info' | 'success';
 
@@ -12,11 +14,11 @@ export interface AndiDialogButton {
 }
 
 // Mismos pares de color que SystemBanner (círculo del icono = color del tono).
-const TONES: Record<AndiDialogTone, { iconBg: string; icon: string }> = {
-  warning: { iconBg: ANDI_COLORS.warning, icon: '!' },
-  error: { iconBg: ANDI_COLORS.error, icon: '!' },
-  info: { iconBg: ANDI_COLORS.info, icon: 'i' },
-  success: { iconBg: ANDI_COLORS.success, icon: '✓' },
+const TONES: Record<AndiDialogTone, { iconBg: string; icon: keyof typeof Feather.glyphMap }> = {
+  warning: { iconBg: ANDI_COLORS.warning, icon: 'alert-triangle' },
+  error: { iconBg: ANDI_COLORS.error, icon: 'alert-circle' },
+  info: { iconBg: ANDI_COLORS.info, icon: 'info' },
+  success: { iconBg: ANDI_COLORS.success, icon: 'check' },
 };
 
 interface AndiDialogProps {
@@ -25,7 +27,7 @@ interface AndiDialogProps {
   title: string;
   message?: string;
   buttons: AndiDialogButton[];
-  /** Si se pasa, se muestra la ✕ del encabezado. */
+  /** Si se pasa, se muestra el botón de cerrar del encabezado. */
   onClose?: () => void;
 }
 
@@ -53,12 +55,12 @@ export default function AndiDialog({ visible, tone = 'info', title, message, but
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={[styles.iconWrap, { backgroundColor: t.iconBg }]}>
-              <Text style={styles.icon}>{t.icon}</Text>
+              <Icon name={t.icon} size="sm" color="#fff" />
             </View>
             <Text style={styles.title}>{title}</Text>
             {!!onClose && (
-              <TouchableOpacity onPress={onClose} hitSlop={8}>
-                <Text style={styles.close}>✕</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cerrar">
+                <Icon name="x" size="sm" color={ANDI_COLORS.onSurfaceVariant} />
               </TouchableOpacity>
             )}
           </View>
@@ -148,12 +150,10 @@ const styles = StyleSheet.create({
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
   iconWrap: {
-    width: 32, height: 32, borderRadius: 16, flexShrink: 0,
+    width: 32, height: 32, borderRadius: ANDI_RADIUS.full, flexShrink: 0,
     alignItems: 'center', justifyContent: 'center',
   },
-  icon: { fontSize: 18, fontWeight: '700', color: '#fff' },
   title: { flex: 1, ...ANDI_TYPE.section, color: ANDI_COLORS.onSurface },
-  close: { fontSize: 20, color: ANDI_COLORS.onSurfaceVariant, padding: 4 },
   message: { ...ANDI_TYPE.body, color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s3 },
   actions: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s5 },
   btn: {
@@ -164,5 +164,5 @@ const styles = StyleSheet.create({
   danger: { backgroundColor: ANDI_COLORS.error },
   outline: { borderWidth: 1, borderColor: ANDI_COLORS.outline },
   outlineText: { color: ANDI_COLORS.onSurface, fontWeight: '600', textAlign: 'center' },
-  solidText: { color: '#fff', fontWeight: '700', fontSize: 15, textAlign: 'center' },
+  solidText: { color: ANDI_COLORS.surface, fontWeight: '700', fontSize: ANDI_TYPE.bodyLg.fontSize, textAlign: 'center' },
 });

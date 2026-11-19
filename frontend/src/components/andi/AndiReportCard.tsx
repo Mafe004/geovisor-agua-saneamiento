@@ -103,8 +103,8 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   anchorMeta: { fontSize: r.scaleFont(12), lineHeight: r.scaleFont(16), color: andiColors.primary200, marginTop: andiSpace[1] },
   anchorNoteRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[2], marginVertical: andiSpace[3] },
   severityInline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot10: { width: 10, height: 10, borderRadius: 5 },
-  dotSep: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: andiColors.primary300 },
+  dot10: { width: 10, height: 10, borderRadius: andiRadius.full },
+  dotSep: { width: 3, height: 3, borderRadius: andiRadius.full, backgroundColor: andiColors.primary300 },
   anchorNoteText: { fontSize: r.scaleFont(12), lineHeight: r.scaleFont(16), color: andiColors.primary100 },
   actionRow: { flexDirection: 'row', gap: andiSpace[2] },
   primaryPill: {
@@ -132,6 +132,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingHorizontal: 10, height: 22, borderRadius: andiRadius.full,
     backgroundColor: andiColors.surfaceMid, borderWidth: 1, borderColor: andiColors.outline,
   },
-  dot8: { width: 8, height: 8, borderRadius: 4 },
+  dot8: { width: 8, height: 8, borderRadius: andiRadius.full },
   severityChipText: { fontSize: r.scaleFont(10), lineHeight: r.scaleFont(14), fontWeight: '600', color: andiColors.onSurface, textTransform: 'uppercase' },
 });

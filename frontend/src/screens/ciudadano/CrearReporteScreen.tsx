@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator, Platform,
@@ -10,7 +10,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import axios from 'axios';
 import MapaWebView from '../../components/MapaWebView';
-import type { MapCenterChange } from '../../components/MapaWebView.types';
+import type { MapaWebViewHandle, MapCenterChange, MapMarker } from '../../components/MapaWebView.types';
 import { reportesAPI, catalogosAPI, siasarAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SeverityPicker, { type SeveridadKey } from '../../components/ciudadano/SeverityPicker';
@@ -20,6 +20,7 @@ import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { getDrafts, saveDraft, removeDraft } from '../../utils/offlineDrafts';
 import { subirFotos } from '../../utils/fotoEvidencia';
 import MultiFotoPicker from '../../components/andi/MultiFotoPicker';
+import Icon from '../../components/andi/Icon';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -41,6 +42,10 @@ type EditarProps = NativeStackScreenProps<RootStackParamList, 'EditarReporte'>;
 type Props = CrearProps | EditarProps;
 
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
+// Referencia estable -- un array literal nuevo en cada render dispararía
+// un window.setMarkers(...) de más en MapaWebView por simple cambio de
+// identidad, aunque el contenido (vacío) nunca cambie.
+const EMPTY_MARKERS: MapMarker[] = [];
 
 // Mismas claves que SeverityPicker: una severidad de catálogo fuera de
 // estas queda sin preselección y el ciudadano debe elegir una.
@@ -105,6 +110,14 @@ export default function CrearReporteScreen(props: Props) {
   const [descripcion, setDescripcion] = useState(reporteEditar?.descripcion ?? '');
   const [direccion, setDireccion] = useState(reporteEditar?.direccion ?? '');
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number } | null>(ubicacionOriginal);
+  // Centro con el que arranca el mapa -- se congela en el primer render y
+  // nunca se actualiza. MapaWebView ya no reacciona a cambios en
+  // latitude/longitude después de montarse (para no recargar el mapa en
+  // cada arrastre): `coordenadas` sigue siendo la fuente de verdad para el
+  // payload/validación, pero recentrar el mapa de verdad (tras buscar una
+  // dirección) se pide explícitamente con mapRef.current.panTo(...).
+  const [centroInicial] = useState(() => coordenadas ?? ZIPAQUIRA);
+  const mapRef = useRef<MapaWebViewHandle>(null);
   const [idTipo, setIdTipo] = useState<number | null>(reporteEditar?.id_tipo_incidente ?? null);
   const [severidad, setSeveridad] = useState<SeveridadKey | null>(() => severidadInicial(reporteEditar));
   const [tipos, setTipos] = useState<TipoIncidenteItem[]>([]);
@@ -170,11 +183,12 @@ export default function CrearReporteScreen(props: Props) {
       if (!found) return;
       setDescripcion(found.form.descripcion);
       setDireccion(found.form.direccion);
-      setCoordenadas(
-        found.form.latitud != null && found.form.longitud != null
-          ? { latitude: found.form.latitud, longitude: found.form.longitud }
-          : null,
-      );
+      if (found.form.latitud != null && found.form.longitud != null) {
+        setCoordenadas({ latitude: found.form.latitud, longitude: found.form.longitud });
+        mapRef.current?.panTo(found.form.latitud, found.form.longitud);
+      } else {
+        setCoordenadas(null);
+      }
       setIdTipo(found.form.id_tipo_incidente);
       setSeveridad((found.form.severidad as SeveridadKey) || 'MEDIA');
       setDescTouched(found.form.descTouched);
@@ -212,6 +226,7 @@ export default function CrearReporteScreen(props: Props) {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const punto = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       setCoordenadas(punto);
+      mapRef.current?.panTo(punto.latitude, punto.longitude);
       // Si todavía no escribió dirección, se sugiere la de ese punto (solo
       // móvil: la geocodificación no existe en web). Nunca pisa lo escrito.
       if (!direccion.trim() && Platform.OS !== 'web') {
@@ -254,6 +269,7 @@ export default function CrearReporteScreen(props: Props) {
         return;
       }
       setCoordenadas({ latitude: resultado.latitude, longitude: resultado.longitude });
+      mapRef.current?.panTo(resultado.latitude, resultado.longitude);
     } catch (_) {
       showDialog('No se pudo buscar', 'No pudimos buscar la dirección en este momento. Marca el punto arrastrando el mapa.', { tone: 'warning' });
     } finally {
@@ -460,7 +476,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftHeader>
           <View style={styles.topRow}>
             <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => navigation.navigate('Mapa')}>
-              <Text style={styles.closeIcon}>✕</Text>
+              <Icon name="x" size="md" color="#fff" />
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
           </View>
@@ -468,7 +484,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftSurface style={{ padding: ANDI_SPACING.s5, width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }}>
           <SystemBanner
             tone="success"
-            icon="✓"
+            icon="check"
             title="¡Reporte enviado!"
             message="Un moderador lo revisará pronto."
           />
@@ -493,7 +509,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftHeader>
           <View style={styles.topRow}>
             <TouchableOpacity accessibilityRole="button" style={styles.closeBtn} onPress={() => setMode('form')}>
-              <Text style={styles.closeIcon}>✕</Text>
+              <Icon name="x" size="md" color="#fff" />
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Nuevo reporte</Text>
           </View>
@@ -501,7 +517,7 @@ export default function CrearReporteScreen(props: Props) {
         <LiftSurface style={{ padding: ANDI_SPACING.s5, width: '100%', maxWidth: r.maxContentWidth(600), alignSelf: 'center' }}>
           <SystemBanner
             tone={savedTone}
-            icon={savedTone === 'warning' ? '⇅' : '!'}
+            icon={savedTone === 'warning' ? 'wifi-off' : 'alert-circle'}
             title={savedTone === 'warning' ? 'Estás sin conexión' : 'Algo falló de nuestro lado'}
             message="No se perdió lo que escribiste: quedó guardado como borrador en este teléfono."
           />
@@ -536,7 +552,7 @@ export default function CrearReporteScreen(props: Props) {
             style={styles.closeBtn}
             onPress={esEdicion ? () => props.navigation.goBack() : () => navigation.navigate('Mapa')}
           >
-            <Text style={styles.closeIcon}>✕</Text>
+            <Icon name="x" size="md" color="#fff" />
           </TouchableOpacity>
           <Text style={styles.screenTitle}>{esEdicion ? 'Editar reporte' : 'Nuevo reporte'}</Text>
         </View>
@@ -575,13 +591,14 @@ export default function CrearReporteScreen(props: Props) {
           <Section styles={styles} n="03" title="Dónde">
             <View style={styles.mapCard}>
               <MapaWebView
+                ref={mapRef}
                 style={styles.map}
-                latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
-                longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
+                latitude={centroInicial.latitude}
+                longitude={centroInicial.longitude}
                 zoom={15}
                 showCenterPin
                 onCenterChange={handleCenterChange}
-                markers={[]}
+                markers={EMPTY_MARKERS}
               />
               <View style={styles.mapFooter}>
                 <View style={{ flex: 1 }}>
@@ -678,7 +695,10 @@ function ProgressStep({ label, done, styles }: { label: string; done: boolean; s
   return (
     <View style={{ flex: 1 }}>
       <View style={[styles.progressBar, done && styles.progressBarDone]} />
-      <Text style={[styles.progressLabel, done && styles.progressLabelDone]}>{label}{done ? ' ✓' : ''}</Text>
+      <View style={styles.progressLabelRow}>
+        <Text style={[styles.progressLabel, done && styles.progressLabelDone]}>{label}</Text>
+        {done && <Icon name="check" size={12} color={ANDI_COLORS.primary100} />}
+      </View>
     </View>
   );
 }
@@ -686,13 +706,13 @@ function ProgressStep({ label, done, styles }: { label: string; done: boolean; s
 const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
-  closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  closeIcon: { color: '#fff', fontSize: 20 },
+  closeBtn: { width: 40, height: 40, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
   screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   progressRow: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   progressBar: { height: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
   progressBarDone: { backgroundColor: ANDI_COLORS.primary300 },
-  progressLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary300, marginTop: 6 },
+  progressLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  progressLabel: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary300 },
   progressLabelDone: { color: ANDI_COLORS.primary100 },
 
   scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10 },
@@ -712,12 +732,12 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   coordText: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.onSurfaceVariant, marginTop: 4 },
   coordPending: { fontSize: r.scaleFont(11), color: ANDI_COLORS.warning, marginTop: 4, fontWeight: '600' },
   adjustBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  adjustBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 11 },
+  adjustBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: ANDI_TYPE.caption.fontSize },
   geoLink: { marginTop: 6, alignSelf: 'flex-start' },
-  geoLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 11, textDecorationLine: 'underline' },
-  siasarHint: { fontSize: 11, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
+  geoLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: ANDI_TYPE.caption.fontSize, textDecorationLine: 'underline' },
+  siasarHint: { fontSize: ANDI_TYPE.caption.fontSize, color: ANDI_COLORS.onInfoContainer, backgroundColor: ANDI_COLORS.infoContainer, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: ANDI_SPACING.s2 },
 
-  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: 16, color: ANDI_COLORS.onSurface, minHeight: 90 },
+  textarea: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, padding: ANDI_SPACING.s3, fontSize: ANDI_TYPE.bodyLg.fontSize, color: ANDI_COLORS.onSurface, minHeight: 90 },
 
   draftLink: { alignItems: 'center', paddingVertical: ANDI_SPACING.s2 },
   draftLinkText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: r.scaleFont(12) },

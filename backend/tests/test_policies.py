@@ -16,11 +16,19 @@ from app.core.policies import (
 )
 from app.core.roles import Rol
 
+# ENTIDAD (sin más calificativo) es el TITULAR de su entidad -- ve y
+# resuelve en nombre de toda la entidad en estos tests legacy, igual que
+# antes de la migración 0007. ENTIDAD_TRABAJADOR es la variante añadida en
+# esa migración: solo ve/cambia lo que tiene asignado a él específicamente
+# (ver scope_reportes() y _es_de_mi_entidad() en app/core/policies.py).
 CIUDADANO = {"id_rol": Rol.CIUDADANO, "id_usuario": 10}
 OTRO_CIUDADANO = {"id_rol": Rol.CIUDADANO, "id_usuario": 99}
-ENTIDAD = {"id_rol": Rol.ENTIDAD, "id_usuario": 20, "id_entidad": 5}
+ENTIDAD = {"id_rol": Rol.ENTIDAD, "id_usuario": 20, "id_entidad": 5, "es_titular_entidad": True}
+ENTIDAD_TRABAJADOR = {
+    "id_rol": Rol.ENTIDAD, "id_usuario": 23, "id_entidad": 5, "es_titular_entidad": False,
+}
 ENTIDAD_SIN_ASIGNAR = {"id_rol": Rol.ENTIDAD, "id_usuario": 21, "id_entidad": None}
-OTRA_ENTIDAD = {"id_rol": Rol.ENTIDAD, "id_usuario": 22, "id_entidad": 6}
+OTRA_ENTIDAD = {"id_rol": Rol.ENTIDAD, "id_usuario": 22, "id_entidad": 6, "es_titular_entidad": True}
 MODERADOR = {"id_rol": Rol.MODERADOR, "id_usuario": 30}
 ADMIN = {"id_rol": Rol.ADMIN, "id_usuario": 40}
 ROL_DESCONOCIDO = {"id_rol": 99, "id_usuario": 50}
@@ -39,6 +47,12 @@ def test_scope_reportes_entidad_escoge_a_su_propia_entidad():
     conditions, params = scope_reportes(ENTIDAD)
     assert conditions == ["r.id_entidad = %s"]
     assert params == [5]
+
+
+def test_scope_reportes_entidad_trabajador_solo_lo_asignado_a_el():
+    conditions, params = scope_reportes(ENTIDAD_TRABAJADOR)
+    assert conditions == ["r.id_usuario_asignado = %s"]
+    assert params == [ENTIDAD_TRABAJADOR["id_usuario"]]
 
 
 def test_scope_reportes_entidad_sin_id_entidad_lanza_403():
@@ -132,6 +146,15 @@ def test_puede_ver_reporte_entidad_ve_reporte_de_su_entidad():
     assert puede_ver_reporte(ENTIDAD, reporte) is True
 
 
+def test_puede_ver_reporte_entidad_trabajador_solo_lo_asignado_a_el():
+    reporte_propio = {
+        "id_usuario": 1, "id_entidad": 5, "id_usuario_asignado": ENTIDAD_TRABAJADOR["id_usuario"],
+    }
+    reporte_de_otro_trabajador = {"id_usuario": 1, "id_entidad": 5, "id_usuario_asignado": 999}
+    assert puede_ver_reporte(ENTIDAD_TRABAJADOR, reporte_propio) is True
+    assert puede_ver_reporte(ENTIDAD_TRABAJADOR, reporte_de_otro_trabajador) is False
+
+
 def test_puede_ver_reporte_entidad_no_ve_reporte_de_otra_entidad():
     reporte = {"id_usuario": 1, "id_entidad": 5}
     assert puede_ver_reporte(OTRA_ENTIDAD, reporte) is False
@@ -185,11 +208,28 @@ def test_puede_cambiar_estado_ciudadano_nunca(reporte):
     assert puede_cambiar_estado(CIUDADANO, reporte) is False
 
 
-def test_puede_cambiar_estado_entidad_solo_los_de_su_entidad():
-    reporte_propio = {"id_usuario": 1, "id_entidad": 5}
-    reporte_ajeno = {"id_usuario": 1, "id_entidad": 6}
-    assert puede_cambiar_estado(ENTIDAD, reporte_propio) is True
-    assert puede_cambiar_estado(ENTIDAD, reporte_ajeno) is False
+def test_puede_cambiar_estado_entidad_titular_nunca():
+    """El titular reparte el trabajo; nunca cambia el estado él mismo
+    (ver puede_asignar_trabajador())."""
+    reporte_propio = {"id_usuario": 1, "id_entidad": 5, "id_usuario_asignado": None}
+    reporte_asignado_a_trabajador = {
+        "id_usuario": 1, "id_entidad": 5, "id_usuario_asignado": ENTIDAD_TRABAJADOR["id_usuario"],
+    }
+    assert puede_cambiar_estado(ENTIDAD, reporte_propio) is False
+    assert puede_cambiar_estado(ENTIDAD, reporte_asignado_a_trabajador) is False
+
+
+def test_puede_cambiar_estado_entidad_trabajador_solo_lo_que_tiene_asignado():
+    reporte_propio = {
+        "id_usuario": 1, "id_entidad": 5, "id_usuario_asignado": ENTIDAD_TRABAJADOR["id_usuario"],
+    }
+    reporte_de_otro_trabajador = {"id_usuario": 1, "id_entidad": 5, "id_usuario_asignado": 999}
+    reporte_de_otra_entidad = {
+        "id_usuario": 1, "id_entidad": 6, "id_usuario_asignado": ENTIDAD_TRABAJADOR["id_usuario"],
+    }
+    assert puede_cambiar_estado(ENTIDAD_TRABAJADOR, reporte_propio) is True
+    assert puede_cambiar_estado(ENTIDAD_TRABAJADOR, reporte_de_otro_trabajador) is False
+    assert puede_cambiar_estado(ENTIDAD_TRABAJADOR, reporte_de_otra_entidad) is False
 
 
 def test_puede_cambiar_estado_entidad_sin_id_entidad_nunca():

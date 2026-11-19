@@ -12,6 +12,7 @@ import { SeverityChip, CategoryChip } from '../../components/ciudadano/Chip';
 import Timeline from '../../components/ciudadano/Timeline';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import FotoGaleria from '../../components/andi/FotoGaleria';
+import Icon from '../../components/andi/Icon';
 import MapaWebView from '../../components/MapaWebView';
 import type { MapMarker } from '../../components/MapaWebView.types';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO, statusMeta } from '../../theme/andi';
@@ -192,8 +193,8 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       <LiftHeader>
         <View style={styles.topRow}>
-          <TouchableOpacity accessibilityRole="button" style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backIcon}>←</Text>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Icon name="arrow-left" size="md" color="#fff" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.kicker}>#{reporte.id_reporte} · {formatDate(reporte.created_at)}</Text>
@@ -201,7 +202,10 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
           </View>
         </View>
         <View style={styles.chipsRow}>
-          <View style={styles.inverseChip}><Text style={styles.inverseChipText}>{meta.icon} {meta.label}</Text></View>
+          <View style={styles.inverseChip}>
+            <Icon name={meta.icon} size={12} color={ANDI_COLORS.primary100} />
+            <Text style={styles.inverseChipText}>{meta.label}</Text>
+          </View>
           <SeverityChip severidad={reporte.severidad} />
           {!!reporte.tipo_incidente && <CategoryChip label={reporte.tipo_incidente} />}
         </View>
@@ -305,12 +309,11 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   emptyText: { color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center' },
 
   topRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3 },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { color: '#fff', fontSize: 22 },
+  backBtn: { width: 40, height: 40, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
   kicker: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(11), color: ANDI_COLORS.primary200 },
   screenTitle: { ...r.scaleType(ANDI_TYPE.screen), color: '#fff' },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
-  inverseChip: { paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
+  inverseChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
   inverseChipText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
 
   scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10, gap: ANDI_SPACING.s4, width: '100%', maxWidth: r.maxContentWidth(640), alignSelf: 'center' },
@@ -329,9 +332,9 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   accionesRow: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
   accionBtn: { flex: 1, minHeight: 44, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  accionBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 13 },
+  accionBtnText: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: ANDI_TYPE.label.fontSize },
   eliminarBtn: { backgroundColor: ANDI_COLORS.surface, borderWidth: 1, borderColor: ANDI_COLORS.error },
-  eliminarBtnText: { color: ANDI_COLORS.error, fontWeight: '600', fontSize: 13 },
+  eliminarBtnText: { color: ANDI_COLORS.error, fontWeight: '600', fontSize: ANDI_TYPE.label.fontSize },
   disabled: { opacity: 0.6 },
 
   nowCard: { backgroundColor: ANDI_COLORS.primary900, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },

@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   miniaturaImg: { width: '100%', height: '100%' },
   quitarBtn: {
-    position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10,
+    position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: ANDI_RADIUS.full,
     backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
   },
   acciones: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s2 },
@@ -169,6 +169,6 @@ const styles = StyleSheet.create({
     minHeight: 40, paddingHorizontal: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.full,
     backgroundColor: ANDI_COLORS.primary50,
   },
-  accionTexto: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: 12 },
+  accionTexto: { color: ANDI_COLORS.primary700, fontWeight: '600', fontSize: ANDI_TYPE.caption.fontSize },
   contador: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant, marginTop: ANDI_SPACING.s1 },
 });

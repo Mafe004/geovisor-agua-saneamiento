@@ -41,6 +41,17 @@ export interface MapCenterChange {
   longitude: number;
 }
 
+/**
+ * API imperativa expuesta vía ref (React.forwardRef). El mapa ya no
+ * reacciona a cambios en las props `latitude`/`longitude` después del
+ * montaje (ver MapaWebView.tsx) -- cualquier recentrado deliberado
+ * (botón "Recentrar", resultado de una búsqueda de dirección) se pide
+ * explícitamente con panTo(), nunca cambiando esas props.
+ */
+export interface MapaWebViewHandle {
+  panTo: (lat: number, lng: number) => void;
+}
+
 /** Props shared by MapaWebView.tsx (native) and MapaWebView.web.tsx. */
 export interface MapaWebViewProps {
   latitude?: number;

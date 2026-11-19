@@ -15,7 +15,7 @@ import { AndiSkeletonList } from '../../components/andi/AndiSkeletonCard';
 import type { Reporte, EstadoReporteItem } from '../../types/domain';
 import type { operations } from '../../types/api';
 import type { RootStackParamList } from '../../navigation/types';
-import { andiColors, andiRadius, andiSpace } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Props = {
@@ -183,7 +183,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingHorizontal: andiSpace[3], height: 44,
     maxWidth: r.maxContentWidth(700), alignSelf: 'center', width: '100%',
   },
-  searchInput: { flex: 1, fontSize: 16, color: andiColors.onSurface, height: '100%' },
+  searchInput: { flex: 1, fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface, height: '100%' },
   chipsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: andiSpace[2],
     paddingHorizontal: andiSpace[5], paddingTop: andiSpace[4], paddingBottom: andiSpace[3],

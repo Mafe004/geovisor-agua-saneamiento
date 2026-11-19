@@ -121,7 +121,7 @@ export default function DetalleReporteScreen({ route, navigation }: Props) {
   if (!reporte) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center' }}>No se encontró información del reporte.</Text>
+        <Text style={{ fontSize: andiTypeBase.bodyLg.fontSize, color: andiColors.onSurfaceVariant, textAlign: 'center' }}>No se encontró información del reporte.</Text>
       </View>
     );
   }
@@ -891,7 +891,7 @@ const makeAndiStyles = (r: Responsive) => StyleSheet.create({
 
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: andiSpace[3], marginBottom: andiSpace[4], flexWrap: 'wrap' },
   severityInline: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  severityDot: { width: 8, height: 8, borderRadius: 4 },
+  severityDot: { width: 8, height: 8, borderRadius: andiRadius.full },
   severityText: { color: andiColors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.6 },
 
   detailRow: {

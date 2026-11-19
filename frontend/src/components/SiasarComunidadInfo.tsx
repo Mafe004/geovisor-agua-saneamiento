@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import type { ComunidadDetalle } from '../types/domain';
 import { calificacionColor, CLORACION_LABEL, fuenteConFecha, formatearPrueba } from '../theme/siasar';
+import { andiColors, andiRadius } from '../theme/andi';
 import { useResponsive, type Responsive } from '../theme/responsive';
 
 /**
@@ -57,14 +58,14 @@ export default function SiasarComunidadInfo({ data }: { data: ComunidadDetalle }
 }
 
 const makeStyles = (r: Responsive) => StyleSheet.create({
-  subtitle: { fontSize: r.scaleFont(12), color: '#6B7280', marginBottom: 8 },
-  row: { fontSize: r.scaleFont(12), color: '#374151', marginBottom: 4 },
-  calBadge: { alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
-  calBadgeText: { color: '#fff', fontSize: r.scaleFont(11), fontWeight: '700' },
-  section: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  sectionTitle: { fontSize: r.scaleFont(12), fontWeight: '700', color: '#374151', marginBottom: 4 },
+  subtitle: { fontSize: r.scaleFont(12), color: andiColors.onSurfaceVariant, marginBottom: 8 },
+  row: { fontSize: r.scaleFont(12), color: andiColors.n700, marginBottom: 4 },
+  calBadge: { alignSelf: 'flex-start', borderRadius: andiRadius.full, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
+  calBadgeText: { color: andiColors.surface, fontSize: r.scaleFont(11), fontWeight: '700' },
+  section: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: andiColors.outlineVariant },
+  sectionTitle: { fontSize: r.scaleFont(12), fontWeight: '700', color: andiColors.n700, marginBottom: 4 },
   subItem: { marginBottom: 6 },
-  subItemTitle: { fontSize: r.scaleFont(12), fontWeight: '600', color: '#1F2937' },
-  subItemMeta: { fontSize: r.scaleFont(11), color: '#6B7280' },
-  fuente: { fontSize: r.scaleFont(10), color: '#9CA3AF', marginTop: 8, fontStyle: 'italic' },
+  subItemTitle: { fontSize: r.scaleFont(12), fontWeight: '600', color: andiColors.onSurface },
+  subItemMeta: { fontSize: r.scaleFont(11), color: andiColors.onSurfaceVariant },
+  fuente: { fontSize: r.scaleFont(10), color: andiColors.n400, marginTop: 8, fontStyle: 'italic' },
 });

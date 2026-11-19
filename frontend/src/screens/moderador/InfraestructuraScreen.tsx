@@ -22,6 +22,8 @@ import { useResponsive, useScaledType, type Responsive } from '../../theme/respo
 import type { InfraestructuraItem } from '../../types/domain';
 
 const ZIPAQUIRA = { latitude: 5.0231, longitude: -74.0041 };
+// Referencia estable -- ver la misma constante en ciudadano/CrearReporteScreen.tsx.
+const EMPTY_MARKERS: MapMarker[] = [];
 const TIPOS = ['PTAR', 'ACUEDUCTO', 'POZO', 'EMBALSE', 'ALCANTARILLADO'];
 const ESTADOS = ['ACTIVA', 'INACTIVA', 'EN_MANTENIMIENTO'];
 // Un tono distinto de la rampa primary por tipo -- mismo lenguaje visual
@@ -67,7 +69,10 @@ export default function InfraestructuraScreen() {
   const fuentes = Array.from(new Set(items.map(i => i.fuente).filter(Boolean)));
   const itemsFiltrados = filtroTipo ? items.filter(i => i.tipo === filtroTipo) : items;
 
-  const markers: MapMarker[] = items.map(i => ({
+  // useMemo: sin esto, un array nuevo en cada render (aunque `items` no
+  // cambie) dispara un window.setMarkers(...) de más en MapaWebView por
+  // simple cambio de identidad.
+  const markers: MapMarker[] = useMemo(() => items.map(i => ({
     id: i.id_infraestructura,
     lat: i.latitud,
     lng: i.longitud,
@@ -76,7 +81,7 @@ export default function InfraestructuraScreen() {
     color: TIPO_SHADE[i.tipo] ?? andiColors.primary600,
     shape: 'square',
     label: shortCode(i.tipo),
-  }));
+  })), [items]);
 
   return (
     <View style={styles.container}>
@@ -272,12 +277,12 @@ function InfraestructuraForm({
               <Text style={[andiType.caption, styles.mapHint]}>Arrastra el mapa hasta ubicar el punto exacto</Text>
               <MapaWebView
                 style={styles.formMap}
-                latitude={coordenadas ? coordenadas.latitude : ZIPAQUIRA.latitude}
-                longitude={coordenadas ? coordenadas.longitude : ZIPAQUIRA.longitude}
+                latitude={ZIPAQUIRA.latitude}
+                longitude={ZIPAQUIRA.longitude}
                 zoom={14}
                 showCenterPin
                 onCenterChange={(c: MapCenterChange) => setCoordenadas(c)}
-                markers={[]}
+                markers={EMPTY_MARKERS}
               />
               {coordenadas && (
                 <Text style={[andiType.caption, styles.coordText]}>

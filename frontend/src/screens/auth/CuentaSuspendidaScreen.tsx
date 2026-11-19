@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType, andiRadius, andiSpace } from '../../theme/andi';
+import { andiColors, andiType, andiRadius, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CuentaSuspendida'>;
@@ -31,7 +31,7 @@ export default function CuentaSuspendidaScreen({ navigation, route }: Props) {
           onPress={() => Linking.openURL('mailto:admin@geovisor.com')}
           activeOpacity={0.85}
         >
-          <LinearGradient colors={['#0A6F78', '#1FA5AD']} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <LinearGradient colors={ANDI_GRADIENTS.button} style={styles.btnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Text style={styles.btnText}>Escribir al administrador</Text>
           </LinearGradient>
         </TouchableOpacity>

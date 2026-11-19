@@ -15,7 +15,7 @@ import { Rol } from '../../types/models';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 import { useToast } from '../../components/andi/Toast';
 import AgregarTrabajadorModal from '../../components/andi/AgregarTrabajadorModal';
-import { andiColors, andiType as andiTypeBase, andiRadius, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 
 // user (AuthContext) es UserPublic -- nunca trae `telefono` (ver
 // MIGRATION_FINDINGS.md). Se preserva el acceso con este tipo local en vez
@@ -149,7 +149,7 @@ export default function PerfilScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <LinearGradient colors={['#042F34', '#0A6F78']} style={[styles.header, { paddingTop: insets.top + andiSpace[6] }]}>
+        <LinearGradient colors={ANDI_GRADIENTS.header} style={[styles.header, { paddingTop: insets.top + andiSpace[6] }]}>
           {navigation.canGoBack() && (
             <TouchableOpacity
               accessibilityRole="button"
@@ -489,7 +489,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   fieldLabel: { ...andiType.labelSm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3], marginBottom: andiSpace[1] },
   input: {
     minHeight: 48, borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
-    paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
+    paddingHorizontal: andiSpace[3], fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface,
   },
   inputError: { borderColor: andiColors.error },
   errorText: { ...andiType.caption, color: andiColors.error, marginTop: andiSpace[1] },
@@ -499,7 +499,7 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
     borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
     paddingRight: andiSpace[2],
   },
-  passInput: { flex: 1, minHeight: 48, paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface },
+  passInput: { flex: 1, minHeight: 48, paddingHorizontal: andiSpace[3], fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface },
   eyeBtn: { padding: andiSpace[2] },
 
   sheetPrimaryBtn: {

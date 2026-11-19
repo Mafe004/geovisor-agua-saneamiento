@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import { Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ANDI_GRADIENTS } from '../theme/andi';
 import { useResponsive, type Responsive } from '../theme/responsive';
 
 export default function LoadingScreen({ message = 'Cargando...' }: { message?: string }) {
   const r = useResponsive();
   const styles = useMemo(() => makeStyles(r), [r]);
   return (
-    <LinearGradient colors={['#1565C0', '#00ACC1']} style={styles.container}>
+    <LinearGradient colors={ANDI_GRADIENTS.header} style={styles.container}>
       <ActivityIndicator size="large" color="#fff" />
       <Text style={styles.message}>{message}</Text>
       <Text style={styles.brand}>💧 GeoVisor Agua</Text>

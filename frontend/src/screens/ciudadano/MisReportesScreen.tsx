@@ -114,7 +114,7 @@ export default function MisReportesScreen({ navigation }: Props) {
                 return (
                   <SystemBanner
                     tone="error"
-                    icon="!"
+                    icon="alert-circle"
                     title="No pudimos traer tus reportes"
                     message="El servidor no respondió. Tus borradores siguen guardados en el teléfono."
                     actionLabel="Reintentar"

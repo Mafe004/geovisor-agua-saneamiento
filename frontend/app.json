@@ -14,7 +14,7 @@
       "package": "com.zipaquira.geovisor",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#1565C0",
+        "backgroundColor": "#0A6F78",
         "foregroundImage": "./assets/icon.png"
       }
     },
@@ -25,7 +25,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#1565C0",
+          "backgroundColor": "#0A6F78",
           "resizeMode": "contain"
         }
       ],

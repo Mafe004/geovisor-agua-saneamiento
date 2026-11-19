@@ -1,19 +1,21 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import type { Feather } from '@expo/vector-icons';
 import { View, Text, FlatList, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { notificacionesAPI } from '../../api/services';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
+import Icon from '../../components/andi/Icon';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type { NotificacionItem } from '../../types/domain';
 
-const TIPO_META: Record<string, { icon: string; title: string }> = {
-  REPORTE_CREADO: { icon: '✓', title: 'Reporte recibido' },
-  CAMBIO_ESTADO: { icon: '↻', title: 'Actualización de tu reporte' },
+const TIPO_META: Record<string, { icon: keyof typeof Feather.glyphMap; title: string }> = {
+  REPORTE_CREADO: { icon: 'check', title: 'Reporte recibido' },
+  CAMBIO_ESTADO: { icon: 'refresh-cw', title: 'Actualización de tu reporte' },
 };
-const DEFAULT_TIPO_META = { icon: 'i', title: 'Notificación' };
+const DEFAULT_TIPO_META: { icon: keyof typeof Feather.glyphMap; title: string } = { icon: 'info', title: 'Notificación' };
 
 function timeAgo(dateStr?: string | null) {
   if (!dateStr) return '';
@@ -127,7 +129,7 @@ export default function NotificacionesScreen() {
               error ? (
                 <SystemBanner
                   tone="error"
-                  icon="!"
+                  icon="alert-circle"
                   title="No se pudieron cargar los avisos"
                   message="Hubo un problema de conexión. Verifica tu red e intenta de nuevo."
                   actionLabel="Reintentar"
@@ -146,7 +148,7 @@ export default function NotificacionesScreen() {
                   activeOpacity={0.85}
                 >
                   <View style={[styles.iconWrap, unread ? styles.iconWrapUnread : styles.iconWrapRead]}>
-                    <Text style={styles.icon}>{meta.icon}</Text>
+                    <Icon name={meta.icon} size="md" color={ANDI_COLORS.onSurface} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.cardTitle, !unread && styles.cardTitleRead]}>{meta.title}</Text>
@@ -199,15 +201,14 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   card: { flexDirection: 'row', gap: ANDI_SPACING.s3, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4, borderWidth: 1 },
   cardUnread: { backgroundColor: ANDI_COLORS.primary50, borderColor: ANDI_COLORS.primary200 },
   cardRead: { backgroundColor: ANDI_COLORS.surface, borderColor: ANDI_COLORS.outlineVariant },
-  iconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  iconWrap: { width: 40, height: 40, borderRadius: ANDI_RADIUS.full, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   iconWrapUnread: { backgroundColor: ANDI_COLORS.stProBg },
   iconWrapRead: { backgroundColor: ANDI_COLORS.surfaceMid },
-  icon: { fontSize: 20 },
   cardTitle: { ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
   cardTitleRead: { fontWeight: '400', color: ANDI_COLORS.n600 },
   cardMeta: { ...r.scaleType(ANDI_TYPE.caption), color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
   cardTime: { ...r.scaleType(ANDI_TYPE.caption), color: ANDI_COLORS.n400, marginTop: 4 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ANDI_COLORS.primary600, marginTop: 4 },
+  dot: { width: 10, height: 10, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary600, marginTop: 4 },
 
   empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: ANDI_SPACING.s16, gap: ANDI_SPACING.s2 },
   emptyTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface },

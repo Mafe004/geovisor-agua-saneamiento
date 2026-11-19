@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, statusMeta, severityMeta } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
+import Icon from '../andi/Icon';
 
 type ChipSize = 'md' | 'lg';
 
@@ -12,7 +13,8 @@ export function StatusChip({ estado, size = 'md' }: { estado?: string | null; si
   const lg = size === 'lg';
   return (
     <View style={[styles.pill, lg && styles.pillLg, { backgroundColor: meta.bg, borderColor: meta.bd, borderWidth: 1 }]}>
-      <Text style={[styles.pillText, lg && styles.pillTextLg, { color: meta.fg }]}>{meta.icon} {meta.label}</Text>
+      <Icon name={meta.icon} size={lg ? 14 : 12} color={meta.fg} />
+      <Text style={[styles.pillText, lg && styles.pillTextLg, { color: meta.fg }]}>{meta.label}</Text>
     </View>
   );
 }
@@ -72,7 +74,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   pillLg: { minHeight: 36, paddingHorizontal: ANDI_SPACING.s4 },
   pillText: { fontSize: r.scaleFont(12), fontWeight: '600' },
   pillTextLg: { fontSize: r.scaleFont(13) },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  dot: { width: 8, height: 8, borderRadius: ANDI_RADIUS.full },
   severityPill: { backgroundColor: ANDI_COLORS.surfaceMid, borderWidth: 1, borderColor: ANDI_COLORS.outline },
   severityText: { color: ANDI_COLORS.onSurface, textTransform: 'uppercase', fontSize: r.scaleFont(10), letterSpacing: 0.6 },
   categoryPill: { borderWidth: 1, borderColor: ANDI_COLORS.outline, backgroundColor: ANDI_COLORS.surface },

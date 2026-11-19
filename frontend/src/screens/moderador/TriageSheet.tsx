@@ -179,9 +179,8 @@ export default function TriageSheet({
                         {cfg.icon === 'circle'
                           ? <View style={[styles.estadoDot, { backgroundColor: cfg.fg }]} />
                           : <Feather name={cfg.icon} size={13} color={cfg.fg} />}
-                        <Text style={[styles.estadoPillText, { color: cfg.fg }]}>
-                          {cfg.label}{isSelected ? ' ✓' : ''}
-                        </Text>
+                        <Text style={[styles.estadoPillText, { color: cfg.fg }]}>{cfg.label}</Text>
+                        {isSelected && <Feather name="check" size={12} color={cfg.fg} />}
                       </TouchableOpacity>
                     );
                   })}
@@ -283,7 +282,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     paddingHorizontal: andiSpace[4],
   },
   estadoPillDimmed: { opacity: 0.55 },
-  estadoDot: { width: 8, height: 8, borderRadius: 4 },
+  estadoDot: { width: 8, height: 8, borderRadius: andiRadius.full },
   estadoPillText: { fontSize: r.scaleFont(13), lineHeight: 18, fontWeight: '600' },
   helperText: { color: andiColors.onSurfaceVariant, marginTop: andiSpace[2] },
 

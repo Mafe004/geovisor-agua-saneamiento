@@ -20,8 +20,12 @@
  * exactly one place to change a value and both naming conventions see it.
  * `ANDI_TYPE` is the one deliberate exception: Ciudadano's type scale is
  * genuinely smaller/different from `andiType` (tuned for its own screens,
- * not a copy of the same numbers), so it stays as its own literal.
+ * not a copy of the same numbers), so its sizes stay as their own literal
+ * — only `fontFamily` is shared (via `interFamily()`), so both scales use
+ * the real Inter font instead of one of them silently keeping the old
+ * 'System' fallback.
  */
+import type { Feather } from '@expo/vector-icons';
 import { Platform, type TextStyle } from 'react-native';
 
 export const andiColors = {
@@ -108,12 +112,25 @@ export const andiElevation = {
   4: { shadowColor: '#042F34', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.21, shadowRadius: 20, elevation: 14 },
 } as const;
 
-/** --font: 'Inter' — falls back to the platform's default humanist sans since
- * this app doesn't load Inter/JetBrains Mono as custom fonts (out of scope
- * for a visual port: it would need expo-font + async load-gating on every
- * screen). Weights/sizes/line-heights below are copied exactly; only the
- * family is a system-font substitute. */
-export const andiFont = 'System';
+/** --font: 'Inter', cargado de verdad con @expo-google-fonts/inter (ver
+ * App.js: useFonts + splash screen retenida hasta que cargue). Los tres
+ * pesos que se usan en toda la app son 400/600/700 -- RN no sintetiza
+ * negrita/semibold sobre una fuente custom como hace con las del sistema,
+ * así que hay que pedir el archivo exacto de cada peso y elegirlo acá
+ * según `fontWeight`, no confiar en que `fontWeight: '700'` con
+ * fontFamily: 'Inter' alguna vez dé Inter Bold por su cuenta. */
+export const andiFont = 'Inter_400Regular';
+
+function interFamily(weight: TextStyle['fontWeight']): string {
+  switch (weight) {
+    case '700':
+      return 'Inter_700Bold';
+    case '600':
+      return 'Inter_600SemiBold';
+    default:
+      return 'Inter_400Regular';
+  }
+}
 
 type Type = Pick<TextStyle, 'fontFamily' | 'fontWeight' | 'fontSize' | 'lineHeight' | 'letterSpacing' | 'textTransform'>;
 
@@ -127,25 +144,25 @@ export const andiType: Record<
   | 'bodyLg' | 'body' | 'bodySm' | 'caption' | 'label' | 'labelMd' | 'labelSm' | 'overline',
   Type
 > = {
-  displayLg: { fontFamily: andiFont, fontWeight: '700', fontSize: 36, lineHeight: 44 },
+  displayLg: { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 36, lineHeight: 44 },
   // displayMd/headingLg/headingMd are new for Admin/Auth (see andiColors'
   // extended-scales comment above) — interpolated between the existing
   // display/screen/section steps, not verified against the real canvas.
-  displayMd: { fontFamily: andiFont, fontWeight: '700', fontSize: 32, lineHeight: 40 },
-  display:   { fontFamily: andiFont, fontWeight: '700', fontSize: 28, lineHeight: 36 },
-  headingLg: { fontFamily: andiFont, fontWeight: '700', fontSize: 24, lineHeight: 32 },
-  headingMd: { fontFamily: andiFont, fontWeight: '700', fontSize: 20, lineHeight: 26 },
-  screen:    { fontFamily: andiFont, fontWeight: '700', fontSize: 22, lineHeight: 28 },
-  section:   { fontFamily: andiFont, fontWeight: '600', fontSize: 18, lineHeight: 24 },
-  card:      { fontFamily: andiFont, fontWeight: '600', fontSize: 16, lineHeight: 22 },
-  bodyLg:    { fontFamily: andiFont, fontWeight: '400', fontSize: 16, lineHeight: 24 },
-  body:      { fontFamily: andiFont, fontWeight: '400', fontSize: 14, lineHeight: 20 },
-  bodySm:    { fontFamily: andiFont, fontWeight: '400', fontSize: 12, lineHeight: 16 }, // = caption, alias kept for spec-name parity
-  caption:   { fontFamily: andiFont, fontWeight: '400', fontSize: 12, lineHeight: 16 },
-  label:     { fontFamily: andiFont, fontWeight: '600', fontSize: 14, lineHeight: 20 },
-  labelMd:   { fontFamily: andiFont, fontWeight: '600', fontSize: 14, lineHeight: 20 }, // = label, alias kept for spec-name parity
-  labelSm:   { fontFamily: andiFont, fontWeight: '600', fontSize: 12, lineHeight: 16 },
-  overline:  { fontFamily: andiFont, fontWeight: '600', fontSize: 10, lineHeight: 14 },
+  displayMd: { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 32, lineHeight: 40 },
+  display:   { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 28, lineHeight: 36 },
+  headingLg: { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 24, lineHeight: 32 },
+  headingMd: { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 20, lineHeight: 26 },
+  screen:    { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 22, lineHeight: 28 },
+  section:   { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 18, lineHeight: 24 },
+  card:      { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 16, lineHeight: 22 },
+  bodyLg:    { fontFamily: interFamily('400'), fontWeight: '400', fontSize: 16, lineHeight: 24 },
+  body:      { fontFamily: interFamily('400'), fontWeight: '400', fontSize: 14, lineHeight: 20 },
+  bodySm:    { fontFamily: interFamily('400'), fontWeight: '400', fontSize: 12, lineHeight: 16 }, // = caption, alias kept for spec-name parity
+  caption:   { fontFamily: interFamily('400'), fontWeight: '400', fontSize: 12, lineHeight: 16 },
+  label:     { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 14, lineHeight: 20 },
+  labelMd:   { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 14, lineHeight: 20 }, // = label, alias kept for spec-name parity
+  labelSm:   { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 12, lineHeight: 16 },
+  overline:  { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 10, lineHeight: 14 },
 };
 
 /** Section/page overline decoration — `letter-spacing:1.5px` in the canvas
@@ -195,8 +212,17 @@ export const ANDI_COLORS = {
 } as const;
 
 export const ANDI_GRADIENTS = {
-  // primary-800 -> primary-900 (LiftHeader)
-  header: [andiColors.primary800, andiColors.primary900],
+  // primary-900 -> primary-600: el gradiente oscuro de encabezado que ya
+  // repetían, como hex sueltos, Admin/Auditoría/Dashboard/Entidades/
+  // Solicitudes/Usuarios y shared/PerfilScreen -- LoadingScreen también lo
+  // usa ahora (antes tenía un azul #1565C0->#00ACC1 del theme viejo ya
+  // borrado). Antes este token decía [primary800, primary900] y no lo
+  // usaba nadie (el comentario sobre LiftHeader era incorrecto: ese
+  // componente nunca tuvo gradiente) -- se corrigió a los valores reales.
+  header: [andiColors.primary900, andiColors.primary600],
+  // primary-600 -> primary-400: el gradiente de los botones primarios de
+  // todas las pantallas de auth (Login, Register, ForgotPassword, etc.).
+  button: [andiColors.primary600, andiColors.primary400],
 } as const;
 
 export const ANDI_SPACING = {
@@ -217,17 +243,25 @@ export const ANDI_SHADOWS = {
   el1: andiElevation[1], el2: andiElevation[2], el3: andiElevation[3], el4: andiElevation[4],
 } as const;
 
+// NO se colapsó en un alias derivado de andiType con los mismos tamaños
+// (a diferencia de ANDI_COLORS/ANDI_SHADOWS más arriba) -- el comentario de
+// cabecera de este archivo documenta que la escala de Ciudadano es
+// deliberadamente distinta/más chica, ajustada a sus propias pantallas, no
+// una copia de andiType. Lo que SÍ se unificó es la familia tipográfica:
+// cada entrada pide su Inter_*/peso con el mismo interFamily() que usa
+// andiType, así que Ciudadano ya no queda en el fallback 'System' mientras
+// el resto de la app usa Inter de verdad.
 export const ANDI_TYPE = {
-  displayLg: { fontWeight: '700', fontSize: 34, lineHeight: 40 },
-  display: { fontWeight: '700', fontSize: 26, lineHeight: 32 },
-  screen: { fontWeight: '700', fontSize: 21, lineHeight: 27 },
-  section: { fontWeight: '600', fontSize: 17, lineHeight: 23 },
-  card: { fontWeight: '600', fontSize: 15, lineHeight: 21 },
-  bodyLg: { fontWeight: '400', fontSize: 15, lineHeight: 22 },
-  body: { fontWeight: '400', fontSize: 13, lineHeight: 19 },
-  caption: { fontWeight: '400', fontSize: 11.5, lineHeight: 15 },
-  label: { fontWeight: '600', fontSize: 13, lineHeight: 18 },
-  overline: { fontWeight: '600', fontSize: 10, lineHeight: 14, textTransform: 'uppercase', letterSpacing: 1 },
+  displayLg: { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 34, lineHeight: 40 },
+  display: { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 26, lineHeight: 32 },
+  screen: { fontFamily: interFamily('700'), fontWeight: '700', fontSize: 21, lineHeight: 27 },
+  section: { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 17, lineHeight: 23 },
+  card: { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 15, lineHeight: 21 },
+  bodyLg: { fontFamily: interFamily('400'), fontWeight: '400', fontSize: 15, lineHeight: 22 },
+  body: { fontFamily: interFamily('400'), fontWeight: '400', fontSize: 13, lineHeight: 19 },
+  caption: { fontFamily: interFamily('400'), fontWeight: '400', fontSize: 11.5, lineHeight: 15 },
+  label: { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 13, lineHeight: 18 },
+  overline: { fontFamily: interFamily('600'), fontWeight: '600', fontSize: 10, lineHeight: 14, textTransform: 'uppercase', letterSpacing: 1 },
 } satisfies Record<string, TextStyle>;
 
 export const ANDI_MONO = Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' });
@@ -236,17 +270,20 @@ export interface StatusMeta {
   bg: string;
   fg: string;
   bd: string;
-  icon: string;
+  /** Nombre Feather -- mismo criterio que andiStatusPill, nunca un
+   * carácter suelto (riesgo de glifo faltante en fuentes de sistema
+   * viejas, y sin tamaño/color consistente entre pantallas). */
+  icon: keyof typeof Feather.glyphMap;
   label: string;
 }
 
 export const STATUS_META: Record<string, StatusMeta> = {
-  PENDIENTE: { bg: ANDI_COLORS.stPendBg, fg: ANDI_COLORS.stPendFg, bd: ANDI_COLORS.stPendBd, icon: '●', label: 'Pendiente' },
-  EN_REVISION: { bg: ANDI_COLORS.stRevBg, fg: ANDI_COLORS.stRevFg, bd: ANDI_COLORS.stRevBd, icon: '⌕', label: 'En revisión' },
-  EN_PROCESO: { bg: ANDI_COLORS.stProBg, fg: ANDI_COLORS.stProFg, bd: ANDI_COLORS.stProBd, icon: '↻', label: 'En proceso' },
-  RESUELTO: { bg: ANDI_COLORS.stResBg, fg: ANDI_COLORS.stResFg, bd: ANDI_COLORS.stResBd, icon: '✓', label: 'Resuelto' },
-  RECHAZADO: { bg: ANDI_COLORS.errorContainer, fg: ANDI_COLORS.onErrorContainer, bd: ANDI_COLORS.error, icon: '!', label: 'Rechazado' },
-  CERRADO: { bg: ANDI_COLORS.n100, fg: ANDI_COLORS.n600, bd: ANDI_COLORS.n300, icon: '✓', label: 'Cerrado' },
+  PENDIENTE: { bg: ANDI_COLORS.stPendBg, fg: ANDI_COLORS.stPendFg, bd: ANDI_COLORS.stPendBd, icon: 'circle', label: 'Pendiente' },
+  EN_REVISION: { bg: ANDI_COLORS.stRevBg, fg: ANDI_COLORS.stRevFg, bd: ANDI_COLORS.stRevBd, icon: 'search', label: 'En revisión' },
+  EN_PROCESO: { bg: ANDI_COLORS.stProBg, fg: ANDI_COLORS.stProFg, bd: ANDI_COLORS.stProBd, icon: 'refresh-cw', label: 'En proceso' },
+  RESUELTO: { bg: ANDI_COLORS.stResBg, fg: ANDI_COLORS.stResFg, bd: ANDI_COLORS.stResBd, icon: 'check', label: 'Resuelto' },
+  RECHAZADO: { bg: ANDI_COLORS.errorContainer, fg: ANDI_COLORS.onErrorContainer, bd: ANDI_COLORS.error, icon: 'alert-circle', label: 'Rechazado' },
+  CERRADO: { bg: ANDI_COLORS.n100, fg: ANDI_COLORS.n600, bd: ANDI_COLORS.n300, icon: 'check-circle', label: 'Cerrado' },
 };
 
 export interface SeverityMeta {

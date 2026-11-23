@@ -196,7 +196,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   entryRow: { flexDirection: 'row', gap: andiSpace[3] },
   timelineCol: { alignItems: 'center', width: 14, flexShrink: 0 },
-  timelineDot: { width: 12, height: 12, borderRadius: 6 },
+  timelineDot: { width: 12, height: 12, borderRadius: andiRadius.full },
   timelineLine: { flex: 1, width: 2, backgroundColor: andiColors.outlineVariant, marginTop: 2 },
   entryContent: { flex: 1, paddingBottom: andiSpace[4] },
   entryHeaderRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: andiSpace[2], marginBottom: 4 },

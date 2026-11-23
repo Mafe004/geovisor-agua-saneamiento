@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, SEVERITY_META } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
+import Icon from '../andi/Icon';
 
 const OPTIONS = ['BAJA', 'MEDIA', 'ALTA'] as const;
 export type SeveridadKey = (typeof OPTIONS)[number];
@@ -27,9 +28,8 @@ export default function SeverityPicker({ value, onChange }: SeverityPickerProps)
             activeOpacity={0.8}
           >
             <View style={[styles.dot, { backgroundColor: meta.color }]} />
-            <Text style={[styles.label, selected && styles.labelSelected]}>
-              {meta.label}{selected ? ' ✓' : ''}
-            </Text>
+            <Text style={[styles.label, selected && styles.labelSelected]}>{meta.label}</Text>
+            {selected && <Icon name="check" size={12} color={ANDI_COLORS.primary900} />}
           </TouchableOpacity>
         );
       })}
@@ -56,7 +56,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     borderColor: ANDI_COLORS.primary600,
     backgroundColor: ANDI_COLORS.primary50,
   },
-  dot: { width: 12, height: 12, borderRadius: 6 },
+  dot: { width: 12, height: 12, borderRadius: ANDI_RADIUS.full },
   label: { fontSize: r.scaleFont(12), fontWeight: '600', color: ANDI_COLORS.onSurface },
   labelSelected: { color: ANDI_COLORS.primary900 },
 });

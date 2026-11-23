@@ -10,7 +10,7 @@ import { usuariosAPI, auditoriaAPI } from '../../api/services';
 import type { RootStackParamList } from '../../navigation/types';
 import type { UserPublic } from '../../types/domain';
 import { useToast } from '../../components/andi/Toast';
-import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AdminPerfil'>;
@@ -111,7 +111,7 @@ export default function AdminPerfilScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <LinearGradient colors={['#042F34', '#0A6F78']} style={[styles.header, { paddingTop: insets.top + andiSpace[6] }]}>
+        <LinearGradient colors={ANDI_GRADIENTS.header} style={[styles.header, { paddingTop: insets.top + andiSpace[6] }]}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Volver" style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
             <Feather name="arrow-left" size={22} color={andiColors.surface} />
           </TouchableOpacity>
@@ -306,6 +306,6 @@ const makeStyles = (andiType: typeof andiTypeBase) => StyleSheet.create({
   fieldLabel: { ...andiType.labelSm, color: andiColors.onSurfaceVariant, marginTop: andiSpace[3], marginBottom: andiSpace[1] },
   input: {
     minHeight: 48, borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
-    paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
+    paddingHorizontal: andiSpace[3], fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface,
   },
 });

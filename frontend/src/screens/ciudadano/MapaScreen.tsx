@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { useFocusEffect, type CompositeNavigationProp } from '@react-navigation/native';
@@ -6,13 +6,14 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { reportesAPI, siasarAPI, catalogosAPI } from '../../api/services';
 import MapaWebView from '../../components/MapaWebView';
-import type { MapMarker } from '../../components/MapaWebView.types';
+import type { MapaWebViewHandle, MapMarker } from '../../components/MapaWebView.types';
 import SiasarComunidadInfo from '../../components/SiasarComunidadInfo';
 import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import { StatusChip, SeverityChip } from '../../components/ciudadano/Chip';
 import Skeleton from '../../components/ciudadano/Skeleton';
 import MascotAndi from '../../components/ciudadano/MascotAndi';
 import { useAndiDialog } from '../../components/ciudadano/AndiDialog';
+import Icon from '../../components/andi/Icon';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import type {
@@ -92,6 +93,10 @@ export default function MapaScreen({ navigation }: Props) {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [center, setCenter] = useState(ZIPAQUIRA);
+  // El mapa solo lee `center` para su centro INICIAL (ver MapaWebView.tsx) --
+  // moverlo después de montado (GPS listo, "Recentrar") se pide con
+  // mapRef.current.panTo(...), nunca cambiando esta prop.
+  const mapRef = useRef<MapaWebViewHandle>(null);
   const [self, setSelf] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locStatus, setLocStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [selectedPin, setSelectedPin] = useState<MapMarker | null>(null);
@@ -145,6 +150,9 @@ export default function MapaScreen({ navigation }: Props) {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const point = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       setCenter(point);
+      // setCenter alcanza si el mapa todavía no montó (centro inicial);
+      // panTo cubre el caso en que el GPS resuelve después de que ya montó.
+      mapRef.current?.panTo(point.latitude, point.longitude);
       setSelf(point);
     } catch (_) {
       setLocStatus('denied');
@@ -295,7 +303,11 @@ export default function MapaScreen({ navigation }: Props) {
   // Con un rango inválido no se filtra por fecha (solo se muestra el aviso).
   const filtraFecha = !errorRango && (desde !== null || hasta !== null);
 
-  const pinesFiltrados = pines
+  // useMemo: referencia estable mientras pines/filter/query/tipoFiltro/
+  // desde/hasta/filtraFecha no cambien -- si no, un array nuevo en cada
+  // render (p.ej. al escribir en un campo que no toca el mapa) encadenaría
+  // en `markers` de abajo y dispararía un window.setMarkers(...) de más.
+  const pinesFiltrados = useMemo(() => pines
     .filter((p) => !filter || (p.estado || '').toUpperCase() === filter)
     .filter((p) => !query.trim() || `${p.direccion || ''} ${p.tipo_incidente || ''}`.toLowerCase().includes(query.trim().toLowerCase()))
     .filter((p) => !tipoFiltro || p.tipo_incidente === tipoFiltro)
@@ -303,7 +315,7 @@ export default function MapaScreen({ navigation }: Props) {
       if (!filtraFecha) return true;
       const dia = diaDeReporte(p.fecha_reporte);
       return !!dia && (!desde || dia >= desde) && (!hasta || dia <= hasta);
-    });
+    }), [pines, filter, query, tipoFiltro, desde, hasta, filtraFecha]);
 
   const hayFiltrosActivos = !!(filter || query.trim() || tipoFiltro || fechaFiltro);
 
@@ -336,55 +348,76 @@ export default function MapaScreen({ navigation }: Props) {
 
   const etiquetaFecha = FECHA_OPCIONES.find((o) => o.key === fechaFiltro)?.label;
 
-  const reporteMarkers: MapMarker[] = capaReportes
-    ? pinesFiltrados
-        .filter((p) => p.latitud && p.longitud && p.latitud !== 0 && p.longitud !== 0)
-        .map((p) => ({
-          id_reporte: p.id_reporte,
-          lat: parseFloat(String(p.latitud)),
-          lng: parseFloat(String(p.longitud)),
-          severidad: (p.severidad || '').toUpperCase(),
-          estado: (p.estado || '').toUpperCase(),
-          title: p.tipo_incidente,
+  // Cada capa se memoiza por separado con sus dependencias reales --
+  // reporteMarkers además se reusa suelta más abajo (el contador del
+  // encabezado), así que no puede vivir solo dentro del useMemo de
+  // `markers`. Sin esto, un array nuevo en cada render (aunque nada de
+  // esto haya cambiado) encadenaría en `markers` y dispararía un
+  // window.setMarkers(...) de más en MapaWebView por simple cambio de
+  // identidad.
+  const reporteMarkers: MapMarker[] = useMemo(() => (
+    capaReportes
+      ? pinesFiltrados
+          .filter((p) => p.latitud && p.longitud && p.latitud !== 0 && p.longitud !== 0)
+          .map((p) => ({
+            id_reporte: p.id_reporte,
+            lat: parseFloat(String(p.latitud)),
+            lng: parseFloat(String(p.longitud)),
+            severidad: (p.severidad || '').toUpperCase(),
+            estado: (p.estado || '').toUpperCase(),
+            title: p.tipo_incidente,
+          }))
+      : []
+  ), [capaReportes, pinesFiltrados]);
+
+  const comunidadMarkers: MapMarker[] = useMemo(() => (
+    capaComunidades
+      ? comunidadesSiasar.map((c) => ({
+          id: `com-${c.id_siasar}`,
+          lat: c.latitud,
+          lng: c.longitud,
+          titulo: c.nombre,
+          color: calificacionColor(c.calificacion),
+          shape: 'circle' as const,
+          scale: 7,
         }))
-    : [];
+      : []
+  ), [capaComunidades, comunidadesSiasar]);
 
-  const comunidadMarkers: MapMarker[] = capaComunidades
-    ? comunidadesSiasar.map((c) => ({
-        id: `com-${c.id_siasar}`,
-        lat: c.latitud,
-        lng: c.longitud,
-        titulo: c.nombre,
-        color: calificacionColor(c.calificacion),
-        shape: 'circle',
-        scale: 7,
-      }))
-    : [];
+  const sistemaMarkers: MapMarker[] = useMemo(() => (
+    capaSistemas
+      ? sistemasSiasar.map((s) => ({
+          id: `sis-${s.id_siasar}`,
+          lat: s.latitud,
+          lng: s.longitud,
+          titulo: s.nombre,
+          color: PRUEBA_COLOR[s.prueba_coliformes],
+          shape: 'circle' as const,
+          scale: 7,
+        }))
+      : []
+  ), [capaSistemas, sistemasSiasar]);
 
-  const sistemaMarkers: MapMarker[] = capaSistemas
-    ? sistemasSiasar.map((s) => ({
-        id: `sis-${s.id_siasar}`,
-        lat: s.latitud,
-        lng: s.longitud,
-        titulo: s.nombre,
-        color: PRUEBA_COLOR[s.prueba_coliformes],
-        shape: 'circle',
-        scale: 7,
-      }))
-    : [];
+  const selfMarker: MapMarker[] = useMemo(() => (
+    self ? [{ id: 'self', lat: self.latitude, lng: self.longitude, titulo: 'Tú', color: ANDI_COLORS.info, shape: 'circle' as const, scale: 8 }] : []
+  ), [self]);
 
-  const selfMarker: MapMarker[] = self
-    ? [{ id: 'self', lat: self.latitude, lng: self.longitude, titulo: 'Tú', color: '#2563EB', shape: 'circle', scale: 8 }]
-    : [];
-
-  const markers = [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers, ...selfMarker];
+  const markers: MapMarker[] = useMemo(() => (
+    [...reporteMarkers, ...comunidadMarkers, ...sistemaMarkers, ...selfMarker]
+  ), [reporteMarkers, comunidadMarkers, sistemaMarkers, selfMarker]);
 
   const hoy = new Date().toDateString();
   const criticosHoy = pines.filter((p) =>
     (p.severidad || '').toUpperCase() === 'ALTA' && !!p.fecha_reporte && new Date(p.fecha_reporte).toDateString() === hoy,
   ).length;
 
-  const recentrar = () => setCenter(self || ZIPAQUIRA);
+  // El mapa ya está montado cada vez que este botón es visible -- mover el
+  // centro con panTo (nunca con setCenter, que ya no tiene efecto después
+  // del montaje y antes recargaba todo el WebView).
+  const recentrar = () => {
+    const destino = self || ZIPAQUIRA;
+    mapRef.current?.panTo(destino.latitude, destino.longitude);
+  };
 
   return (
     <View style={styles.container}>
@@ -395,7 +428,7 @@ export default function MapaScreen({ navigation }: Props) {
             <Text style={styles.title}>Cerca de ti</Text>
           </View>
           <TouchableOpacity accessibilityRole="button" style={styles.searchBtn} onPress={() => setSearching((s) => !s)}>
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Icon name="search" size="md" color="#fff" />
           </TouchableOpacity>
         </View>
         {searching ? (
@@ -449,8 +482,9 @@ export default function MapaScreen({ navigation }: Props) {
             </Text>
           </TouchableOpacity>
           {hayFiltrosActivos && (
-            <TouchableOpacity style={styles.clearChip} onPress={limpiarFiltros}>
-              <Text style={styles.clearChipText}>✕ Limpiar</Text>
+            <TouchableOpacity accessibilityRole="button" style={[styles.clearChip, styles.clearChipRow]} onPress={limpiarFiltros}>
+              <Icon name="x" size={14} color={ANDI_COLORS.primary700} />
+              <Text style={styles.clearChipText}>Limpiar</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -542,7 +576,7 @@ export default function MapaScreen({ navigation }: Props) {
           ) : locStatus === 'denied' && !self ? (
             <View style={styles.noLocationWrap}>
               <View style={styles.noLocationCard}>
-                <View style={styles.noLocationIcon}><Text style={{ fontSize: 22 }}>◎</Text></View>
+                <View style={styles.noLocationIcon}><Icon name="map-pin" size="lg" color={ANDI_COLORS.warning} /></View>
                 <Text style={styles.noLocationTitle}>No sé dónde estás</Text>
                 <Text style={styles.noLocationText}>
                   Sin ubicación puedo mostrarte Cundinamarca completo, pero no lo que tienes al lado.
@@ -558,6 +592,7 @@ export default function MapaScreen({ navigation }: Props) {
           ) : (
             <>
               <MapaWebView
+                ref={mapRef}
                 latitude={center.latitude}
                 longitude={center.longitude}
                 markers={markers}
@@ -565,8 +600,8 @@ export default function MapaScreen({ navigation }: Props) {
                 onMarkerPress={handleMarkerPress}
                 style={styles.map}
               />
-              <TouchableOpacity accessibilityRole="button" style={styles.recenterBtn} onPress={recentrar}>
-                <Text style={styles.recenterIcon}>◎</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Recentrar mapa" style={styles.recenterBtn} onPress={recentrar}>
+                <Icon name="crosshair" size="lg" color={ANDI_COLORS.primary600} />
               </TouchableOpacity>
 
               {cargandoDetalleSiasar && (
@@ -597,7 +632,7 @@ export default function MapaScreen({ navigation }: Props) {
           <View style={styles.anchorCard}>
             <View style={styles.anchorTop}>
               <Text style={styles.anchorId}>Reporte #{selectedPin.id_reporte}</Text>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedPin(null)}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setSelectedPin(null)}><Icon name="x" size="md" color={ANDI_COLORS.primary200} /></TouchableOpacity>
             </View>
             <Text style={styles.anchorTitle} numberOfLines={2}>
               {selectedPin.title || 'Reporte'}
@@ -637,7 +672,7 @@ function ComunidadPanel({ data, onClose, styles }: { data: ComunidadDetalle; onC
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
         <Text style={styles.siasarTitle}>{data.nombre}</Text>
-        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Icon name="x" size="md" color={ANDI_COLORS.primary200} /></TouchableOpacity>
       </View>
       <SiasarComunidadInfo data={data} />
     </View>
@@ -649,7 +684,7 @@ function SistemaPanel({ data, onClose, styles }: { data: SistemaDetalle; onClose
     <View style={styles.siasarCard}>
       <View style={styles.anchorTop}>
         <Text style={styles.siasarTitle}>{data.nombre}</Text>
-        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Text style={styles.anchorClose}>✕</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose}><Icon name="x" size="md" color={ANDI_COLORS.primary200} /></TouchableOpacity>
       </View>
       <Text style={styles.siasarSubtitle}>{data.municipio}</Text>
 
@@ -686,8 +721,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'flex-start', gap: ANDI_SPACING.s4 },
   kicker: { ...ANDI_TYPE.overline, color: ANDI_COLORS.primary200 },
   title: { ...r.scaleType(ANDI_TYPE.display), color: '#fff', marginTop: 2 },
-  searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
-  searchIcon: { color: '#fff', fontSize: 22 },
+  searchBtn: { width: 44, height: 44, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700, alignItems: 'center', justifyContent: 'center' },
   countRow: { flexDirection: 'row', alignItems: 'baseline', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s4 },
   countNum: { ...ANDI_TYPE.displayLg, fontSize: r.scaleFont(30), color: '#fff' },
   countLabel: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.primary200 },
@@ -705,21 +739,22 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   reportFilterBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, paddingHorizontal: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s2 },
   reportFilterChip: { minHeight: 36, maxWidth: 200, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surface, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center' },
   reportFilterChipActive: { backgroundColor: ANDI_COLORS.primary600, borderColor: ANDI_COLORS.primary600 },
-  reportFilterText: { fontSize: 12, fontWeight: '600', color: ANDI_COLORS.onSurface },
+  reportFilterText: { fontSize: ANDI_TYPE.caption.fontSize, fontWeight: '600', color: ANDI_COLORS.onSurface },
   clearChip: { minHeight: 36, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary50, alignItems: 'center', justifyContent: 'center' },
-  clearChipText: { fontSize: 12, fontWeight: '700', color: ANDI_COLORS.primary700 },
+  clearChipRow: { flexDirection: 'row', gap: 4 },
+  clearChipText: { fontSize: ANDI_TYPE.caption.fontSize, fontWeight: '700', color: ANDI_COLORS.primary700 },
 
   rangoWrap: { paddingHorizontal: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s2 },
   rangoRow: { flexDirection: 'row', gap: ANDI_SPACING.s2 },
   rangoInput: {
     flex: 1, minHeight: 40, borderRadius: ANDI_RADIUS.md, borderWidth: 1, borderColor: ANDI_COLORS.outline,
-    backgroundColor: ANDI_COLORS.surface, paddingHorizontal: ANDI_SPACING.s3, fontSize: 13, color: ANDI_COLORS.onSurface,
+    backgroundColor: ANDI_COLORS.surface, paddingHorizontal: ANDI_SPACING.s3, fontSize: ANDI_TYPE.label.fontSize, color: ANDI_COLORS.onSurface,
   },
   rangoError: { ...ANDI_TYPE.caption, color: ANDI_COLORS.error, marginTop: ANDI_SPACING.s1 },
 
   selectorList: { maxHeight: 220, backgroundColor: ANDI_COLORS.surface, borderTopWidth: 1, borderTopColor: ANDI_COLORS.outlineVariant },
   selectorItem: { minHeight: 44, justifyContent: 'center', paddingHorizontal: ANDI_SPACING.s4, borderBottomWidth: 1, borderBottomColor: ANDI_COLORS.surfaceMid },
-  selectorItemText: { fontSize: 13, fontWeight: '600', color: ANDI_COLORS.onSurface },
+  selectorItemText: { fontSize: ANDI_TYPE.label.fontSize, fontWeight: '600', color: ANDI_COLORS.onSurface },
   selectorItemActive: { color: ANDI_COLORS.primary600, fontWeight: '700' },
 
   layerBar: { flexDirection: 'row', flexWrap: 'wrap', gap: ANDI_SPACING.s2, paddingHorizontal: ANDI_SPACING.s4, paddingBottom: ANDI_SPACING.s3 },
@@ -742,7 +777,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   noLocationWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: ANDI_SPACING.s5, backgroundColor: ANDI_COLORS.mapGround },
   noLocationCard: { width: '100%', maxWidth: r.maxContentWidth(420), backgroundColor: ANDI_COLORS.surface, borderRadius: ANDI_RADIUS.xxl, padding: ANDI_SPACING.s5, alignItems: 'center' },
-  noLocationIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: ANDI_COLORS.warningContainer, alignItems: 'center', justifyContent: 'center', marginBottom: ANDI_SPACING.s4 },
+  noLocationIcon: { width: 56, height: 56, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.warningContainer, alignItems: 'center', justifyContent: 'center', marginBottom: ANDI_SPACING.s4 },
   noLocationTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface, marginBottom: ANDI_SPACING.s2 },
   noLocationText: { ...r.scaleType(ANDI_TYPE.body), color: ANDI_COLORS.onSurfaceVariant, textAlign: 'center', marginBottom: ANDI_SPACING.s5 },
   primaryBtn: { width: '100%', minHeight: 48, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary600, alignItems: 'center', justifyContent: 'center', marginBottom: ANDI_SPACING.s2 },
@@ -752,10 +787,9 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
 
   recenterBtn: {
     position: 'absolute', right: ANDI_SPACING.s4, top: ANDI_SPACING.s4,
-    width: 44, height: 44, borderRadius: 22, backgroundColor: ANDI_COLORS.surface,
+    width: 44, height: 44, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surface,
     borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, alignItems: 'center', justifyContent: 'center',
   },
-  recenterIcon: { color: ANDI_COLORS.primary600, fontSize: 22 },
 
   siasarLoadingOverlay: {
     position: 'absolute', top: ANDI_SPACING.s4, left: ANDI_SPACING.s4,
@@ -778,7 +812,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   },
   anchorTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: ANDI_SPACING.s2 },
   anchorId: { fontSize: r.scaleFont(12), color: ANDI_COLORS.primary200, fontWeight: '600' },
-  anchorClose: { color: ANDI_COLORS.primary200, fontSize: 20 },
   anchorTitle: { ...r.scaleType(ANDI_TYPE.card), color: '#fff' },
   anchorChips: { flexDirection: 'row', gap: ANDI_SPACING.s2, marginTop: ANDI_SPACING.s3, marginBottom: ANDI_SPACING.s3 },
   anchorBtn: { minHeight: 48, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary100, alignItems: 'center', justifyContent: 'center' },

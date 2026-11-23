@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
@@ -41,9 +42,14 @@
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
+    "@react-native/jest-preset": "^0.88.1",
+    "@testing-library/react-native": "^13.3.3",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
-    "openapi-typescript": "^7.13.0"
+    "jest": "^30.5.2",
+    "jest-expo": "~58.0.15",
+    "openapi-typescript": "^7.13.0",
+    "react-test-renderer": "^19.3.0"
   },
   "scripts": {
     "dev": "expo start",
@@ -54,7 +60,22 @@
     "lint": "expo lint",
     "lint:fix": "expo lint -- --fix",
     "typecheck": "tsc --noEmit",
-    "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o src/types/api.d.ts"
+    "gen:api": "openapi-typescript http://localhost:8000/openapi.json -o src/types/api.d.ts",
+    "test": "jest"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "maxWorkers": 2,
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|react-native-webview|react-native-svg))",
+      "/node_modules/react-native-reanimated/plugin/",
+      "/node_modules/@react-native/babel-preset/"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/\\.expo/",
+      "/dist/"
+    ]
+  }
 }

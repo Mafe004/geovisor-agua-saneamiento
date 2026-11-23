@@ -1,5 +1,5 @@
 import React, { useContext, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { NavigationContainer, type LinkingOptions, type ParamListBase, type RouteProp } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator, type BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
@@ -171,26 +171,33 @@ function makeAdminTabOptions(bottomInset: number) {
 // Nombres con prefijo "Ciudadano" a propósito: Moderador/Entidad ya tienen
 // su propio AndiTabIcon/andiTabStyles arriba (ícono Feather, FAB celeste) --
 // esto evita chocar con esos nombres y mezclar los dos sistemas de tabs Andi.
-const CIUDADANO_ANDI_TAB_CONFIG: Record<string, { icon: string; label: string }> = {
-  Mapa:           { icon: '◈', label: 'Mapa' },
-  Reportes:       { icon: '▤', label: 'Reportes' },
-  Crear:          { icon: '+', label: '' },
-  Notificaciones: { icon: '◔', label: 'Avisos' },
-  Perfil:         { icon: '◍', label: 'Perfil' },
+const CIUDADANO_ANDI_TAB_LABEL: Record<string, string> = {
+  Mapa: 'Mapa',
+  Reportes: 'Reportes',
+  Crear: '',
+  Notificaciones: 'Avisos',
+  Perfil: 'Perfil',
+};
+
+const CIUDADANO_ANDI_TAB_ICON: Record<string, keyof typeof Feather.glyphMap> = {
+  Mapa: 'map',
+  Reportes: 'list',
+  Notificaciones: 'bell',
+  Perfil: 'user',
 };
 
 function CiudadanoAndiTabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const cfg = CIUDADANO_ANDI_TAB_CONFIG[name] || { icon: '•' };
   if (name === 'Crear') {
     return (
       <View style={ciudadanoAndiTabStyles.fab}>
-        <Text style={ciudadanoAndiTabStyles.fabIcon}>{cfg.icon}</Text>
+        <Feather name="plus" size={26} color={andiColors.n0} />
       </View>
     );
   }
+  const icon = CIUDADANO_ANDI_TAB_ICON[name] ?? 'circle';
   return (
     <View style={ciudadanoAndiTabStyles.iconWrap}>
-      <Text style={[ciudadanoAndiTabStyles.iconText, focused && ciudadanoAndiTabStyles.iconTextActive]}>{cfg.icon}</Text>
+      <Feather name={icon} size={24} color={focused ? andiColors.primary600 : andiColors.n400} />
     </View>
   );
 }
@@ -202,7 +209,7 @@ function makeCiudadanoTabOptions(bottomInset: number) {
     tabBarInactiveTintColor: andiColors.n400,
     tabBarStyle: [ciudadanoAndiTabStyles.bar, { height: 68 + bottomInset, paddingBottom: 10 + bottomInset }],
     tabBarLabelStyle: ciudadanoAndiTabStyles.label,
-    tabBarLabel: CIUDADANO_ANDI_TAB_CONFIG[route.name]?.label ?? route.name,
+    tabBarLabel: CIUDADANO_ANDI_TAB_LABEL[route.name] ?? route.name,
     tabBarIcon: ({ focused }) => <CiudadanoAndiTabIcon name={route.name} focused={focused} />,
   });
 }
@@ -336,8 +343,8 @@ const andiTabStyles = StyleSheet.create({
     borderTopColor: andiColors.outlineVariant,
   },
   label: {
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: andiType.overline.fontSize,
+    lineHeight: andiType.overline.lineHeight,
     fontWeight: '600',
   },
   fab: {
@@ -364,7 +371,7 @@ const ciudadanoAndiTabStyles = StyleSheet.create({
     shadowRadius: 12,
   },
   label: {
-    fontSize: 10,
+    fontSize: andiType.overline.fontSize,
     fontWeight: '600',
     marginTop: 0,
   },
@@ -372,10 +379,8 @@ const ciudadanoAndiTabStyles = StyleSheet.create({
     width: 36, height: 36,
     justifyContent: 'center', alignItems: 'center',
   },
-  iconText: { fontSize: 24, color: andiColors.n400 },
-  iconTextActive: { color: andiColors.primary600 },
   fab: {
-    width: 52, height: 52, borderRadius: 20,
+    width: 52, height: 52, borderRadius: andiRadius.xl,
     backgroundColor: andiColors.accent500,
     marginTop: -24,
     justifyContent: 'center', alignItems: 'center',
@@ -385,5 +390,4 @@ const ciudadanoAndiTabStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  fabIcon: { color: '#fff', fontSize: 28, fontWeight: '300', lineHeight: 30 },
 });

@@ -45,13 +45,16 @@ def test_matrix_estadisticas_reportes(request):
 
 
 def test_matrix_cambiar_estado_reporte(request):
-    # Reporte semilla #1 pertenece a la entidad 1 (la de client_entidad) —
-    # este es el caso "200*" de la tabla: solo pasa para SUS propios reportes.
+    # Reporte semilla #1 pertenece a la entidad 1 (la de client_entidad),
+    # pero client_entidad es el TITULAR de esa entidad (operador.acueducto,
+    # es_titular_entidad=1 en el seed) -- y el titular reparte el trabajo,
+    # nunca cambia el estado él mismo (ver puede_cambiar_estado() en
+    # policies.py). Antes de la migración 0007 esto daba 200; ahora 403.
     _assert_matrix(
         request,
         "PUT",
         "/reportes/1/estado",
-        (401, 403, 200, 200, 200),
+        (401, 403, 403, 200, 200),
         json={"id_estado_nuevo": 1},
     )
 

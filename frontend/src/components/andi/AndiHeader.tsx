@@ -2,7 +2,7 @@ import React, { type ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { andiColors, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatLabelDecor } from '../../theme/andi';
+import { andiColors, andiRadius, andiSpace, andiType as andiTypeBase, andiOverlineDecor, andiStatLabelDecor } from '../../theme/andi';
 import { useScaledType } from '../../theme/responsive';
 
 interface Stat {
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     gap: andiSpace[3],
   },
   circleBtn: {
-    width: 48, height: 48, borderRadius: 999,
+    width: 48, height: 48, borderRadius: andiRadius.full,
     backgroundColor: andiColors.primary700,
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,

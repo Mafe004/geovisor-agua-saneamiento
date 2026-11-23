@@ -10,7 +10,7 @@ import AndiErrorState from '../../components/andi/AndiErrorState';
 import ProfileAvatarButton from '../../components/andi/ProfileAvatarButton';
 import type { LogAuditoriaItem } from '../../types/domain';
 import type { AdminTabParamList, RootStackParamList } from '../../navigation/types';
-import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace } from '../../theme/andi';
+import { andiColors, andiType as andiTypeBase, andiRadius, andiElevation, andiSpace, ANDI_GRADIENTS } from '../../theme/andi';
 import { useResponsive, useScaledType } from '../../theme/responsive';
 
 // Solo `navigation` (no BottomTabScreenProps completo) -- este archivo no
@@ -110,7 +110,7 @@ export default function AuditoriaScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#042F34', '#0A6F78']} style={styles.header}>
+      <LinearGradient colors={ANDI_GRADIENTS.header} style={styles.header}>
         <View style={styles.headerRow}>
           <Text style={styles.headerTitle}>Auditoría</Text>
           <ProfileAvatarButton

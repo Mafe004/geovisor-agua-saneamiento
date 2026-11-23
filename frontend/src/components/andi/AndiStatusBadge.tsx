@@ -38,6 +38,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     borderRadius: andiRadius.full, borderWidth: 1,
     alignSelf: 'flex-start',
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  dot: { width: 6, height: 6, borderRadius: andiRadius.full },
   label: { fontSize: r.scaleFont(12), lineHeight: r.scaleFont(16), fontWeight: '600' },
 });

@@ -119,7 +119,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   fieldLabel: { ...andiType.labelSm, color: andiColors.onSurfaceVariant, marginBottom: andiSpace[1] },
   input: {
     minHeight: 48, borderWidth: 1.5, borderColor: andiColors.outline, borderRadius: andiRadius.md,
-    paddingHorizontal: andiSpace[3], fontSize: 16, color: andiColors.onSurface,
+    paddingHorizontal: andiSpace[3], fontSize: andiType.bodyLg.fontSize, color: andiColors.onSurface,
   },
   primaryBtn: {
     marginTop: andiSpace[5], minHeight: 48, borderRadius: andiRadius.full, backgroundColor: andiColors.primary600,

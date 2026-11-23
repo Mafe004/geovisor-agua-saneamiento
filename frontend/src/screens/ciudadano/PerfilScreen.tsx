@@ -1,4 +1,5 @@
 import React, { useContext, useMemo, useState, useCallback, useEffect } from 'react';
+import type { Feather } from '@expo/vector-icons';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, ActivityIndicator, KeyboardAvoidingView,
@@ -14,6 +15,7 @@ import { LiftHeader, LiftSurface } from '../../components/ciudadano/LiftHeader';
 import SystemBanner from '../../components/ciudadano/SystemBanner';
 import { useToast } from '../../components/andi/Toast';
 import AndiDialog, { useAndiDialog } from '../../components/ciudadano/AndiDialog';
+import Icon from '../../components/andi/Icon';
 import { getDrafts, type ReporteDraft } from '../../utils/offlineDrafts';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE, ANDI_MONO } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
@@ -171,9 +173,10 @@ export default function PerfilScreen({ navigation }: Props) {
           </View>
           <View style={styles.badgeRow}>
             <View style={styles.rolPill}><Text style={styles.rolPillText}>{ROL_LABEL[user.id_rol] || 'Usuario'}</Text></View>
-            <View style={styles.statusPill}>
+            <View style={[styles.statusPill, styles.statusPillRow]}>
+              {user.id_estado_cuenta === 1 && <Icon name="check" size={12} color={ANDI_COLORS.primary100} />}
               <Text style={styles.statusPillText}>
-                {user.id_estado_cuenta === 1 ? '✓ Cuenta activa' : 'Cuenta inactiva'}
+                {user.id_estado_cuenta === 1 ? 'Cuenta activa' : 'Cuenta inactiva'}
               </Text>
             </View>
           </View>
@@ -192,7 +195,7 @@ export default function PerfilScreen({ navigation }: Props) {
             {!editMode && successBanner && (
               <SystemBanner
                 tone="success"
-                icon="✓"
+                icon="check"
                 title={successBanner.title}
                 message={successBanner.message}
               />
@@ -219,15 +222,15 @@ export default function PerfilScreen({ navigation }: Props) {
               </View>
             ) : (
               <View style={styles.rowsCard}>
-                <MenuRow styles={styles} icon="◍" label="Datos personales" onPress={() => setEditMode(true)} />
-                <MenuRow styles={styles} icon="⚿" label="Cambiar contraseña" onPress={() => setPassModal(true)} />
-                <MenuRow styles={styles} icon="◔" label="Avisos y seguimiento" value="Activos" onPress={() => navigation.navigate('Notificaciones')} last />
+                <MenuRow styles={styles} icon="user" label="Datos personales" onPress={() => setEditMode(true)} />
+                <MenuRow styles={styles} icon="lock" label="Cambiar contraseña" onPress={() => setPassModal(true)} />
+                <MenuRow styles={styles} icon="bell" label="Avisos y seguimiento" value="Activos" onPress={() => navigation.navigate('Notificaciones')} last />
               </View>
             )}
 
             {drafts.length > 0 && (
               <View style={styles.pendingCard}>
-                <View style={styles.pendingIcon}><Text style={{ fontSize: 20, color: ANDI_COLORS.onSurfaceVariant }}>✎</Text></View>
+                <View style={styles.pendingIcon}><Icon name="edit-3" size="md" color={ANDI_COLORS.onSurfaceVariant} /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pendingTitle}>Borradores sin enviar</Text>
                   <Text style={styles.pendingMeta}>{drafts.length} borrador{drafts.length === 1 ? '' : 'es'} guardado{drafts.length === 1 ? '' : 's'}</Text>
@@ -254,8 +257,8 @@ export default function PerfilScreen({ navigation }: Props) {
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Cambiar contraseña</Text>
-                <TouchableOpacity accessibilityRole="button" onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
-                  <Text style={styles.modalClose}>✕</Text>
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cerrar" onPress={() => { setPassModal(false); setPassActual(''); setPassNueva(''); setPassConfirm(''); }}>
+                  <Icon name="x" size="md" color={ANDI_COLORS.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
 
@@ -319,10 +322,12 @@ function StatBlock({ value, label, styles }: { value: number; label: string; sty
   );
 }
 
-function MenuRow({ icon, label, value, onPress, last, styles }: { icon: string; label: string; value?: string; onPress: () => void; last?: boolean; styles: PerfilStyles }) {
+function MenuRow({ icon, label, value, onPress, last, styles }: { icon: keyof typeof Feather.glyphMap; label: string; value?: string; onPress: () => void; last?: boolean; styles: PerfilStyles }) {
   return (
     <TouchableOpacity accessibilityRole="button" style={[styles.menuRow, !last && styles.menuRowBorder]} onPress={onPress} activeOpacity={0.7}>
-      <Text style={styles.menuIcon}>{icon}</Text>
+      <View style={styles.menuIconWrap}>
+        <Icon name={icon} size="md" color={ANDI_COLORS.primary600} />
+      </View>
       <Text style={styles.menuLabel}>{label}</Text>
       {!!value && <Text style={styles.menuValue}>{value}</Text>}
       <Text style={styles.menuChevron}>›</Text>
@@ -334,7 +339,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   container: { flex: 1, backgroundColor: ANDI_COLORS.background },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s4 },
   avatar: {
-    width: 64, height: 64, borderRadius: 32, flexShrink: 0,
+    width: 64, height: 64, borderRadius: ANDI_RADIUS.full, flexShrink: 0,
     backgroundColor: ANDI_COLORS.primary600, borderWidth: 2, borderColor: ANDI_COLORS.primary300,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -346,6 +351,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   rolPill: { paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 4, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.primary700 },
   rolPillText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
   statusPill: { paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 4, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.primary600 },
+  statusPillRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statusPillText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
 
   scroll: { padding: ANDI_SPACING.s5, paddingBottom: ANDI_SPACING.s10 },
@@ -359,10 +365,10 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   rowsCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, overflow: 'hidden' },
   menuRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, paddingHorizontal: ANDI_SPACING.s4 },
   menuRowBorder: { borderBottomWidth: 1, borderBottomColor: ANDI_COLORS.outlineVariant },
-  menuIcon: { fontSize: 20, color: ANDI_COLORS.primary600, width: 24, textAlign: 'center' },
+  menuIconWrap: { width: 24, alignItems: 'center' },
   menuLabel: { flex: 1, ...r.scaleType(ANDI_TYPE.label), color: ANDI_COLORS.onSurface },
   menuValue: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant },
-  menuChevron: { color: ANDI_COLORS.onSurfaceVariant, fontSize: 18 },
+  menuChevron: { color: ANDI_COLORS.onSurfaceVariant, fontSize: ANDI_TYPE.section.fontSize },
 
   editCard: { borderWidth: 1, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
   fieldLabel: { ...ANDI_TYPE.label, fontSize: r.scaleFont(12), color: ANDI_COLORS.onSurfaceVariant, marginBottom: 6, marginTop: ANDI_SPACING.s3 },
@@ -381,7 +387,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   disabled: { opacity: 0.6 },
 
   pendingCard: { flexDirection: 'row', alignItems: 'center', gap: ANDI_SPACING.s3, backgroundColor: ANDI_COLORS.surfaceMid, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
-  pendingIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: ANDI_COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  pendingIcon: { width: 40, height: 40, borderRadius: ANDI_RADIUS.full, backgroundColor: ANDI_COLORS.surface, alignItems: 'center', justifyContent: 'center' },
   pendingTitle: { ...ANDI_TYPE.label, color: ANDI_COLORS.onSurface },
   pendingMeta: { ...ANDI_TYPE.caption, color: ANDI_COLORS.onSurfaceVariant, marginTop: 2 },
   pendingBtn: { minHeight: 40, paddingHorizontal: ANDI_SPACING.s4, borderRadius: ANDI_RADIUS.full, borderWidth: 1, borderColor: ANDI_COLORS.outline, alignItems: 'center', justifyContent: 'center', backgroundColor: ANDI_COLORS.surface },
@@ -396,7 +402,6 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   modalCard: { backgroundColor: ANDI_COLORS.surface, borderTopLeftRadius: ANDI_RADIUS.xxl, borderTopRightRadius: ANDI_RADIUS.xxl, padding: ANDI_SPACING.s6, paddingBottom: ANDI_SPACING.s10 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   modalTitle: { ...r.scaleType(ANDI_TYPE.section), color: ANDI_COLORS.onSurface },
-  modalClose: { fontSize: 20, color: ANDI_COLORS.onSurfaceVariant, padding: 4 },
   passWrap: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: ANDI_COLORS.outlineVariant, borderRadius: ANDI_RADIUS.md, backgroundColor: ANDI_COLORS.surfaceMid, paddingRight: 8 },
   passInput: { flex: 1, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 12, fontSize: r.scaleFont(16), color: ANDI_COLORS.onSurface },
   eyeBtn: { padding: 6 },

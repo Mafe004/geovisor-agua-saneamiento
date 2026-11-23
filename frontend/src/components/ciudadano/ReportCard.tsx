@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_MONO, statusMeta } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
 import { StatusChip, SeverityChip, SyncChip } from './Chip';
+import Icon from '../andi/Icon';
 import type { Reporte } from '../../types/domain';
 
 function formatDate(dateStr?: string | null) {
@@ -28,7 +29,8 @@ export function AnchorReportCard({ reporte, onPress }: { reporte: Reporte; onPre
       <View style={styles.anchorTop}>
         <Text style={styles.anchorId}>#{reporte.id_reporte}</Text>
         <View style={[styles.anchorChip, { backgroundColor: ANDI_COLORS.primary700, borderColor: ANDI_COLORS.primary600 }]}>
-          <Text style={styles.anchorChipText}>{meta.icon} {meta.label}</Text>
+          <Icon name={meta.icon} size={12} color={ANDI_COLORS.primary100} />
+          <Text style={styles.anchorChipText}>{meta.label}</Text>
         </View>
       </View>
       <Text style={styles.anchorTitle}>{reporte.tipo_incidente || reporte.descripcion}</Text>
@@ -87,7 +89,7 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
   anchor: { backgroundColor: ANDI_COLORS.primary900, borderRadius: ANDI_RADIUS.xl, padding: ANDI_SPACING.s4 },
   anchorTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: ANDI_SPACING.s2 },
   anchorId: { fontFamily: ANDI_MONO, fontSize: r.scaleFont(12), color: ANDI_COLORS.primary200 },
-  anchorChip: { flexDirection: 'row', paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 3, borderRadius: ANDI_RADIUS.full, borderWidth: 1 },
+  anchorChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: ANDI_SPACING.s3, paddingVertical: 3, borderRadius: ANDI_RADIUS.full, borderWidth: 1 },
   anchorChipText: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12), fontWeight: '600' },
   anchorTitle: { color: '#fff', fontSize: r.scaleFont(15), fontWeight: '600' },
   anchorDesc: { color: ANDI_COLORS.primary100, fontSize: r.scaleFont(12.5), marginTop: 4 },

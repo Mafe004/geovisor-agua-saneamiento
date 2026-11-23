@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
+import type { Feather } from '@expo/vector-icons';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ANDI_COLORS, ANDI_RADIUS, ANDI_SPACING, ANDI_TYPE } from '../../theme/andi';
 import { useResponsive, type Responsive } from '../../theme/responsive';
+import Icon from '../andi/Icon';
 
 type Tone = 'warning' | 'error' | 'info' | 'success';
 
@@ -14,7 +16,7 @@ const TONES: Record<Tone, { bg: string; border: string; iconBg: string; fg: stri
 
 interface SystemBannerProps {
   tone?: Tone;
-  icon: string;
+  icon: keyof typeof Feather.glyphMap;
   title: string;
   message?: string;
   actionLabel?: string;
@@ -28,7 +30,7 @@ export default function SystemBanner({ tone = 'info', icon, title, message, acti
   return (
     <View style={[styles.banner, { backgroundColor: t.bg, borderColor: t.border }]}>
       <View style={[styles.iconWrap, { backgroundColor: t.iconBg }]}>
-        <Text style={styles.icon}>{icon}</Text>
+        <Icon name={icon} size="sm" color="#fff" />
       </View>
       <View style={styles.content}>
         <Text style={[styles.title, { color: t.fg }]}>{title}</Text>
@@ -53,10 +55,9 @@ const makeStyles = (r: Responsive) => StyleSheet.create({
     padding: ANDI_SPACING.s3,
   },
   iconWrap: {
-    width: 32, height: 32, borderRadius: 16, flexShrink: 0,
+    width: 32, height: 32, borderRadius: ANDI_RADIUS.full, flexShrink: 0,
     alignItems: 'center', justifyContent: 'center',
   },
-  icon: { fontSize: r.scaleFont(15), color: '#fff' },
   content: { flex: 1 },
   title: { ...r.scaleType(ANDI_TYPE.label) },
   message: { ...r.scaleType(ANDI_TYPE.caption), marginTop: 2 },
